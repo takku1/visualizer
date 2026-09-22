@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.log
+.env
+.env.local
+
+# machine-local assistant settings (personal MCP toggles, etc.)
+.claude/settings.local.json
+
+# scratch / throwaway probes
+dev/tmp_*.py
+
+# local verification artifacts
+*.png
+.playwright-mcp/
+logs/
