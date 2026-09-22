@@ -10,6 +10,9 @@ dist/
 # scratch / throwaway probes
 dev/tmp_*.py
 
+# regenerable tool caches / process locks
+.graphgraph/kv_cache.json*
+
 # local verification artifacts
 *.png
 .playwright-mcp/
