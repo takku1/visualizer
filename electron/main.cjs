@@ -8,6 +8,7 @@ const { app, BrowserWindow, session, desktopCapturer, Menu, ipcMain } = require(
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
+const { execFile } = require('node:child_process');
 
 // This is meant to feel like an app, not a repurposed browser tab - no
 // File/Edit/View menu bar.
@@ -47,6 +48,47 @@ logStream.write(JSON.stringify({ _meta: true, buildHash: BUILD_HASH, startedAt: 
 
 ipcMain.on('log-append', (_event, line) => {
   logStream.write(line + '\n');
+});
+
+// TypeSafe API key, resolved once per run and never logged. Precedence:
+// TYPESAFE_API_KEY in the environment, then the generic Windows credential
+// `visualizer/typesafe-apikey` (see scripts/cred-key.ps1 -Store). Absent
+// means the renderer falls back to the built-in local engine. The value
+// crosses to the renderer only over IPC on this machine - it is never
+// written to dist/, logs/, or the repo.
+let cachedKey = null; // null = unresolved; string = key; false = none
+function readKeyFromCredentialManager() {
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        path.join(__dirname, '..', 'scripts', 'cred-key.ps1'),
+        '-Get',
+      ],
+      { timeout: 15000, windowsHide: true },
+      (err, stdout) => {
+        if (err) return resolve(false);
+        const key = String(stdout).trim();
+        resolve(key ? key : false);
+      },
+    );
+  });
+}
+
+ipcMain.handle('s1-get-key', async () => {
+  if (cachedKey !== null) return cachedKey === false ? null : cachedKey;
+  if (process.env['TYPESAFE_API_KEY']) {
+    cachedKey = process.env['TYPESAFE_API_KEY'];
+    return cachedKey;
+  }
+  cachedKey = await readKeyFromCredentialManager();
+  if (cachedKey === false) console.log('[electron] no TypeSafe key in Credential Manager; using local engine.');
+  return cachedKey === false ? null : cachedKey;
 });
 
 function createWindow() {

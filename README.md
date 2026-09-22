@@ -95,6 +95,30 @@ __s1.configure({ apiKey: 'sk-...' })                       // hosted Jev
 __s1.configure({ proxyUrl: 'http://127.0.0.1:8765' })      // local sidecar
 ```
 
+### Where the TypeSafe key lives
+
+The key is never committed, never baked into a build, and never written to
+`dist/` or `logs/`. Each surface holds it on its own machine only:
+
+- **Spicetify extension** — `__s1.configure({ apiKey: 'sk-...' })` in
+  Spotify's console. It persists in Spicetify LocalStorage on that machine;
+  reload Spotify to apply.
+- **Electron / dev harness** — a generic Windows credential named
+  `visualizer/typesafe-apikey`. Store it once (input is hidden, nothing is
+  echoed or logged):
+
+  ```powershell
+  powershell -NoProfile -File scripts/cred-key.ps1 -Store   # save
+  powershell -NoProfile -File scripts/cred-key.ps1 -Check   # exit 0 = present
+  powershell -NoProfile -File scripts/cred-key.ps1 -Clear   # remove
+  ```
+
+  The Electron main process reads it at startup and hands it to the renderer
+  over IPC; with no key the harness silently uses the built-in local engine.
+  `TYPESAFE_API_KEY` in the environment takes precedence when set, and
+  `?key=...` on the dev URL overrides both for a quick test (it lands in
+  browser history, so prefer the credential store).
+
 `tools/laya-server.mjs` is an optional sidecar that serves `/v1/systemone`
 backed by Laya through ONNX Runtime. It is not part of the build and pulls no
 dependencies unless you run it.
@@ -292,6 +316,24 @@ track-specific visual DNA rather than displaying or blurring the cover
 directly. The interesting question is whether System1's semantic read and the
 artwork's visual DNA should jointly determine how a track's visual world
 manifests, rather than either alone.
+
+Also worth investigating: a neural/semantic visual substrate underneath the
+procedural field — recognizable structure that appears and dissolves rather
+than clean generated pictures. The target is pareidolia ("I swear I can see
+a forest in there"), not illustration. Two tiers, both gated behind the same
+validation: (1) a small realtime neural primitive (CPPN in GLSL, neural CA,
+or tiny implicit field) driven by System1's existing distributions through
+the normal fan-out — e.g. a WORLD abstraction weight blending procedural vs
+neural contribution, no new per-mechanism questions; (2) heavyweight semantic
+keyframes (one image every 20–60s, at section boundaries: ~0.02–0.05 fps)
+that the realtime loop then lives inside — flow distorts it, RD consumes it,
+feedback remembers pieces, System1 morphs toward the next anchor. BPM as a
+clock: per-beat generation (~2 fps at 120 BPM) needs 1-step distilled models
+plus TensorRT on a 4090-class GPU; per-bar (~0.5 fps) is feasible locally
+with 1–4 step SD-Turbo/LCM; per-section keyframes are trivially feasible
+even via sidecar/cloud. StreamDiffusion-class 60 fps diffusion is real on a
+4090 at 512px but is the wrong target here — the extension runs in Chromium
+and the win is 0.02 AI frames/sec plus 60 procedural transforms/sec.
 
 Constraint that holds regardless of what's built: no Python/Pillow in the
 runtime rendering path. The extension runs in Chromium; WebGL2 stays
