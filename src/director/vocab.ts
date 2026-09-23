@@ -121,12 +121,13 @@ export interface TextureParams {
   cellular: number;
   strata: number;
   shards: number;
+  neural: number;
   /** Edge hardness of whatever the mix produces, 0..1. */
   sharpness: number;
 }
 
 const tex = (k: keyof Omit<TextureParams, 'sharpness'>, sharpness: number): TextureParams => ({
-  filament: 0, plasma: 0, grain: 0, cellular: 0, strata: 0, shards: 0,
+  filament: 0, plasma: 0, grain: 0, cellular: 0, strata: 0, shards: 0, neural: 0,
   [k]: 1,
   sharpness,
 });
@@ -155,6 +156,10 @@ export const TEXTURE: Record<TextureId, { desc: string; p: TextureParams }> = {
   shards: {
     desc: 'Hard-edged angular fragments. Broken glass, crystalline, faceted, aggressive.',
     p: tex('shards', 0.95),
+  },
+  neural: {
+    desc: 'Emergent symmetric motifs and almost-recognizable shapes, like faces or creatures surfacing in clouds. Structured, dreamlike, ambiguous.',
+    p: tex('neural', 0.4),
   },
 };
 

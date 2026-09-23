@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Semantic causality probe</title>
+  <style>
+    html, body { margin: 0; background: #050505; color: #ddd; font: 12px ui-monospace, monospace; }
+    main { padding: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    figure { margin: 0; } figcaption { padding: 6px 0; color: #aaa; }
+    canvas { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+    pre { white-space: pre-wrap; color: #8f8; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="grid">
+      <figure><figcaption>form.organic = 1</figcaption><canvas id="organic"></canvas></figure>
+      <figure><figcaption>form.architectural = 1</figcaption><canvas id="architectural"></canvas></figure>
+    </div>
+    <pre id="status">running…</pre>
+  </main>
+  <script>window.addEventListener('error', (event) => { document.getElementById('status').textContent = `error: ${event.error?.stack ?? event.message}`; });</script>
+  <script src="./causality.js"></script>
+</body>
+</html>

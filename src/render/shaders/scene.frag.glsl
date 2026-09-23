@@ -39,6 +39,7 @@ uniform float uTexGrain;
 uniform float uTexCellular;
 uniform float uTexStrata;
 uniform float uTexShards;
+uniform float uTexNeural;
 uniform float uSharpness;
 
 // Symmetry, blended from SYMMETRY.
@@ -69,6 +70,64 @@ uniform float uBeatPhase;
 uniform float uBarPhase;
 uniform float uIntensity;
 
+// Renderer projection of the persistent semantic world. The shader consumes
+// these realizations; it does not know how audio, text, or artwork produced
+// the underlying meaning.
+uniform float uWorldOrganic;
+uniform float uWorldArchitectural;
+uniform float uWorldTurbulent;
+uniform float uWorldVast;
+uniform float uWorldGrowing;
+uniform float uWorldDecaying;
+uniform float uWorldStructured;
+uniform float uWorldPersistent;
+uniform float uWorldSuggestive;
+uniform float uWorldImpulse;
+uniform float uWorldMemory;
+uniform float uWorldSeed;
+uniform float uControlDensity;
+uniform float uControlTimbreSmoothness;
+uniform float uControlTimbreBrightness;
+uniform float uControlHarmonicity;
+uniform float uControlNoisiness;
+uniform float uControlPercussiveness;
+uniform float uControlStereoWidth;
+uniform float uControlVolatility;
+uniform float uControlEnergyIntensity;
+uniform float uControlMomentum;
+uniform float uControlTransience;
+uniform float uControlFlow;
+uniform float uControlTurbulence;
+uniform float uControlQuantization;
+uniform float uControlScale;
+uniform float uControlRadial;
+uniform float uControlFluidity;
+uniform float uControlCrystallinity;
+uniform float uControlCellularity;
+uniform float uControlGrain;
+uniform float uControlSpread;
+uniform float uControlFocality;
+uniform float uControlDepth;
+uniform float uControlOrder;
+uniform float uControlSymmetry;
+uniform float uControlAmbiguity;
+uniform float uControlAccumulation;
+uniform float uControlPersistence;
+uniform float uControlDecay;
+uniform float uControlMutation;
+uniform float uControlGrowth;
+uniform float uControlErosion;
+uniform float uControlRenewal;
+uniform float uControlFocus;
+uniform float uControlNegativeSpace;
+uniform float uControlReveal;
+uniform float uControlEmission;
+uniform float uControlContrast;
+uniform float uControlHueDrift;
+uniform float uControlWarmth;
+uniform sampler2D uLyricMask;
+uniform float uLyricStrength;
+
 // Album-art visual DNA: a gentle multiplicative bias toward the cover's own
 // average color, alongside whatever palette System1 chose semantically -
 // see renderer.ts's setArtwork(). uArtStrength is 0 whenever no artwork is
@@ -76,6 +135,9 @@ uniform float uIntensity;
 // which makes this uniform pair a complete no-op in that case.
 uniform vec3 uArtTint;
 uniform float uArtStrength;
+uniform float uSubstrateStrength;
+uniform float uSubstrateMix;
+uniform float uImagePrimary;
 
 // Geometry accent weights - a fourth System1 question (see vocab.ts GEOMETRY),
 // same one-hot-blends-to-mix pattern as the texture weights above.
@@ -88,6 +150,8 @@ uniform sampler2D uSpectrum;
 // The independent flow/reaction-diffusion simulation from sim.frag.glsl:
 // R,G = velocity, B = U, A = V. Read-only here; sim.frag.glsl owns writing it.
 uniform sampler2D uSim;
+uniform sampler2D uSubstrate;
+uniform sampler2D uSubstrateNext;
 
 const float TAU = 6.28318530718;
 
@@ -222,6 +286,37 @@ float texShards(float f, float sharp) {
   return smoothstep(0.5 - edge, 0.5 + edge, q) * smoothstep(1.0, 0.72, q);
 }
 
+// A tiny hand-wired compositional pattern network over the symmetrized
+// coordinates. Its latent vector is drawn from already-blended uniforms
+// (detail, fold, palette phase) - no new System1 question drives it. The
+// 'neural' texture weight decides HOW MUCH shows; everything else decides
+// what it looks like. Output is blobby masses plus thin contours:
+// deliberately ambiguous structure (pareidolia fuel), not a drawn object.
+float cppn(vec2 q, float t, float seed) {
+  float l1 = uDetail * 2.0 - 0.5;
+  float l2 = clamp(uFold / 12.0, 0.0, 1.0) * 2.0 - 1.0;
+  float l3 = fract(uPalD.x + seed) * 2.0 - 1.0;
+  float r = length(q);
+  float n1 = sin(q.x * (1.5 + l1) + l3 * 3.0 + t * 0.20);
+  float n2 = cos(q.y * (1.5 + l2) - l3 * 2.0 - t * 0.15);
+  float n3 = sin((q.x * q.x - q.y * q.y) * (2.0 + l1 + l2) + n1 + n2);
+  float n4 = cos(r * 4.0 * (0.6 + 0.4 * l1) - (n1 - n2) * 1.5 + t * 0.10);
+  return sin(n3 * 1.7 + n4 * 1.3 + l3 * TAU) * 0.5 + 0.5;
+}
+
+/**
+ * Full-color neural field: the CPPN evaluated three times with different
+ * latent seeds, one per channel, shaped into masses plus contours each.
+ * Adjacent channels correlate (same network, nearby seeds), so the result
+ * reads as shaded, lit structure rather than RGB noise.
+ */
+vec3 neuralField(vec2 q, float t) {
+  vec3 n = vec3(cppn(q, t, 0.0), cppn(q, t, 0.33), cppn(q, t, 0.67));
+  vec3 mass = smoothstep(vec3(0.52), vec3(0.85), n);
+  vec3 contour = pow(vec3(1.0) - abs(n * 2.0 - vec3(1.0)), vec3(6.0));
+  return clamp(mass * 0.7 + contour * 0.6, vec3(0.0), vec3(1.0));
+}
+
 // -------------------------------------------------------------- geometry ---
 
 float sdCircle(vec2 p, float r) {
@@ -263,7 +358,7 @@ float geometryField(vec2 p, float t, float beatBump) {
              + uGeoHex * sdHex(q, size)
              + uGeoStar * sdStar5(q, size)) / wSum;
 
-    acc += smoothstep(0.02, 0.0, abs(d));
+    acc += smoothstep(0.035, 0.0, abs(d));
   }
   return acc * wSum;
 }
@@ -292,6 +387,11 @@ void main() {
 
   // ---- velocity field ----
   vec2 p = applySymmetry(uv);
+  p = mix(uv, p, clamp(0.35 + uControlSymmetry * 0.65, 0.0, 1.0));
+  p *= mix(1.22, 0.78, clamp(uWorldVast, 0.0, 1.0));
+  p *= mix(1.18, 0.72, clamp(uControlScale, 0.0, 1.0));
+  p *= mix(1.08, 0.9, clamp(uControlFocality, 0.0, 1.0));
+  p *= mix(1.08, 0.86, clamp(uControlSpread, 0.0, 1.0));
 
   if (uQuantize > 0.01) {
     float cells = mix(64.0, 14.0, clamp(uQuantize, 0.0, 1.0));
@@ -299,12 +399,12 @@ void main() {
   }
 
   vec2 vel = curl(p * uCurlFreq, t, uDetail) * uCurlAmp;
+  vel *= mix(0.7, 1.25, clamp(uControlFlow, 0.0, 1.0));
+  vel += curl(p * (uCurlFreq * 1.8), t * 1.7, uDetail) * uControlTurbulence * 0.18;
 
-  // The independent flow simulation contributes its own velocity on top of
-  // the stateless curl field above. Curl alone reinvents itself every frame;
-  // this term is where the image actually remembers which way it was moving.
+  // The independent flow simulation is retained for procedural fallback only.
   vec4 sim = texture(uSim, vUv);
-  vel += sim.rg * 0.7;
+  vel += sim.rg * mix(0.35, 1.0, clamp(uControlFluidity, 0.0, 1.0));
 
   float r = length(uv) + 1e-4;
   vec2 radialDir = uv / r;
@@ -313,12 +413,32 @@ void main() {
   vel += tangent * uRotate;
   // Beat-synced breathing rides on top of the steady radial term, so 'pulse'
   // actually pulses instead of just expanding.
-  vel += radialDir * uRadial * (0.55 + 0.45 * sin(uBeatPhase * TAU)) * (0.4 + uBass);
+  vel += radialDir * uRadial * (0.55 + 0.45 * sin(uBeatPhase * TAU)) * (0.4 + uBass + uControlPercussiveness * 0.3) * (0.65 + uControlRadial * 0.7);
   vel += vec2(1.0, 0.0) * uShear * (0.5 + 0.5 * sin(uv.y * 2.2 + uTime * 0.4));
 
+  // In image-primary mode, System One's persistent world becomes the motion
+  // grammar. The old curl/rotation field is no longer the visible animation;
+  // it is replaced by slow semantic drift, breathing, growth and erosion.
+  float semanticPhase = t * (0.07 + uControlMomentum * 0.16) + uWorldSeed * TAU;
+  vec2 semanticDrift = vec2(sin(semanticPhase), cos(semanticPhase * 0.73 + 1.7));
+  // The event is an impulse with decay, not a permanent beat-shaped pulse.
+  // Its manifestation depends on the current semantic world.
+  vec2 semanticImpulse = normalize(vec2(
+    sin(semanticPhase * 1.31 + uWorldImpulse * 3.0),
+    cos(semanticPhase * 0.87 - uWorldImpulse * 2.0)
+  ) + vec2(1e-4)) * uWorldImpulse;
+  vec2 semanticSettle = -uv * (uWorldDecaying * 0.025 + uControlErosion * 0.018);
+  vec2 semanticVelocity = semanticDrift * (0.025 + uControlFlow * 0.09 + uWorldGrowing * 0.055)
+                        + semanticImpulse * (0.018 + uWorldTurbulent * 0.07 + uControlTransience * 0.04)
+                        + semanticSettle;
+  vel = mix(vel, semanticVelocity, clamp(uImagePrimary, 0.0, 1.0));
+
   // ---- feedback tap ----
-  float zoom = 1.0 - uZoom * (1.0 + uLevel * 0.6);
-  float ang = uFbRotate * (1.0 + uMid * 0.5);
+  float semanticRotation = (uWorldArchitectural - uWorldOrganic) * 0.035
+                         + (uWorldTurbulent - uWorldDecaying) * 0.018
+                         + sin(semanticPhase * 0.41) * uControlMutation * 0.018;
+  float zoom = mix(1.0 - uZoom * (1.0 + uLevel * 0.6), 1.0 + (uWorldGrowing - uWorldDecaying) * 0.045, uImagePrimary);
+  float ang = mix(uFbRotate * (1.0 + uMid * 0.5), semanticRotation, uImagePrimary);
   float ca = cos(ang);
   float sa = sin(ang);
   mat2 rot = mat2(ca, -sa, sa, ca);
@@ -328,6 +448,11 @@ void main() {
 
   // Back to texture space.
   vec2 tap = back / vec2(aspect, 1.0) * 0.5 + 0.5;
+  float semanticSkew = (uWorldArchitectural * 0.045 + uControlOrder * 0.025) * (0.65 + 0.35 * sin(semanticPhase * 0.29));
+  if (uImagePrimary > 0.5) {
+    tap += vec2(tap.y - 0.5, tap.x - 0.5) * semanticSkew;
+    tap = 0.5 + (tap - 0.5) * (1.0 + uWorldImpulse * (0.025 + uWorldTurbulent * 0.04));
+  }
 
   // Per-channel offset along the flow direction reads as chromatic aberration
   // that follows the motion, rather than a static lens artifact.
@@ -337,7 +462,7 @@ void main() {
   prev.g = texture(uPrev, tap).g;
   prev.b = texture(uPrev, tap - chromaDir).b;
 
-  if (uSmear > 0.01) {
+  if (uSmear > 0.01 && uImagePrimary < 0.5) {
     vec2 step = normalize(vel + 1e-5) / res * (2.0 + uSmear * 10.0);
     vec3 blur = vec3(0.0);
     for (int i = 1; i <= 4; i++) {
@@ -348,7 +473,20 @@ void main() {
   }
 
   // ---- newly generated structure ----
-  float field = fbm(vec3(p * uCurlFreq * 1.3 + vel * 0.3, t * 1.7), uDetail);
+  float field = fbm(vec3(p * uCurlFreq * 1.3 + vel * 0.3, t * (1.7 + uControlMomentum * 0.8)), uDetail + uControlGrain * 0.22);
+  field = mix(field, smoothstep(0.18, 0.82, field), clamp(uControlTimbreSmoothness, 0.0, 1.0) * 0.35);
+  field += gnoise(vec3(p * 5.0, t * 2.0)) * uControlNoisiness * 0.08;
+  // The checkpoint image is the material layer. Sample it through the same
+  // backward world transform as feedback, so the image itself is the thing
+  // that evolves. This is materially different from drawing an image and
+  // putting a separate swirl effect over it.
+  vec2 imageUv = fract(tap + vel * dt * (0.18 + uWorldVast * 0.16));
+  vec3 substrateA = texture(uSubstrate, imageUv).rgb;
+  vec3 substrateB = texture(uSubstrateNext, imageUv).rgb;
+  vec3 substrate = mix(substrateA, substrateB, clamp(uSubstrateMix, 0.0, 1.0));
+  float imageWeight = clamp(uSubstrateStrength, 0.0, 1.0);
+  float substrateLuma = dot(substrate, vec3(0.299, 0.587, 0.114));
+  field = mix(field, substrateLuma * 2.0 - 1.0, imageWeight);
 
   // Fold the reaction-diffusion pattern into the same field the texture
   // forms read from, rather than compositing it as a separate visible layer.
@@ -360,20 +498,28 @@ void main() {
   // same image. Tied to uDetail (calm motions barely show it, busy ones
   // lean into it hard) and to the rougher textures, which is what an
   // organic branching pattern actually belongs under.
-  float rdWeight = mix(0.06, 0.6, uDetail);
-  rdWeight *= mix(0.7, 1.4, clamp(uTexGrain + uTexCellular + uTexShards, 0.0, 1.0));
-  field = mix(field, sim.a * 2.0 - 1.0, clamp(rdWeight, 0.0, 0.8));
+  float rdWeight = mix(0.06, 0.6, uDetail) * mix(0.7, 1.3, clamp(uControlDensity, 0.0, 1.0));
+  rdWeight *= mix(0.7, 1.4, clamp(uTexGrain + uTexCellular + uWorldOrganic * 0.35 + uControlCellularity * 0.2, 0.0, 1.0));
+  rdWeight *= mix(0.82, 1.18, uWorldMemory + uControlAccumulation * 0.2);
+  field = mix(field, sim.a * 2.0 - 1.0, clamp(rdWeight, 0.0, 0.8) * (1.0 - uImagePrimary));
 
   // Filaments: the zero-crossings of the field, thinned to bright lines. The
   // spectrum modulates their width by radius, so bass widens the core and
   // treble picks out the edges.
   float spec = spectrumAt(pow(clamp(r / 1.6, 0.0, 1.0), 0.6));
   float width = mix(0.045, 0.012, clamp(uTreble, 0.0, 1.0)) * (1.0 + spec * 2.0);
+  width *= mix(1.18, 0.72, clamp(uControlCrystallinity, 0.0, 1.0));
+
+  // Reuse this expensive field for both the neural texture contribution and
+  // the later colored light pass. Previously the same three CPPN evaluations
+  // were repeated for every pixel whenever neural texture was active.
+  vec3 nfield = vec3(0.0);
+  if (uTexNeural > 0.001) nfield = neuralField(p * 1.15 + vel * 0.6, t);
 
   // Composite the texture forms by the director's weights. Normalizing by the
   // weight sum keeps brightness constant across a transition - otherwise the
   // image dims mid-crossfade as weight moves between two forms.
-  float wSum = uTexFilament + uTexPlasma + uTexGrain + uTexCellular + uTexStrata + uTexShards;
+  float wSum = uTexFilament + uTexPlasma + uTexGrain + uTexCellular + uTexStrata + uTexShards + uTexNeural;
   float ink = 0.0;
   ink += uTexFilament * texFilament(field, width);
   ink += uTexPlasma   * texPlasma(field);
@@ -381,29 +527,57 @@ void main() {
   ink += uTexCellular * texCellular(field);
   ink += uTexStrata   * texStrata(field, uSharpness);
   ink += uTexShards   * texShards(field, uSharpness);
+  ink += uTexNeural   * (0.55 + 0.45 * nfield.r);
   ink /= max(wSum, 1e-3);
+  float lyricMask = texture(uLyricMask, vUv).r;
+  ink += lyricMask * uLyricStrength * 0.35;
 
   // Spectrum still modulates amplitude regardless of which form won.
   ink *= 0.75 + spec * 0.75;
+  ink *= mix(0.72, 1.28, clamp(uControlDensity, 0.0, 1.0));
+  ink *= mix(0.92, 1.12, clamp(uControlTimbreBrightness, 0.0, 1.0));
+  ink *= mix(0.94, 1.12, clamp(uControlHarmonicity, 0.0, 1.0));
+  ink = pow(max(ink, 0.0), mix(1.18, 0.78, clamp(uControlContrast, 0.0, 1.0)));
 
   // Ring locked to the bar, so there is a slow structural pulse under the
   // faster beat-level motion.
-  float ring = smoothstep(0.06, 0.0, abs(r - uBarPhase * 1.5)) * uBass * 0.55;
+  float ring = smoothstep(0.06, 0.0, abs(r - uBarPhase * 1.5)) * uBass * (0.55 + uControlOrder * 0.25 + uControlSymmetry * 0.2);
   ink += ring;
 
   // Crisp SDF accents, distinct in kind (hard edges) from everything else in
   // this pass (noise-derived, always soft). Beat-synced pulse on their size.
   float beatBump = pow(0.5 + 0.5 * sin(uBeatPhase * TAU), 6.0);
-  ink += geometryField(p, uTime, beatBump) * 0.6;
+  ink += geometryField(p, uTime + uControlMutation * 0.4, beatBump) * (0.18 + uWorldArchitectural * 0.38 + uControlOrder * 0.18);
 
   float energy = clamp(uIntensity / 4.0, 0.0, 1.0);
-  ink *= 0.35 + energy * 1.15;
+  energy *= 0.82 + uWorldGrowing * 0.22 + uWorldImpulse * 0.12 + uControlRenewal * 0.12;
+  energy *= 0.72 + uControlEnergyIntensity * 0.56 + uControlGrowth * 0.12;
+  energy *= 0.9 + uControlVolatility * 0.18 + uControlTransience * uFlux * 0.25;
+  // Procedural structure is an animated semantic accent, not the main image
+  // when learned material is present.
+  ink *= (0.35 + energy * 1.15) * mix(1.0, 0.22, imageWeight);
   ink *= 0.6 + uLevel * 0.8;
+  float focalMask = mix(1.0, smoothstep(1.25, 0.12, r), clamp(uControlFocus, 0.0, 1.0));
+  float negativeMask = mix(1.0, smoothstep(1.65, 0.55, r), clamp(uControlNegativeSpace, 0.0, 1.0));
+  ink *= focalMask * negativeMask;
 
   // Color the ink by where it sits in the field and how far out it is, so the
   // palette sweeps across the image instead of flat-filling it.
-  float hue = field * 0.5 + r * 0.25 + uTime * 0.02 + uFlux * 0.15;
+  float hue = field * 0.5 + r * 0.25 + uTime * (0.02 + uControlHueDrift * 0.08) + uFlux * 0.15 + uWorldSeed * 0.18;
+  hue += gnoise(vec3(p * 1.6, uTime)) * uControlAmbiguity * 0.14;
   vec3 color = palette(hue) * ink;
+  color *= mix(vec3(0.88, 1.0, 1.08), vec3(1.1, 0.94, 0.78), clamp(uControlWarmth, 0.0, 1.0));
+  // Learned material is the primary scene when present. Procedural color is
+  // retained only as a low-amplitude texture/displacement accent, not as a
+  // second visible visualizer layered over the image.
+  color = mix(color * pow(1.0 - imageWeight, 1.7), substrate * (0.82 + energy * 0.3), imageWeight);
+
+  // Neural color field, added as light rather than ink so its structure
+  // carries its own hue. Warped by the velocity field so motifs swim with
+  // the flow instead of sitting still while everything else moves. Mixed
+  // partway toward the active palette so it belongs to the current look.
+  float nAmp = (0.2 + energy * 1.15) * (0.6 + uLevel * 0.8) * (0.35 + uWorldSuggestive * 1.1) * (0.7 + uControlEmission * 0.8);
+  color += mix(palette(hue + 0.13), nfield, 0.55) * uTexNeural * nAmp * pow(1.0 - imageWeight, 2.0);
 
   // Artwork bias: uArtTint is the cover's average color; *2.0 centers a
   // mid-grey cover at 1.0 (no-op), while a saturated cover pulls the whole
@@ -414,7 +588,7 @@ void main() {
 
   // Onsets flash the whole frame slightly. Subtle on purpose: at full strength
   // this is a strobe, and a strobe stops being a visualizer.
-  color += palette(hue + 0.5) * uFlux * 0.12 * energy;
+  color += palette(hue + 0.5) * uFlux * (0.12 + uControlReveal * 0.1) * energy * pow(1.0 - imageWeight, 2.0);
 
   // Energy-conserving accumulation.
   //
@@ -423,7 +597,7 @@ void main() {
   // screen saturates to white no matter what the audio does. Weighting the
   // new contribution by (1 - decay) makes the steady state equal `color`, and
   // turns decay into an actual time constant rather than a gain.
-  float decay = clamp(uDecay, 0.0, 0.985);
+  float decay = clamp(uDecay * (0.72 + uWorldPersistent * 0.22 + uControlPersistence * 0.16 + uControlAccumulation * 0.18) + uWorldMemory * 0.012 - uControlDecay * 0.08 - uControlErosion * 0.04, 0.0, 0.985);
   vec3 outColor = prev * decay + color * (1.0 - decay);
 
   // Clamp before the buffer, not after. Feedback multiplies its own output

@@ -3,6 +3,13 @@ import type { FeatureFrame } from '../types';
 /** Number of spectrum bins handed to the GPU. Half the FFT size. */
 export const BINS = 1024;
 
+/** Short mono PCM window reserved for sparse learned audio inference. */
+export interface AudioWindow {
+  sampleRate: number;
+  channels: 1;
+  samples: Float32Array;
+}
+
 /**
  * A source of audio features.
  *
@@ -18,6 +25,8 @@ export interface AudioSource {
   stop(): void;
   /** Write this source's contribution into the frame. */
   sample(frame: FeatureFrame, now: number): void;
+  /** Optional recent PCM window; never needed by the frame renderer. */
+  audioWindow?(): AudioWindow | null;
 }
 
 /** One-pole smoothing. `tau` is the time constant in seconds. */

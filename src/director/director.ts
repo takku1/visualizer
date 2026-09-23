@@ -4,9 +4,15 @@ import { MOTION, PALETTE, TEXTURE, GEOMETRY, SYMMETRY, FEEDBACK, criteriaOf } fr
 import { type Answer, type SystemOneRequest } from './jev';
 import type { DecisionEngine } from './engine';
 import { LocalSystemOne } from './local';
+import { buildPerceptualState } from '../perception/state';
+import type { LearnedAudioPerception } from '../perception/adapter';
+import type { AudioWindow } from '../audio/source';
+import type { PerceptualState } from '../perception/state';
 
 /** Musical context the director reports to Jev alongside the live features. */
 export interface TrackContext {
+  /** Playback position in seconds for timed realization branches. */
+  position?: number;
   title?: string;
   artist?: string;
   /** Spotify genre tags, when the client exposes them. */
@@ -19,6 +25,8 @@ export interface TrackContext {
   loudness?: number;
   /** 'intro' | 'verse' | ... when we can infer it; otherwise the index. */
   sectionLabel?: string;
+  /** Optional lyric context, capped by the conditioning adapter before transport. */
+  lyrics?: string;
   /** Album-art visual DNA (see src/audio/artwork.ts). Spicetify build only. */
   artwork?: { color: [number, number, number]; luminance: number; saturation: number; contrast: number };
 }
@@ -44,8 +52,12 @@ export interface DirectorOptions {
    * side and ask whether the engine is doing anything a pile of thresholds
    * would not, rather than assuming it from `plan` alone.
    */
-  onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan) => void;
+  onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState) => void;
   onError?: (err: Error) => void;
+  /** Optional learned perception, sampled only when a semantic decision runs. */
+  perception?: LearnedAudioPerception;
+  /** Optional recent PCM supplied to audio-native perception adapters. */
+  audioWindow?: () => AudioWindow | null;
 }
 
 /** What a decision was actually made from: the window plus its dynamic range. */
@@ -70,8 +82,10 @@ export class Director {
   #fallback: DecisionEngine;
   #minInterval: number;
   #maxInterval: number;
-  #onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan) => void;
+  #onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState) => void;
   #onError?: (err: Error) => void;
+  #perception?: LearnedAudioPerception;
+  #audioWindow?: () => AudioWindow | null;
 
   #lastAskAt = 0;
   #inFlight = false;
@@ -87,6 +101,8 @@ export class Director {
     this.#maxInterval = opts.maxIntervalMs ?? 30000;
     this.#onPlan = opts.onPlan;
     this.#onError = opts.onError;
+    this.#perception = opts.perception;
+    this.#audioWindow = opts.audioWindow;
     this.#plan = initialPlan();
   }
 
@@ -140,7 +156,15 @@ export class Director {
     // or reproducing what a threshold rule already would have.
     const baseline = offlinePlan(windowed, this.#plan);
 
-    const req = buildRequest(windowed, ctx, this.#plan, this.#history);
+    let learned = null;
+    if (this.#perception?.configured) {
+      try {
+        learned = await this.#perception.embed(buildPerceptualState(windowed, ctx), this.#audioWindow?.() ?? null);
+      } catch (err) {
+        this.#onError?.(err as Error);
+      }
+    }
+    const req = buildRequest(windowed, ctx, this.#plan, this.#history, learned);
     const primary = this.#engine.configured ? this.#engine : this.#fallback;
 
     this.#inFlight = true;
@@ -148,7 +172,7 @@ export class Director {
     try {
       const res = await primary.ask(req);
       this.#consecutiveFailures = 0;
-      this.#record(planFromAnswers(res.answers, performance.now() - started, primary.name), windowed, ctx, baseline);
+      this.#record(planFromAnswers(res.answers, performance.now() - started, primary.name), windowed, ctx, baseline, buildPerceptualState(windowed, ctx, learned));
     } catch (err) {
       this.#consecutiveFailures++;
       this.#onError?.(err as Error);
@@ -156,24 +180,24 @@ export class Director {
       // same way, but if it somehow does we keep the plan we already had.
       try {
         const res = await this.#fallback.ask(req);
-        this.#record(planFromAnswers(res.answers, 0, this.#fallback.name), windowed, ctx, baseline);
+        this.#record(planFromAnswers(res.answers, 0, this.#fallback.name), windowed, ctx, baseline, buildPerceptualState(windowed, ctx, learned));
       } catch {
-        this.#commit(offlinePlan(windowed, this.#plan), windowed, ctx, baseline);
+        this.#commit(offlinePlan(windowed, this.#plan), windowed, ctx, baseline, buildPerceptualState(windowed, ctx, learned));
       }
     } finally {
       this.#inFlight = false;
     }
   }
 
-  #record(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan): void {
+  #record(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState): void {
     this.#history.push(`${plan.motion.top}/${plan.palette.top}`);
     if (this.#history.length > 8) this.#history.shift();
-    this.#commit(plan, features, ctx, baseline);
+    this.#commit(plan, features, ctx, baseline, perception);
   }
 
-  #commit(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan): void {
+  #commit(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState): void {
     this.#plan = plan;
-    this.#onPlan?.(plan, features, ctx, baseline);
+    this.#onPlan?.(plan, features, ctx, baseline, perception);
   }
 }
 
@@ -240,6 +264,7 @@ function buildRequest(
   ctx: TrackContext,
   prev: VisualPlan,
   history: string[],
+  learned: ReturnType<typeof buildPerceptualState>['learned'] = null,
 ): SystemOneRequest {
   /**
    * State is a structured snapshot rather than prose. System One takes objects
@@ -290,6 +315,12 @@ function buildRequest(
       spectral_centroid: r2(f.spectralCentroid),
       dynamic_range: r2(f.dynamicRange),
       key_confidence: r2(f.keyConfidence),
+      rhythm_confidence: r2(f.rhythmConfidence),
+      swing: r2(f.swing),
+      syncopation: r2(f.syncopation),
+      microtiming: r2(f.microtiming),
+      subdivision: r2(f.subdivision),
+      polyrhythm: r2(f.polyrhythm),
       structure_known: f.hasStructure,
     },
     /** What is on screen now, so the model can choose to continue or break. */
@@ -305,7 +336,7 @@ function buildRequest(
   };
 
   return {
-    state,
+    state: { ...state, perception: buildPerceptualState(f, ctx, learned) },
     questions: {
       motion: {
         type: 'choice',
@@ -434,7 +465,7 @@ export function offlinePlan(f: WindowedFeatures, _prev: VisualPlan): VisualPlan 
 
   const MOTION_ORDER: MotionId[] = ['drift', 'orbit', 'collapse', 'pulse', 'bloom', 'shear', 'lattice', 'turbulent'];
   const PALETTE_ORDER: PaletteId[] = ['ember', 'sodium', 'oxide', 'chlorophyll', 'ice', 'ultraviolet', 'spectral'];
-  const TEXTURE_ORDER: TextureId[] = ['plasma', 'filament', 'cellular', 'strata', 'grain', 'shards'];
+  const TEXTURE_ORDER: TextureId[] = ['plasma', 'filament', 'cellular', 'strata', 'neural', 'grain', 'shards'];
   const GEOMETRY_ORDER: GeometryId[] = ['none', 'circles', 'hexagons', 'stars'];
   const SYMMETRY_ORDER: SymmetryId[] = ['kaleido12', 'kaleido6', 'kaleido3', 'mirror', 'polar', 'none'];
   const FEEDBACK_ORDER: FeedbackId[] = ['smear', 'trail', 'swirl', 'zoom_out', 'zoom_in', 'none'];

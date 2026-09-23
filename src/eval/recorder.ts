@@ -1,5 +1,12 @@
 import type { VisualPlan, Weighted } from '../types';
 import type { TrackContext, WindowedFeatures } from '../director/director';
+import { buildPerceptualState, type PerceptualState } from '../perception/state';
+import type { WorldProjection, WorldState } from '../world/model';
+import { motionFromWorld, type WorldMotion } from '../world/motion';
+import type { WorldIdentity } from '../world/identity';
+import { identityFromContext } from '../world/identity';
+import type { WorldDelta } from '../world/delta';
+import { deltaFromDecision } from '../world/delta';
 
 /**
  * One decision, fully instrumented for the real-music validation pass.
@@ -35,6 +42,12 @@ export interface DecisionRecord {
     estimatedKey: number;
     estimatedMode: 'major' | 'minor';
     keyConfidence: number;
+    rhythmConfidence: number;
+    swing: number;
+    syncopation: number;
+    microtiming: number;
+    subdivision: number;
+    polyrhythm: number;
     keySource: 'spotify' | 'local_estimate';
   };
 
@@ -45,6 +58,16 @@ export interface DecisionRecord {
    * substitute synthetic data" made explicit and machine-readable.
    */
   source: { capturing: boolean; hasStructure: boolean };
+
+  /** Versioned Phase 1 perception input; learned is null until an adapter is installed. */
+  perception: PerceptualState;
+
+  /** World projection at the moment this semantic decision committed. */
+  world: WorldProjection;
+  worldState: WorldState;
+  worldMotion: WorldMotion;
+  identity: WorldIdentity;
+  delta: WorldDelta;
 
   /** Full calibrated distributions, not just the argmax. */
   system1: {
@@ -92,7 +115,14 @@ export function buildRecord(
   features: WindowedFeatures,
   ctx: TrackContext,
   capturing: boolean,
+  world: WorldProjection,
+  worldState: WorldState,
+  perception?: PerceptualState,
+  worldMotion?: WorldMotion,
+  identity?: WorldIdentity,
+  delta?: WorldDelta,
 ): DecisionRecord {
+  const resolvedMotion = worldMotion ?? motionFromWorld(worldState);
   return {
     t: Math.round(features.t * 100) / 100,
     track: {
@@ -125,9 +155,21 @@ export function buildRecord(
       estimatedKey: features.estimatedKey,
       estimatedMode: features.estimatedMode,
       keyConfidence: r2(features.keyConfidence),
+      rhythmConfidence: r2(features.rhythmConfidence),
+      swing: r2(features.swing),
+      syncopation: r2(features.syncopation),
+      microtiming: r2(features.microtiming),
+      subdivision: r2(features.subdivision),
+      polyrhythm: r2(features.polyrhythm),
       keySource: ctx.key != null && ctx.mode != null ? 'spotify' : 'local_estimate',
     },
     source: { capturing, hasStructure: features.hasStructure },
+    perception: perception ?? buildPerceptualState(features, ctx),
+    world,
+    worldState,
+    worldMotion: resolvedMotion,
+    identity: identity ?? identityFromContext(ctx, worldState),
+    delta: delta ?? deltaFromDecision(system1, features, ctx, worldState, resolvedMotion),
     system1: {
       engine: system1.origin,
       latencyMs: Math.round(system1.latencyMs),
@@ -162,8 +204,31 @@ export function recordLine(
   features: WindowedFeatures,
   ctx: TrackContext,
   capturing: boolean,
+  world: WorldProjection,
+  worldState: WorldState,
+  perception?: PerceptualState,
+  worldMotion?: WorldMotion,
+  identity?: WorldIdentity,
+  delta?: WorldDelta,
 ): string {
-  return JSON.stringify(buildRecord(system1, baseline, features, ctx, capturing));
+  return JSON.stringify(buildRecord(system1, baseline, features, ctx, capturing, world, worldState, perception, worldMotion, identity, delta));
+}
+
+export function telemetryLine(event: {
+  t: number;
+  fps?: number;
+  frameMs?: number;
+  world: WorldProjection;
+  motion?: WorldMotion;
+  sim?: { meanU: number; meanV: number; hasNaN: boolean } | null;
+  renderer?: ReturnType<import('../render/renderer').Renderer['telemetry']>;
+  audio?: { onBeat: boolean; onSection: boolean; level: number; flux: number; bassFlux: number };
+  beatsSinceLast?: number;
+  sectionsSinceLast?: number;
+  substrate?: { requests: number; successes: number; failures: number; lastMs: number; lastSource: string; lastContinuity: string };
+  perception?: { configured: boolean; requests: number; successes: number; failures: number; lastMs: number; lastModel: string; lastVectorLength: number };
+}): string {
+  return JSON.stringify({ _telemetry: true, ...event });
 }
 
 const r2 = (n: number): number => Math.round(n * 100) / 100;

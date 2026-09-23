@@ -2,13 +2,22 @@ import { FeatureBus } from './audio/bus';
 import { LoopbackSource } from './audio/loopback';
 import { AnalysisSource } from './audio/analysis';
 import type { AudioSource } from './audio/source';
+import type { FeatureFrame } from './types';
 import { Director, type TrackContext } from './director/director';
 import { JevClient } from './director/jev';
 import { LocalSystemOne } from './director/local';
 import type { DecisionEngine } from './director/engine';
 import { Renderer } from './render/renderer';
 import { Overlay } from './ui/overlay';
-import { recordLine, type LogSink } from './eval/recorder';
+import { recordLine, telemetryLine, type LogSink } from './eval/recorder';
+import { WorldModel } from './world/model';
+import type { ImageSubstrateProvider, SubstrateConditioning } from './world/substrate';
+import type { LearnedAudioPerception } from './perception/adapter';
+import type { LyricsRuntime } from './lyrics/runtime';
+import { buildConditioningPacket } from './world/conditioning';
+import { motionFromWorld } from './world/motion';
+import { identityFromContext } from './world/identity';
+import { deltaFromDecision } from './world/delta';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -27,6 +36,12 @@ export interface AppConfig {
    * elsewhere.
    */
   log?: LogSink;
+  /** Optional sparse image-model realization; never called from the frame hot path. */
+  substrateProvider?: ImageSubstrateProvider;
+  substrate?: SubstrateConditioning;
+  /** Optional learned audio embedding provider, sampled at decision cadence. */
+  perception?: LearnedAudioPerception;
+  lyrics?: LyricsRuntime;
 }
 
 /**
@@ -48,6 +63,11 @@ export class VisualizerApp {
   #running = false;
   #config: AppConfig;
   #errors: string[] = [];
+  #world = new WorldModel();
+  #substrateInFlight = false;
+  #substrateStats = { requests: 0, successes: 0, failures: 0, lastMs: 0, lastSource: 'none', lastContinuity: 'none' };
+  #lastFrame: FeatureFrame | null = null;
+  #lastContext: TrackContext = {};
 
   constructor(config: AppConfig = {}) {
     this.#config = config;
@@ -61,7 +81,10 @@ export class VisualizerApp {
     this.#director = new Director({
       engine,
       fallback: local,
-      onPlan: (plan, features, ctx, baseline) => {
+      perception: config.perception,
+      audioWindow: () => this.loopback.audioWindow(),
+      onPlan: (plan, features, ctx, baseline, perception) => {
+        this.#world.setPlan(plan);
         this.#renderer?.setPlan(plan);
         // Visible confirmation the whole chain actually ran: in Electron this
         // prints straight to the terminal, which is otherwise blind to
@@ -76,7 +99,19 @@ export class VisualizerApp {
               ? `  [baseline would say: ${baseline.motion.top}/${baseline.palette.top}]`
               : '  [baseline agrees]'),
         );
-        this.#config.log?.(recordLine(plan, baseline, features, ctx, this.loopback.capturing));
+        this.#config.log?.(recordLine(
+          plan,
+          baseline,
+          features,
+          ctx,
+          this.loopback.capturing,
+          this.#world.projection(),
+          this.#world.state,
+          perception,
+          motionFromWorld(this.#world.state),
+          identityFromContext(ctx, this.#world.state),
+          deltaFromDecision(plan, features, ctx, this.#world.state, motionFromWorld(this.#world.state)),
+        ));
       },
       onError: (err) => {
         // Keep only the most recent; a failing key would otherwise fill the HUD.
@@ -130,7 +165,9 @@ export class VisualizerApp {
     }
 
     this.#running = true;
+    if (this.#config.lyrics) void this.#config.lyrics.sync(this.#config.context?.() ?? {});
     this.#loop();
+    if (this.#config.substrateProvider) void this.#refreshSubstrate();
 
     // Capture is requested after rendering is live, and deliberately not
     // awaited. The permission prompt can sit unanswered indefinitely, and
@@ -164,6 +201,9 @@ export class VisualizerApp {
   #fpsFrames = 0;
   #fpsWindowStart = 0;
   #lastSimSampleAt = 0;
+  #lastSimStats: { meanU: number; meanV: number; hasNaN: boolean } | null = null;
+  #beatsSinceTelemetry = 0;
+  #sectionsSinceTelemetry = 0;
 
   #loop = (): void => {
     if (!this.#running) return;
@@ -171,11 +211,31 @@ export class VisualizerApp {
 
     const now = performance.now();
     const frame = this.bus.update(now);
-    const ctx = this.#config.context?.() ?? {};
+    const baseCtx = this.#config.context?.() ?? {};
+    if (this.#config.lyrics) void this.#config.lyrics.sync(baseCtx);
+    const lyricText = this.#config.lyrics?.currentText(baseCtx.position ?? frame.t);
+    const ctx = lyricText ? { ...baseCtx, lyrics: lyricText } : baseCtx;
+    this.#lastFrame = frame;
+    this.#lastContext = ctx;
 
     this.#director.tick(frame, ctx);
+    const lyrics = this.#config.lyrics?.frame(ctx.position ?? frame.t) ?? { mode: 'off' as const, cue: null, progress: 0, opacity: 0 };
+    if (lyrics.mode === 'world' || lyrics.mode === 'hybrid') {
+      for (const event of this.#config.lyrics?.events(ctx.position ?? frame.t) ?? []) this.#world.applyLyricEvent(event);
+    }
+    const world = this.#world.update(frame);
+    if (frame.onSection) void this.#refreshSubstrate();
+    if (frame.onBeat) this.#beatsSinceTelemetry++;
+    if (frame.onSection) this.#sectionsSinceTelemetry++;
     this.#renderer?.setArtwork(ctx.artwork ?? null);
+      this.#renderer?.setWorld(world);
     this.#renderer?.render(frame);
+    this.overlay.setLyrics(lyrics);
+    this.#renderer?.setLyricMask(
+      lyrics.mode === 'world' || lyrics.mode === 'hybrid' ? lyrics.cue?.id ?? null : null,
+      lyrics.cue?.text ?? '',
+      lyrics.mode === 'world' || lyrics.mode === 'hybrid' ? lyrics.opacity : 0,
+    );
 
     // Printed rather than only shown in the HUD, so it lands in the terminal
     // log for the perf pass without needing to read the screen at all.
@@ -184,7 +244,24 @@ export class VisualizerApp {
     const elapsed = now - this.#fpsWindowStart;
     if (elapsed >= 5000) {
       const fps = (this.#fpsFrames / elapsed) * 1000;
+      const frameMs = 1000 / Math.max(fps, 0.001);
       console.log(`[perf] ${fps.toFixed(1)} fps  (${(1000 / fps).toFixed(2)}ms/frame avg over ${(elapsed / 1000).toFixed(1)}s)`);
+      this.#config.log?.(telemetryLine({
+        t: frame.t,
+        fps,
+        frameMs,
+        world,
+        motion: motionFromWorld(this.#world.state),
+        sim: this.#lastSimStats,
+        renderer: this.#renderer?.telemetry(),
+        audio: { onBeat: frame.onBeat, onSection: frame.onSection, level: frame.level, flux: frame.flux, bassFlux: frame.bassFlux },
+        beatsSinceLast: this.#beatsSinceTelemetry,
+        sectionsSinceLast: this.#sectionsSinceTelemetry,
+        substrate: this.#substrateStats,
+        perception: this.#config.perception?.telemetry?.(),
+      }));
+      this.#beatsSinceTelemetry = 0;
+      this.#sectionsSinceTelemetry = 0;
       this.#fpsFrames = 0;
       this.#fpsWindowStart = now;
     }
@@ -195,6 +272,7 @@ export class VisualizerApp {
       this.#lastSimSampleAt = now;
       const stats = this.#renderer?.sampleSimStats();
       if (stats) {
+        this.#lastSimStats = stats;
         console.log(
           `[perf] sim U=${stats.meanU.toFixed(3)} V=${stats.meanV.toFixed(3)}` +
             (stats.hasNaN ? '  !! NaN detected !!' : ''),
@@ -209,6 +287,32 @@ export class VisualizerApp {
       ctx,
     );
   };
+
+  async #refreshSubstrate(): Promise<void> {
+    const provider = this.#config.substrateProvider;
+    if (!provider || this.#substrateInFlight || !this.#renderer) return;
+    this.#substrateInFlight = true;
+    const started = performance.now();
+    this.#substrateStats.requests++;
+    try {
+      const world = this.#world.state;
+      const conditioning = buildConditioningPacket(world, this.#lastFrame, this.#lastContext);
+      const substrate = await provider.generate(world, conditioning);
+      if (substrate) {
+        await this.#renderer.setSubstrate(substrate, this.#config.substrate ?? { strength: 1, mode: 'replace' });
+        this.#substrateStats.successes++;
+        this.#substrateStats.lastSource = substrate.source;
+        this.#substrateStats.lastContinuity = substrate.continuity ?? 'unknown';
+      }
+      this.#substrateStats.lastMs = Math.round(performance.now() - started);
+    } catch (err) {
+      this.#substrateStats.failures++;
+      this.#substrateStats.lastMs = Math.round(performance.now() - started);
+      console.warn(`[substrate] ${provider.name}: ${(err as Error).message}`);
+    } finally {
+      this.#substrateInFlight = false;
+    }
+  }
 }
 
 export type { AudioSource, TrackContext };

@@ -38,13 +38,24 @@ const harness = {
   sourcemap: true,
 };
 
+const causality = {
+  ...common,
+  entryPoints: ['dev/causality.ts'],
+  outfile: 'dist/dev/causality.js',
+  minify: false,
+  sourcemap: true,
+};
+
 if (watch) {
   const ctxA = await esbuild.context(ext);
   const ctxB = await esbuild.context(harness);
+  const ctxC = await esbuild.context(causality);
   await ctxA.watch();
   await ctxB.watch();
+  await ctxC.watch();
   mkdirSync('dist/dev', { recursive: true });
   copyFileSync('dev/index.html', 'dist/dev/index.html');
+  copyFileSync('dev/causality.html', 'dist/dev/causality.html');
   if (serve) {
     const { host, port } = await ctxB.serve({ servedir: 'dist/dev', port: 5174 });
     console.log(`\n  dev harness → http://${host === '0.0.0.0' ? 'localhost' : host}:${port}\n`);
@@ -54,6 +65,8 @@ if (watch) {
 } else {
   await esbuild.build(ext);
   await esbuild.build(harness);
+  await esbuild.build(causality);
   mkdirSync('dist/dev', { recursive: true });
   copyFileSync('dev/index.html', 'dist/dev/index.html');
+  copyFileSync('dev/causality.html', 'dist/dev/causality.html');
 }

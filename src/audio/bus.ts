@@ -1,6 +1,8 @@
 import type { FeatureFrame } from '../types';
 import { emptyFrame } from '../types';
 import { type AudioSource, BINS } from './source';
+import { RhythmAnalyzer } from '../rhythm';
+import type { RhythmicStructure } from '../rhythm';
 
 /**
  * Merges the audio sources into the single frame the renderer reads.
@@ -15,6 +17,7 @@ export class FeatureBus {
   #sources: AudioSource[] = [];
   #lastT = 0;
   #clock = new FallbackBeatClock();
+  #rhythm = new RhythmAnalyzer();
   #lastSectionAt = 0;
   #trackLevel = new RunningStats();
 
@@ -32,6 +35,11 @@ export class FeatureBus {
    */
   resetTrackStats(): void {
     this.#trackLevel.reset();
+    this.#clock.reset();
+    this.#rhythm.reset();
+    this.#lastSectionAt = this.#frame.t;
+    this.#frame.sectionIndex = 0;
+    this.#frame.beatIndex = 0;
   }
 
   get frame(): FeatureFrame {
@@ -40,6 +48,11 @@ export class FeatureBus {
 
   get sources(): readonly AudioSource[] {
     return this.#sources;
+  }
+
+  /** The provider-independent interpretation of the current rhythmic state. */
+  get rhythm(): RhythmicStructure {
+    return this.#rhythm.structure;
   }
 
   /** Advance one frame. `now` is `performance.now()` in milliseconds. */
@@ -55,6 +68,7 @@ export class FeatureBus {
     f.onBeat = false;
     f.onSection = false;
     f.hasStructure = false;
+    resetAudio(f);
 
     for (const s of this.#sources) {
       if (s.ready) s.sample(f, now);
@@ -64,6 +78,13 @@ export class FeatureBus {
 
     this.#trackLevel.push(f.level);
     f.levelRelative = this.#trackLevel.zScore(f.level);
+    const rhythm = this.#rhythm.update(f);
+    f.rhythmConfidence = rhythm.confidence;
+    f.swing = Math.min(Math.max((rhythm.feel.swingRatio - 1) / 0.66, 0), 1);
+    f.syncopation = rhythm.feel.syncopation;
+    f.microtiming = rhythm.feel.microtiming;
+    f.subdivision = Math.min((rhythm.subdivisions[0]?.pulsesPerBeat ?? 1) / 8, 1);
+    f.polyrhythm = rhythm.layers.some((layer) => layer.kind === 'polyrhythm') ? 1 : 0;
 
     return f;
   }
@@ -89,6 +110,17 @@ export class FeatureBus {
   }
 }
 
+/** Sources write a complete contribution each frame; absent sources must
+ * not leave the previous track's spectrum driving the world indefinitely. */
+function resetAudio(f: FeatureFrame): void {
+  f.bass = 0; f.lowMid = 0; f.mid = 0; f.highMid = 0; f.treble = 0;
+  f.flux = 0; f.level = 0; f.spectralCentroid = 0; f.spectralFlatness = 0;
+  f.spectralRolloff = 0; f.harmonicity = 0; f.transientness = 0;
+  f.bassFlux = 0; f.trebleFlux = 0; f.stereoWidth = 0;
+  f.chroma.fill(0); f.spectrum.fill(0);
+  f.estimatedKey = 0; f.estimatedMode = 'major'; f.keyConfidence = 0;
+}
+
 /**
  * Estimates tempo from the spacing between onsets, then free-runs a phase
  * clock at that rate.
@@ -110,6 +142,19 @@ class FallbackBeatClock {
   beatIndex = 0;
   onBeat = false;
   confidence = 0;
+
+  reset(): void {
+    this.#intervals = [];
+    this.#lastOnsetAt = 0;
+    this.#phase = 0;
+    this.#bar = 0;
+    this.tempo = 120;
+    this.beatPhase = 0;
+    this.barPhase = 0;
+    this.beatIndex = 0;
+    this.onBeat = false;
+    this.confidence = 0;
+  }
 
   update(f: FeatureFrame): void {
     this.onBeat = false;

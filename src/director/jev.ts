@@ -38,6 +38,8 @@ export type Question = ChoiceQuestion | ScoreQuestion | NoulQuestion;
 
 export interface SystemOneRequest {
   state: unknown;
+  /** Optional learned/DSP perception snapshot supplied alongside state. */
+  perception?: unknown;
   model?: string;
   questions: Record<string, Question>;
 }
@@ -109,7 +111,7 @@ export class JevClient implements DecisionEngine {
     if (!proxyUrl && apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
     try {
-      const res = await fetch(proxyUrl ?? ENDPOINT, {
+      const res = await fetch(proxyUrl ? sidecarEndpoint(proxyUrl) : ENDPOINT, {
         method: 'POST',
         headers,
         body: JSON.stringify({ model, ...req }),
@@ -134,4 +136,17 @@ export class JevClient implements DecisionEngine {
       clearTimeout(timer);
     }
   }
+}
+
+/**
+ * Accept either the documented sidecar origin or its full API endpoint.
+ * Keeping this normalization at the client boundary means browser config,
+ * Electron query params, and the standalone Laya server all agree on one
+ * public setting: `http://127.0.0.1:8765`.
+ */
+function sidecarEndpoint(value: string): string {
+  const url = new URL(value);
+  if (url.pathname.replace(/\/+$/, '').endsWith('/v1/systemone')) return url.toString();
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}/v1/systemone`;
+  return url.toString();
 }

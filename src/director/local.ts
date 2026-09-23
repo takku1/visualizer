@@ -165,6 +165,9 @@ const PROFILES: Record<string, Record<string, Profile>> = {
     grain: { energy: 0.7, brightness: 0.85, percussive: 0.7 },
     cellular: { energy: 0.45, brightness: 0.4, percussive: 0.3, modeBias: 1 },
     strata: { energy: 0.5, brightness: 0.5, percussive: 0.5 },
+    // Structured apparitions surface in sustained, mid-density, brighter
+    // passages - not on hard transients, which is what shards owns.
+    neural: { energy: 0.55, brightness: 0.6, percussive: 0.25, modeBias: 1 },
     shards: { energy: 0.8, brightness: 0.7, percussive: 0.9 },
   },
   geometry: {

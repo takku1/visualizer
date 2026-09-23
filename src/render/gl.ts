@@ -73,6 +73,11 @@ export class Uniforms {
     if (l) this.gl.uniform3f(l, v[0] ?? 0, v[1] ?? 0, v[2] ?? 0);
   }
 
+  i2(name: string, x: number, y: number): void {
+    const l = this.#loc(name);
+    if (l) this.gl.uniform2i(l, x, y);
+  }
+
   tex(name: string, unit: number, texture: WebGLTexture): void {
     const l = this.#loc(name);
     if (!l) return;

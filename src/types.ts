@@ -20,6 +20,14 @@ export interface FeatureFrame {
   level: number;
   /** Spectral centroid — where the energy sits, 0 (all bass) .. 1 (all treble). */
   spectralCentroid: number;
+  /** Spectral flatness — noise-like energy is high, tonal energy is low. */
+  spectralFlatness: number;
+  /** Frequency below which 85% of spectral energy is concentrated, normalized. */
+  spectralRolloff: number;
+  /** Rough harmonicity estimate derived from flatness and tonal concentration. */
+  harmonicity: number;
+  /** Transientness: short-term change relative to current energy. */
+  transientness: number;
   /** Positive flux within just the bass range - kick/bass-hit onsets specifically. */
   bassFlux: number;
   /** Positive flux within just the treble range - hi-hat/cymbal onsets specifically. */
@@ -58,6 +66,13 @@ export interface FeatureFrame {
   confidence: number;
   /** False when structure is synthesized rather than read from analysis. */
   hasStructure: boolean;
+  /** Inferred rhythm summary, 0..1, from RhythmAnalyzer. */
+  rhythmConfidence: number;
+  swing: number;
+  syncopation: number;
+  microtiming: number;
+  subdivision: number;
+  polyrhythm: number;
 }
 
 export function emptyFrame(bins: number): FeatureFrame {
@@ -65,13 +80,15 @@ export function emptyFrame(bins: number): FeatureFrame {
     t: 0, dt: 0,
     bass: 0, lowMid: 0, mid: 0, highMid: 0, treble: 0,
     spectrum: new Float32Array(bins),
-    flux: 0, level: 0, spectralCentroid: 0,
+    flux: 0, level: 0, spectralCentroid: 0, spectralFlatness: 0, spectralRolloff: 0,
+    harmonicity: 0, transientness: 0,
     bassFlux: 0, trebleFlux: 0, stereoWidth: 0,
     chroma: new Float32Array(12), estimatedKey: 0, estimatedMode: 'major', keyConfidence: 0,
     levelRelative: 0,
     beatPhase: 0, barPhase: 0, beatIndex: 0, sectionIndex: 0,
     tempo: 120, onBeat: false, onSection: false,
     confidence: 0, hasStructure: false,
+    rhythmConfidence: 0, swing: 0, syncopation: 0, microtiming: 0, subdivision: 0, polyrhythm: 0,
   };
 }
 
@@ -122,7 +139,7 @@ export type PaletteId =
 /** The form the rendered material takes: what the image is *made of*. */
 export type TextureId =
   | 'filament' | 'plasma' | 'grain'
-  | 'cellular' | 'strata' | 'shards';
+  | 'cellular' | 'strata' | 'shards' | 'neural';
 
 /**
  * Which SDF primitive family accents the field. The one always-on-if-chosen

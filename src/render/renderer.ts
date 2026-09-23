@@ -16,6 +16,8 @@ import bloomFrag from './shaders/bloom.frag.glsl';
 import particleSimFrag from './shaders/particleSim.frag.glsl';
 import particleRenderVert from './shaders/particleRender.vert.glsl';
 import particleRenderFrag from './shaders/particleRender.frag.glsl';
+import type { WorldProjection } from '../world/model';
+import type { ImageSubstrate, SubstrateConditioning } from '../world/substrate';
 
 /** Every blended parameter the shader needs, in one flat bag. */
 interface RenderParams {
@@ -38,7 +40,6 @@ export interface RendererOptions {
   transitionSec?: number;
 }
 
-/** Particle state texture side length. 64x64 = 4096 GPU-resident particles. */
 const PARTICLE_GRID = 64;
 const PARTICLE_COUNT = PARTICLE_GRID * PARTICLE_GRID;
 
@@ -65,12 +66,39 @@ export class Renderer {
   #bloomTarget: RenderTarget;
   #spectrum: SpectrumTexture;
   #blueNoise: StaticTexture;
+  #substrateTexture: WebGLTexture;
+  #substrateNextTexture: WebGLTexture;
+  #substrateStrength = 0;
+  #substrateMix = 1;
+  #substrateTransitioning = false;
+  #substrateTransitionSec = 0;
+  #substrateWarmup = false;
+  #hasSubstrate = false;
+  #substrateSource = 'none';
+  #substrateWidth = 0;
+  #substrateHeight = 0;
+  #lyricTexture: WebGLTexture;
+  #lyricCueId = '';
+  #lyricStrength = 0;
 
   #vao: WebGLVertexArrayObject;
   #particleVao: WebGLVertexArrayObject;
 
   #current: RenderParams;
   #target: RenderParams;
+  #world: WorldProjection = {
+    organic: 0.5, architectural: 0.25, atmospheric: 0.5, vast: 0.55,
+    growing: 0.25, decaying: 0.2, turbulent: 0.15, structured: 0.55,
+    persistent: 0.72, suggestive: 0.35, memory: 0.2, impulse: 0, seed: 0.37,
+    controls: {
+      timbre: { smoothness: 0.5, brightness: 0.5, harmonicity: 0.5, noisiness: 0.2, percussiveness: 0.2, stereoWidth: 0 },
+      energy: { intensity: 0.35, volatility: 0.2, momentum: 0.35, transience: 0.2 }, density: 0.35,
+      motion: { flow: 0.35, turbulence: 0.2, quantization: 0 }, space: { radial: 0.35, spread: 0.5, focality: 0.35, depth: 0.5 }, scale: 0.5,
+      material: { fluidity: 0.5, crystallinity: 0.2, cellularity: 0.2, grain: 0.2 }, order: { symmetry: 0.2, structure: 0.5, ambiguity: 0.35 },
+      memory: { persistence: 0.25, accumulation: 0.2, decay: 0.7 }, lifecycle: { growth: 0.25, mutation: 0.2, erosion: 0.15, renewal: 0.25 },
+      composition: { focus: 0.35, negativeSpace: 0.5, reveal: 0.35 }, light: { emission: 0.35, contrast: 0.5, hueDrift: 0.2, warmth: 0.5 },
+    },
+  };
   #scale: number;
   #transition: number;
   #disposed = false;
@@ -136,14 +164,75 @@ export class Renderer {
     this.#bloomTarget = new RenderTarget(gl, Math.max(2, w >> 1), Math.max(2, h >> 1), this.#buffers.float);
     this.#spectrum = new SpectrumTexture(gl, BINS);
     this.#blueNoise = new StaticTexture(gl, BLUE_NOISE_SIZE, base64ToBytes(BLUE_NOISE_B64));
+    const substrateTexture = gl.createTexture();
+    const substrateNextTexture = gl.createTexture();
+    const lyricTexture = gl.createTexture();
+    if (!substrateTexture || !substrateNextTexture || !lyricTexture) throw new Error('failed to allocate substrate texture');
+    this.#substrateTexture = substrateTexture;
+    this.#substrateNextTexture = substrateNextTexture;
+    for (const texture of [substrateTexture, substrateNextTexture]) {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+    }
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this.#lyricTexture = lyricTexture;
+    gl.bindTexture(gl.TEXTURE_2D, lyricTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array([0]));
+    gl.bindTexture(gl.TEXTURE_2D, null);
 
     this.#current = paramsFor(plan);
     this.#target = this.#current;
   }
 
-  /** True when the driver gave us half-float targets; false means shorter trails. */
-  get hdr(): boolean {
-    return this.#buffers.float;
+  /** True when the driver gave us half-float feedback targets. */
+  get hdr(): boolean { return this.#buffers.float; }
+
+  telemetry(): {
+    render: { width: number; height: number };
+    simulation: { width: number; height: number };
+    bloom: { width: number; height: number };
+    particles: number;
+    hdr: boolean;
+    debug: { sim: boolean; particles: boolean; bloom: boolean };
+    substrate: { active: boolean; strength: number; mix: number; transitioning: boolean; warmup: boolean; width: number; height: number; source: string };
+    presentation: { imagePrimary: boolean; simulationActive: boolean; bloomActive: boolean; particlesActive: boolean };
+  } {
+    const render = this.#buffers.size;
+    const simulation = this.#simBuf.size;
+    const bloom = this.#bloomTarget.size;
+    const imagePrimary = this.#hasSubstrate && this.#substrateStrength > 0.5;
+    return {
+      render: { width: render.w, height: render.h },
+      simulation: { width: simulation.w, height: simulation.h },
+      bloom: { width: bloom.w, height: bloom.h },
+      particles: PARTICLE_COUNT,
+      hdr: this.#buffers.float,
+      debug: { ...this.#debug },
+      substrate: {
+        active: this.#substrateStrength > 0.001,
+        strength: this.#substrateStrength,
+        mix: this.#substrateMix,
+        transitioning: this.#substrateTransitioning,
+        warmup: this.#substrateWarmup,
+        width: this.#substrateWidth,
+        height: this.#substrateHeight,
+        source: this.#substrateSource,
+      },
+      presentation: {
+        imagePrimary,
+        simulationActive: this.#debug.sim && !imagePrimary,
+        bloomActive: this.#debug.bloom && !imagePrimary,
+        particlesActive: this.#debug.particles && !imagePrimary,
+      },
+    };
   }
 
   /**
@@ -203,8 +292,78 @@ export class Renderer {
     this.#artStrengthTarget = dna ? 0.3 : 0;
   }
 
+  /** Upload a cue mask only when the cue changes; never called per-frame with new pixels. */
+  setLyricMask(cueId: string | null, text: string, strength: number): void {
+    if (cueId === this.#lyricCueId && Math.abs(strength - this.#lyricStrength) < 0.01) return;
+    this.#lyricCueId = cueId ?? '';
+    this.#lyricStrength = cueId ? Math.min(1, Math.max(0, strength)) : 0;
+    if (!cueId) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '600 48px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2, canvas.width * 0.9);
+    const gl = this.#gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.#lyricTexture);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, gl.RED, gl.UNSIGNED_BYTE, canvas);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  setWorld(world: WorldProjection): void {
+    this.#world = world;
+  }
+
+  /** Upload sparse learned material at section/track cadence, never per frame. */
+  async setSubstrate(substrate: ImageSubstrate, conditioning: SubstrateConditioning): Promise<void> {
+    if (substrate.kind !== 'image') return;
+    let bitmap: ImageBitmap | null = null;
+    const encoded = !(substrate.data instanceof ImageBitmap);
+    try {
+      const bytes = encoded ? new Uint8Array(substrate.data as Uint8Array) : null;
+      bitmap = encoded
+        ? await createImageBitmap(new Blob([bytes!.buffer as ArrayBuffer], { type: 'image/png' }))
+        : substrate.data as ImageBitmap;
+      const gl = this.#gl;
+      // Upload into the inactive side. The currently visible material remains
+      // alive while the next material enters the world gradually.
+      gl.bindTexture(gl.TEXTURE_2D, this.#substrateNextTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      if (!this.#hasSubstrate) {
+        gl.bindTexture(gl.TEXTURE_2D, this.#substrateTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        // Keep the realtime world visible while the first learned material
+        // enters. A cold checkpoint result should feel like a reveal, not a
+        // startup flash or a black-to-image snap.
+        this.#substrateMix = 0;
+        this.#substrateTransitionSec = 2.5;
+        this.#substrateTransitioning = true;
+        this.#substrateWarmup = true;
+        this.#hasSubstrate = true;
+      } else {
+        this.#substrateMix = 0;
+        this.#substrateTransitionSec = 12 + this.#world.persistent * 12;
+        this.#substrateTransitioning = true;
+        this.#substrateWarmup = false;
+      }
+      this.#substrateStrength = Math.min(1, Math.max(0, conditioning.strength)) * (conditioning.mode === 'replace' ? 1 : 0.65);
+      this.#substrateSource = substrate.source;
+      this.#substrateWidth = substrate.width;
+      this.#substrateHeight = substrate.height;
+    } finally {
+      if (encoded) bitmap?.close();
+    }
+  }
+
   /** Toggle one subsystem for cost isolation. Logs so a terminal-only session can confirm the change. */
-  toggleDebug(key: 'sim' | 'particles' | 'bloom'): boolean {
+  toggleDebug(key: 'sim'): boolean {
     this.#debug[key] = !this.#debug[key];
     console.log(`[perf] ${key} ${this.#debug[key] ? 'ON' : 'OFF'}`);
     return this.#debug[key];
@@ -217,6 +376,22 @@ export class Renderer {
     this.#resizeIfNeeded();
     const { w, h } = this.#buffers.size;
     const dt = Math.min(f.dt, 0.05);
+    const imagePrimary = this.#hasSubstrate && this.#substrateStrength > 0.5;
+
+    if (this.#substrateTransitioning) {
+      // Long transitions turn section updates into world evolution instead of
+      // an image slideshow. Persistence makes a world hold onto its material
+      // longer; unstable worlds can change more quickly.
+      const transitionSec = this.#substrateTransitionSec || (12 + this.#world.persistent * 12);
+      this.#substrateMix = Math.min(1, this.#substrateMix + dt / transitionSec);
+      if (this.#substrateMix >= 1) {
+        const old = this.#substrateTexture;
+        this.#substrateTexture = this.#substrateNextTexture;
+        this.#substrateNextTexture = old;
+        this.#substrateTransitioning = false;
+        this.#substrateWarmup = false;
+      }
+    }
 
     // Exponential approach, framed as a half-life so the rate is independent
     // of frame rate.
@@ -231,7 +406,7 @@ export class Renderer {
     // Skipping the draw (rather than zeroing its contribution) freezes the
     // buffer at its last state instead of corrupting it, so toggling this
     // back on mid-session picks up cleanly.
-    if (this.#debug.sim) {
+    if (this.#debug.sim && !imagePrimary) {
       const sw = this.#simBuf.size.w;
       const sh = this.#simBuf.size.h;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.#simBuf.writeFbo);
@@ -255,20 +430,25 @@ export class Renderer {
       this.#simBuf.swap();
     }
 
-    // ---- particle update pass, reading the sim's fresh velocity ----
-    if (this.#debug.particles) {
+    // Particle state is another persistent world primitive, not a generic
+    // overlay. It reads the semantic flow simulation and is still optional
+    // for performance isolation.
+    // Particles remain available as a procedural A/B instrument, but they are
+    // not allowed to sit visibly on top of learned material. With a substrate
+    // active, their simulation still informs the image warp while their
+    // separate point pass fades to effectively zero.
+    const particleVisibility = Math.pow(Math.max(0, 1 - this.#substrateStrength), 2);
+    if (this.#debug.particles && particleVisibility > 0.005) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.#particleBuf.writeFbo);
       gl.viewport(0, 0, PARTICLE_GRID, PARTICLE_GRID);
       gl.useProgram(this.#particleSim);
       gl.bindVertexArray(this.#vao);
-
       const pu = this.#particleSimU;
       pu.f('uDt', dt);
       pu.f('uTime', f.t);
       pu.f('uFlux', f.flux);
       pu.tex('uPrevState', 0, this.#particleBuf.read);
       pu.tex('uSim', 1, this.#simBuf.read);
-
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       this.#particleBuf.swap();
     }
@@ -300,6 +480,7 @@ export class Renderer {
     u.f('uTexCellular', p.texture.cellular);
     u.f('uTexStrata', p.texture.strata);
     u.f('uTexShards', p.texture.shards);
+    u.f('uTexNeural', p.texture.neural);
     u.f('uSharpness', p.texture.sharpness);
 
     u.v3('uArtTint', this.#artTint);
@@ -332,36 +513,81 @@ export class Renderer {
     u.f('uBeatPhase', f.beatPhase);
     u.f('uBarPhase', f.barPhase);
     u.f('uIntensity', p.intensity);
+    u.f('uWorldOrganic', this.#world.organic);
+    u.f('uWorldArchitectural', this.#world.architectural);
+    u.f('uWorldTurbulent', this.#world.turbulent);
+    u.f('uWorldVast', this.#world.vast);
+    u.f('uWorldGrowing', this.#world.growing);
+    u.f('uWorldDecaying', this.#world.decaying);
+    u.f('uWorldStructured', this.#world.structured);
+    u.f('uWorldPersistent', this.#world.persistent);
+    u.f('uWorldSuggestive', this.#world.suggestive);
+    u.f('uWorldImpulse', this.#world.impulse);
+    u.f('uWorldMemory', this.#world.memory);
+    u.f('uWorldSeed', this.#world.seed);
+    u.f('uControlDensity', this.#world.controls.density);
+    u.f('uControlTimbreSmoothness', this.#world.controls.timbre.smoothness);
+    u.f('uControlTimbreBrightness', this.#world.controls.timbre.brightness);
+    u.f('uControlHarmonicity', this.#world.controls.timbre.harmonicity);
+    u.f('uControlNoisiness', this.#world.controls.timbre.noisiness);
+    u.f('uControlPercussiveness', this.#world.controls.timbre.percussiveness);
+    u.f('uControlStereoWidth', this.#world.controls.timbre.stereoWidth);
+    u.f('uControlVolatility', this.#world.controls.energy.volatility);
+    u.f('uControlEnergyIntensity', this.#world.controls.energy.intensity);
+    u.f('uControlMomentum', this.#world.controls.energy.momentum);
+    u.f('uControlTransience', this.#world.controls.energy.transience);
+    u.f('uControlFlow', this.#world.controls.motion.flow);
+    u.f('uControlTurbulence', this.#world.controls.motion.turbulence);
+    u.f('uControlQuantization', this.#world.controls.motion.quantization);
+    u.f('uControlScale', this.#world.controls.scale);
+    u.f('uControlRadial', this.#world.controls.space.radial);
+    u.f('uControlFluidity', this.#world.controls.material.fluidity);
+    u.f('uControlCrystallinity', this.#world.controls.material.crystallinity);
+    u.f('uControlCellularity', this.#world.controls.material.cellularity);
+    u.f('uControlGrain', this.#world.controls.material.grain);
+    u.f('uControlSpread', this.#world.controls.space.spread);
+    u.f('uControlFocality', this.#world.controls.space.focality);
+    u.f('uControlDepth', this.#world.controls.space.depth);
+    u.f('uControlOrder', this.#world.controls.order.structure);
+    u.f('uControlSymmetry', this.#world.controls.order.symmetry);
+    u.f('uControlAmbiguity', this.#world.controls.order.ambiguity);
+    u.f('uControlAccumulation', this.#world.controls.memory.accumulation);
+    u.f('uControlPersistence', this.#world.controls.memory.persistence);
+    u.f('uControlDecay', this.#world.controls.memory.decay);
+    u.f('uControlMutation', this.#world.controls.lifecycle.mutation);
+    u.f('uControlGrowth', this.#world.controls.lifecycle.growth);
+    u.f('uControlErosion', this.#world.controls.lifecycle.erosion);
+    u.f('uControlRenewal', this.#world.controls.lifecycle.renewal);
+    u.f('uControlFocus', this.#world.controls.composition.focus);
+    u.f('uControlNegativeSpace', this.#world.controls.composition.negativeSpace);
+    u.f('uControlReveal', this.#world.controls.composition.reveal);
+    u.f('uControlEmission', this.#world.controls.light.emission);
+    u.f('uControlContrast', this.#world.controls.light.contrast);
+    u.f('uControlHueDrift', this.#world.controls.light.hueDrift);
+    u.f('uControlWarmth', this.#world.controls.light.warmth);
+    u.f('uSubstrateStrength', this.#substrateStrength);
+    u.f('uSubstrateMix', this.#substrateMix);
+    u.f('uImagePrimary', imagePrimary ? 1 : 0);
+    u.f('uLyricStrength', this.#lyricStrength);
 
     u.tex('uPrev', 0, this.#buffers.read);
     u.tex('uSpectrum', 1, this.#spectrum.texture);
     u.tex('uSim', 2, this.#simBuf.read);
+    u.tex('uSubstrate', 3, this.#substrateTexture);
+    u.tex('uSubstrateNext', 4, this.#substrateNextTexture);
+    u.tex('uLyricMask', 5, this.#lyricTexture);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    // ---- particles, additively on top of the scene pass's own output ----
-    // Drawn into the same write buffer before it swaps, so their
-    // contribution is subject to the identical decay/feedback dynamics as
-    // everything else in the buffer starting next frame - not a separate
-    // always-on overlay layer.
     if (this.#debug.particles) {
       gl.useProgram(this.#particleRender);
       gl.bindVertexArray(this.#particleVao);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE);
-
       const beatBump = Math.pow(0.5 + 0.5 * Math.sin(f.beatPhase * Math.PI * 2), 6);
       const ru = this.#particleRenderU;
       ru.tex('uState', 0, this.#particleBuf.read);
-      gl.uniform2i(gl.getUniformLocation(this.#particleRender, 'uStateSize'), PARTICLE_GRID, PARTICLE_GRID);
-
-      // Brightness and size used to floor at "always visible" regardless of
-      // intensity or geometry - a constant dusting over every look, which
-      // read as the same picture no matter what System1 decided. Both now
-      // have a real near-zero floor, and both lean into the 'circles'
-      // geometry choice specifically: particles are thematically small
-      // orbiting points, so they read as System1's own choice showing
-      // through rather than a fixed backdrop.
+      ru.i2('uStateSize', PARTICLE_GRID, PARTICLE_GRID);
       const circlesAffinity = 0.35 + p.geometry.circles * 1.4;
       const intensityGate = Math.max(0, p.intensity / 4);
       ru.f('uPointSize', Math.max(1, Math.min(w, h)) * 0.005 * (0.4 + intensityGate * 1.2) * circlesAffinity);
@@ -370,32 +596,28 @@ export class Renderer {
       ru.v3('uPalB', p.palette.b);
       ru.v3('uPalC', p.palette.c);
       ru.v3('uPalD', p.palette.d);
-      ru.f('uBrightness', (0.12 + intensityGate * 0.55) * circlesAffinity * (0.6 + f.level * 0.6));
-
+      ru.f('uBrightness', (0.12 + intensityGate * 0.55) * circlesAffinity * (0.6 + f.level * 0.6) * particleVisibility);
       gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
       gl.disable(gl.BLEND);
     }
 
     this.#buffers.swap();
 
-    // ---- bloom: extract + soft-blur the frame just written, at half res ----
-    if (this.#debug.bloom) {
+    // ---- bloom extraction + present pass ----
+    if (this.#debug.bloom && !imagePrimary) {
       const bw = this.#bloomTarget.size.w;
       const bh = this.#bloomTarget.size.h;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.#bloomTarget.fbo);
       gl.viewport(0, 0, bw, bh);
       gl.useProgram(this.#bloom);
       gl.bindVertexArray(this.#vao);
-
       const bu = this.#bloomU;
       bu.v2('uResolution', bw, bh);
       bu.f('uThreshold', 1.1);
       bu.tex('uScene', 0, this.#buffers.read);
-
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 
-    // ---- present pass, to the screen ----
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.useProgram(this.#present);
@@ -405,12 +627,11 @@ export class Renderer {
     pu2.v2('uResolution', this.canvas.width, this.canvas.height);
     pu2.v2('uBlueNoiseSize', BLUE_NOISE_SIZE, BLUE_NOISE_SIZE);
     pu2.f('uTime', f.t);
-    pu2.f('uExposure', 1.0 + p.intensity * 0.12);
-    pu2.f('uGrain', 0.022);
-    pu2.f('uVignette', 0.55);
-    // Zeroed independently of whether the extraction pass ran this frame, so
-    // toggling bloom off mid-session cannot leave a stale texture visible.
-    pu2.f('uBloomStrength', this.#debug.bloom ? 0.55 : 0);
+    pu2.f('uExposure', imagePrimary ? 1.0 : 1.0 + p.intensity * 0.12);
+    pu2.f('uGrain', imagePrimary ? 0 : 0.022);
+    pu2.f('uVignette', imagePrimary ? 0 : 0.55);
+    pu2.f('uBloomStrength', this.#debug.bloom && !imagePrimary ? 0.55 : 0);
+    pu2.f('uImagePrimary', imagePrimary ? 1 : 0);
     pu2.tex('uScene', 0, this.#buffers.read);
     pu2.tex('uBloom', 1, this.#bloomTarget.texture);
     pu2.tex('uBlueNoise', 2, this.#blueNoise.texture);
@@ -447,7 +668,6 @@ export class Renderer {
     this.#buffers.resize(w, h);
     this.#simBuf.resize(Math.max(2, w >> 2), Math.max(2, h >> 2));
     this.#bloomTarget.resize(Math.max(2, w >> 1), Math.max(2, h >> 1));
-    // Particle state is a fixed logical grid, not screen-resolution-linked.
   }
 
   dispose(): void {
@@ -465,6 +685,9 @@ export class Renderer {
     gl.deleteProgram(this.#bloom);
     gl.deleteProgram(this.#particleSim);
     gl.deleteProgram(this.#particleRender);
+    gl.deleteTexture(this.#substrateTexture);
+    gl.deleteTexture(this.#substrateNextTexture);
+    gl.deleteTexture(this.#lyricTexture);
     gl.deleteVertexArray(this.#vao);
     gl.deleteVertexArray(this.#particleVao);
   }

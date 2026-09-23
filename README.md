@@ -36,6 +36,11 @@ actual mixture.
 
 ## Six questions
 
+These are the current implementation questions. The broader target control
+layer model—timbre, energy, density, space, material, memory, lifecycle, and
+others—is documented in [docs/control-layers.md](docs/control-layers.md). It is
+intentionally not yet represented as one question per layer.
+
 | Question | Type | Vocabulary |
 | --- | --- | --- |
 | `motion` | choice | drift · orbit · pulse · shear · turbulent · collapse · bloom · lattice |
@@ -93,7 +98,16 @@ artist and genres for exactly this.
 // In Spotify's console:
 __s1.configure({ apiKey: 'sk-...' })                       // hosted Jev
 __s1.configure({ proxyUrl: 'http://127.0.0.1:8765' })      // local sidecar
+__s1.configure({ substrateUrl: 'http://127.0.0.1:8766/v1/substrate' }) // image substrate
+__s1.configure({ perceptionUrl: 'http://127.0.0.1:8767/v1/audio-perception' }) // learned audio
+__s1.configure({ lyricsUrl: 'http://127.0.0.1:8768/v1/lyrics', lyricsMode: 'overlay' }) // rights-aware lyrics
 ```
+
+For a local audio-native perception path, install
+`python -m pip install -r tools/requirements-audio-perception.txt`, start
+`npm run perception:server`, and use the `perceptionUrl` above. Spotify audio
+is captured through the existing shared-audio prompt; the browser sends a
+bounded recent PCM window to MERT-v1-95M only when a semantic decision is due.
 
 ### Where the TypeSafe key lives
 
@@ -122,6 +136,11 @@ The key is never committed, never baked into a build, and never written to
 `tools/laya-server.mjs` is an optional sidecar that serves `/v1/systemone`
 backed by Laya through ONNX Runtime. It is not part of the build and pulls no
 dependencies unless you run it.
+
+The optional image substrate sidecar is wired through the same persisted
+settings path: start it with `npm run substrate:server`, then configure
+`substrateUrl` and reload Spotify. When it is unset, the extension remains
+procedural-only.
 
 ## Audio
 

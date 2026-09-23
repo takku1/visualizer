@@ -1,5 +1,5 @@
 import type { FeatureFrame } from '../types';
-import { type AudioSource, BINS, AutoGain, smooth } from './source';
+import { type AudioSource, type AudioWindow, BINS, AutoGain, smooth } from './source';
 
 /**
  * Real spectrum, captured from whatever the machine is playing.
@@ -30,6 +30,10 @@ export class LoopbackSource implements AudioSource {
   #norm = new Float32Array(BINS);
   #timeL = new Float32Array(1024);
   #timeR = new Float32Array(1024);
+  #timeMono = new Float32Array(2048);
+  #audioRing = new Float32Array(16000 * 6);
+  #audioWrite = 0;
+  #audioCount = 0;
   #chroma = new Float32Array(12);
 
   // Each band gets its own gain, tracking its own history. A single shared
@@ -58,6 +62,15 @@ export class LoopbackSource implements AudioSource {
   /** True once the capture has been granted; used to drive the HUD prompt. */
   get capturing(): boolean {
     return this.#stream?.active ?? false;
+  }
+
+  /** Return the most recent six seconds at the model-friendly 16 kHz rate. */
+  audioWindow(): AudioWindow | null {
+    if (!this.#audioCount) return null;
+    const samples = new Float32Array(this.#audioCount);
+    const start = (this.#audioWrite - this.#audioCount + this.#audioRing.length) % this.#audioRing.length;
+    for (let i = 0; i < this.#audioCount; i++) samples[i] = this.#audioRing[(start + i) % this.#audioRing.length] ?? 0;
+    return { sampleRate: 16000, channels: 1, samples };
   }
 
   async start(): Promise<void> {
@@ -118,6 +131,9 @@ export class LoopbackSource implements AudioSource {
     this.#analyser = analyser;
     this.#analyserL = analyserL;
     this.#analyserR = analyserR;
+    this.#audioWrite = 0;
+    this.#audioCount = 0;
+    this.#audioRing.fill(0);
     this.#ready = true;
   }
 
@@ -129,6 +145,8 @@ export class LoopbackSource implements AudioSource {
     this.#analyser = null;
     this.#analyserL = null;
     this.#analyserR = null;
+    this.#audioWrite = 0;
+    this.#audioCount = 0;
     this.#ready = false;
   }
 
@@ -137,6 +155,19 @@ export class LoopbackSource implements AudioSource {
     if (!analyser) return;
 
     analyser.getFloatFrequencyData(this.#freq);
+    analyser.getFloatTimeDomainData(this.#timeMono);
+    const sourceRate = this.#ctx?.sampleRate ?? 48000;
+    const step = sourceRate / 16000;
+    const maxNewSamples = Math.max(1, Math.floor(this.#timeMono.length / step));
+    const newSamples = Math.min(maxNewSamples, Math.max(1, Math.round(16000 * Math.max(frame.dt, 1 / 240))));
+    const sourceSpan = Math.min(this.#timeMono.length, Math.ceil(newSamples * step));
+    const sourceStart = this.#timeMono.length - sourceSpan;
+    for (let i = 0; i < newSamples; i++) {
+      const sourceIndex = sourceStart + Math.min(sourceSpan - 1, Math.floor(i * sourceSpan / newSamples));
+      this.#audioRing[this.#audioWrite] = this.#timeMono[sourceIndex] ?? 0;
+      this.#audioWrite = (this.#audioWrite + 1) % this.#audioRing.length;
+      this.#audioCount = Math.min(this.#audioCount + 1, this.#audioRing.length);
+    }
     const dt = Math.max(frame.dt, 1 / 240);
     const nyquist = (this.#ctx?.sampleRate ?? 48000) / 2;
 
@@ -171,12 +202,23 @@ export class LoopbackSource implements AudioSource {
     // completely differently here.
     let centroidNum = 0;
     let centroidDen = 0;
+    let logSum = 0;
+    let rolloffTarget = sum * 0.85;
+    let rolloffAccum = 0;
+    let rolloffBin = BINS - 1;
     for (let i = 0; i < BINS; i++) {
       const m = this.#raw[i] ?? 0;
       centroidNum += i * m;
       centroidDen += m;
+      logSum += Math.log(Math.max(m, 1e-8));
+      rolloffAccum += m;
+      if (rolloffAccum >= rolloffTarget && rolloffBin === BINS - 1) rolloffBin = i;
     }
     const centroidRaw = centroidDen > 0 ? centroidNum / centroidDen / BINS : 0;
+    const arithmeticMean = sum / Math.max(BINS, 1);
+    const geometricMean = Math.exp(logSum / Math.max(BINS, 1));
+    const flatnessRaw = arithmeticMean > 1e-8 ? geometricMean / arithmeticMean : 0;
+    const rolloffRaw = rolloffBin / Math.max(BINS - 1, 1);
 
     const b = this.#bands;
     b.bass = smooth(b.bass, this.#band(20, 120, nyquist, this.#gain.bass, dt), dt, 0.06);
@@ -231,6 +273,10 @@ export class LoopbackSource implements AudioSource {
     b.width = smooth(b.width, width, dt, 0.2);
 
     frame.spectralCentroid = b.centroid;
+    frame.spectralFlatness = Math.min(Math.max(flatnessRaw, 0), 1);
+    frame.spectralRolloff = Math.min(Math.max(rolloffRaw, 0), 1);
+    frame.harmonicity = Math.min(Math.max(1 - frame.spectralFlatness, 0), 1);
+    frame.transientness = Math.min(Math.max(flux / Math.max(sum, 1e-6), 0), 1);
     frame.bass = b.bass;
     frame.lowMid = b.lowMid;
     frame.mid = b.mid;

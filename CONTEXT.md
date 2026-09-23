@@ -1,0 +1,29 @@
+# Project context
+
+## Rhythmic structure
+
+**Rhythmic structure** is the complete time-organization of a track as the
+visualizer can observe or infer it. It is broader than tempo or beat detection.
+It includes pulse, meter, bar position, subdivisions, simultaneous rhythmic
+layers, tempo interpretations, expressive feel, provenance, and confidence.
+
+**Pulse** is a recurring temporal reference, such as a quarter-note beat. A
+track may expose more than one pulse when a polyrhythm or nested subdivision is
+present.
+
+**Meter** is the grouping of pulses into bars and accents, including simple,
+compound, odd, changing, and ambiguous meters.
+
+**Subdivision** is a finer temporal grid inside a pulse or bar, such as eighths,
+triplets, or sixteenths.
+
+**Rhythmic layer** is one independently tracked stream of periodic or event
+timing, such as kick, snare, hi-hat, bass phrase, or a competing metric cycle.
+
+**Feel** is the expressive interpretation of timing, including straight,
+swing, shuffle, syncopation, laid-back, pushed, and half-time/double-time
+interpretation. Feel is an estimate, not a replacement for measured timing.
+
+**Rhythmic structure is evidence-backed.** Every inferred property must retain
+its source and confidence, and the renderer must degrade gracefully when only
+coarse onset or spectrum evidence is available.

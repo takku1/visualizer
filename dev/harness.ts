@@ -1,4 +1,8 @@
 import { VisualizerApp } from '../src/core';
+import { SidecarSubstrateProvider } from '../src/world/substrate';
+import { SidecarAudioPerception } from '../src/perception/adapter';
+import { FixtureLyricSource } from '../src/lyrics/fixture';
+import { LyricsRuntime } from '../src/lyrics/runtime';
 
 /**
  * Standalone dev harness. Runs in a plain browser tab, or - unmodified - as
@@ -41,6 +45,17 @@ async function main(): Promise<void> {
     apiKey: await resolveApiKey(),
     proxyUrl: params.get('proxy') ?? undefined,
     renderScale: Number(params.get('scale') ?? 0.85),
+    // The checkpoint is an output-side realization. Disable with
+    // ?substrate=off for a procedural-only A/B run.
+    substrateProvider: params.get('substrate') === 'off'
+      ? undefined
+      : new SidecarSubstrateProvider(params.get('substrate') ?? 'http://127.0.0.1:8766/v1/substrate'),
+    substrate: { strength: 0.9, mode: 'replace' },
+    perception: params.get('perception') ? new SidecarAudioPerception(params.get('perception')!) : undefined,
+    lyrics: new LyricsRuntime(
+      params.get('lyrics') === 'fixture' ? { enabled: true, mode: 'overlay' } : undefined,
+      params.get('lyrics') === 'fixture' ? new FixtureLyricSource() : undefined,
+    ),
     status: (): string[] => ['', app.loopback.capturing ? 'capture   ok' : 'capture   off (no spectrum)'],
     // Real decision logging for the evaluation pass, when Electron's preload
     // has exposed a sink. Absent in a plain browser tab - nothing changes there.
@@ -56,6 +71,13 @@ async function main(): Promise<void> {
     await app.start();
     document.getElementById('gate')?.remove();
   });
+
+  // Deterministic visual capture mode. It uses the same Electron/Chromium
+  // renderer but skips the interaction gate; audio capture may remain off.
+  if (params.get('autostart') === '1') {
+    await app.start();
+    document.getElementById('gate')?.remove();
+  }
 
   // `mediaDevices` is undefined outside a secure context, so this is a real
   // runtime check despite the DOM types insisting the method always exists.
@@ -73,8 +95,6 @@ async function main(): Promise<void> {
     // part of the Spicetify build. Watch [perf] lines in the terminal for the
     // fps delta each one makes.
     if (e.key === '1') app.renderer?.toggleDebug('sim');
-    if (e.key === '2') app.renderer?.toggleDebug('particles');
-    if (e.key === '3') app.renderer?.toggleDebug('bloom');
   });
 
   // Handy while tuning: __s1.app.director.refresh(...) forces a new decision.
