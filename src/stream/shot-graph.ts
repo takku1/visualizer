@@ -34,6 +34,19 @@ export interface ShotSelectionContext {
   downbeat: boolean;
 }
 
+/** Match checkpoint timing: trusted grids select on bar wrap; fallback grids use beats. */
+export function shotGraphBoundary(
+  barPhase: number,
+  previousBarPhase: number,
+  onBeat: boolean,
+  hasStructure: boolean,
+  rhythmConfidence: number,
+): { eligible: boolean; downbeat: boolean } {
+  const downbeat = barPhase + 0.5 < previousBarPhase;
+  const trustedGrid = hasStructure || rhythmConfidence > 0.5;
+  return { downbeat, eligible: trustedGrid ? downbeat : onBeat };
+}
+
 export interface ShotGraph {
   nodes: ShotNode[];
   edges: ShotEdge[];

@@ -8,7 +8,7 @@ import { CouplingController } from '../src/stream/coupling';
 import { estimateTempoFromOnsetGaps } from '../src/audio/bus';
 import { compileSemanticScene, type SongMeaning } from '../src/director/semantic';
 import { CheckpointScheduler, realizationRequestFromCheckpoint, type StreamObservation } from '../src/stream/checkpoint';
-import { addShotCandidate, compileShotGraph, nextShots, ShotGraphRuntime } from '../src/stream/shot-graph';
+import { addShotCandidate, compileShotGraph, nextShots, shotGraphBoundary, ShotGraphRuntime } from '../src/stream/shot-graph';
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
@@ -597,6 +597,13 @@ test('shot graph keeps alternate candidates explicit and ordered', () => {
   assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: false }), null);
   assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: true })?.id, 'next');
   assert.equal(runtime.cancel(), 1);
+});
+
+test('shot graph waits for a downbeat on trusted structure and falls back to beats otherwise', () => {
+  assert.deepEqual(shotGraphBoundary(0.5, 0.6, true, true, 1), { eligible: false, downbeat: false });
+  assert.deepEqual(shotGraphBoundary(0.5, 0.6, true, false, 0.2), { eligible: true, downbeat: false });
+  assert.deepEqual(shotGraphBoundary(0.1, 0.8, true, true, 1), { eligible: true, downbeat: true });
+  assert.deepEqual(shotGraphBoundary(0.5, 0.6, false, false, 0.2), { eligible: false, downbeat: false });
 });
 
 test('a new director scene lands on a downbeat, spliced over one bar', () => {

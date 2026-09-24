@@ -25,7 +25,7 @@ import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-acc
 import { meaningFromLive, perceptualCueFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
-import { addShotCandidate, compileShotGraph, ShotGraphRuntime } from './stream/shot-graph';
+import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime } from './stream/shot-graph';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -315,6 +315,8 @@ export class VisualizerApp {
   #fpsWindowStart = 0;
   #streamFramesAtWindow = 0;
   #lastStateLogAt = -Infinity;
+  #lastBarPhase = 0;
+  #barTrackId: string | null = null;
 
   #loop = (): void => {
     if (!this.#running) return;
@@ -323,6 +325,13 @@ export class VisualizerApp {
     const now = performance.now();
     const frame = this.bus.update(now);
     const baseCtx = this.#config.context?.() ?? {};
+    const trackKey = baseCtx.trackId ?? null;
+    if (trackKey !== this.#barTrackId) {
+      this.#barTrackId = trackKey;
+      this.#lastBarPhase = frame.barPhase;
+    }
+    const graphClock = shotGraphBoundary(frame.barPhase, this.#lastBarPhase, frame.onBeat, frame.hasStructure, frame.rhythmConfidence);
+    this.#lastBarPhase = frame.barPhase;
     if (this.#liveMeaning?.connected && baseCtx.trackId && now - this.#lastMeaningSendAt >= 1500) {
       const window = this.loopback.audioWindow?.();
       if (window) {
@@ -385,11 +394,11 @@ export class VisualizerApp {
 
     const stream = this.#stream;
     if (stream) {
-      if (this.#shotRuntime && frame.onBeat) {
+      if (this.#shotRuntime && graphClock.eligible) {
         const candidate = this.#shotRuntime.choose({
           section: frame.sectionIndex,
           confidence: this.#scheduler.scene?.continuityContract.confidence ?? 0,
-          downbeat: true,
+          downbeat: graphClock.downbeat || (!frame.hasStructure && frame.rhythmConfidence <= 0.5 && frame.onBeat),
         });
         if (candidate) {
           this.#scheduler.setScene(candidate.scene);
