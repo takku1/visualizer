@@ -17,6 +17,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - `PerceptualIntent` and anonymous `EmergentWorldState` now exist as typed seams; a measured backend observer still needs to provide correspondence handles before emergent hypotheses can be populated from pixels.
 - `RealizationTelemetry` now has an optional correspondence-observation channel and a pure adapter into `EmergentWorldState`; scalar identity/action confidence, prompt text, and raster drift still cannot create or preserve an emergent form.
 - Shot graphs now support guarded runtime selection, prefetch candidates, and cancellation epochs; GPU pre-rendering remains measurement-gated.
+- State/telemetry now records ShotGraph candidates staged, prefetch intent, selections, and pending state so production use is distinguishable from unit-test-only coverage.
 - Timed lyric import/provider interfaces now exist; `npm run meaning:import -- --lrc song.lrc --track <id> --out meaning/<id>.json` creates an evidence-bearing manifest.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
 - The same text report now includes live language/configuration coverage, structured-conditioning build hashes, and stream health (zero-FPS windows split by connection state, disconnects, and dropped frames) so startup gaps are not confused with renderer or world-state failures.

@@ -101,6 +101,10 @@ const summary = {
     disconnectedSamples: telemetry.filter((row) => row.stream?.connected === false).length,
     maxDropped: telemetry.length ? Math.max(...telemetry.map((row) => row.stream?.dropped ?? 0)) : 0,
   },
+  shotGraph: {
+    latest: telemetry.map((row) => row.shotGraph).filter(Boolean).at(-1) ?? null,
+    samples: telemetry.filter((row) => row.shotGraph).length,
+  },
   evidence: {
     semanticDecisions: decisions.filter((row) => row.scene.source === 'semantic-manifest').length,
     identityVerified: false,
@@ -119,5 +123,6 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
   `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
   `Stream health: telemetry=${summary.streamHealth.samples}; zeroFps=${summary.streamHealth.zeroFpsSamples} (connected=${summary.streamHealth.zeroFpsWhileConnected}); disconnected=${summary.streamHealth.disconnectedSamples}; maxDropped=${summary.streamHealth.maxDropped}`,
+  `ShotGraph: ${summary.shotGraph.latest ? `staged=${summary.shotGraph.latest.staged} prefetched=${summary.shotGraph.latest.prefetched} selected=${summary.shotGraph.latest.selected} pending=${summary.shotGraph.latest.pending}` : 'no runtime telemetry'}`,
   `Evidence-backed decisions: ${summary.evidence.semanticDecisions}; visual verification: deferred`,
 ].join('\n'));

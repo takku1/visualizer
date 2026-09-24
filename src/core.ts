@@ -113,6 +113,9 @@ export class VisualizerApp {
   #liveAccumulator = new LiveLyricAccumulator();
   #lastMeaningSendAt = -Infinity;
   #shotRuntime: ShotGraphRuntime | null = null;
+  #shotGraphStaged = 0;
+  #shotGraphPrefetched = 0;
+  #shotGraphSelected = 0;
 
   #meaningTelemetry(): object | null {
     if (!this.#liveMeaning) return null;
@@ -195,6 +198,8 @@ export class VisualizerApp {
               { section: ctx.sectionIndex, requiresDownbeat: true },
             );
             this.#shotRuntime = new ShotGraphRuntime(graph);
+            this.#shotGraphStaged++;
+            this.#shotGraphPrefetched += this.#shotRuntime.prefetchCandidates().length;
           }
           // Abstaining mode still needs strong visual chapters. Change the
           // procedural substrate on director cadence, but keep the diffusion
@@ -413,6 +418,7 @@ export class VisualizerApp {
         if (candidate) {
           this.#scheduler.setScene(candidate.scene);
           this.#shotRuntime = null;
+          this.#shotGraphSelected++;
         }
       }
       stream.sendControl(control, now);
@@ -465,6 +471,12 @@ export class VisualizerApp {
         } : null,
         meaning: this.#meaningTelemetry(),
         control: { strength: control.strength, feedback: control.feedback, noise: control.noise, flow: control.flow },
+        shotGraph: {
+          staged: this.#shotGraphStaged,
+          prefetched: this.#shotGraphPrefetched,
+          selected: this.#shotGraphSelected,
+          pending: this.#shotRuntime !== null,
+        },
       }));
       this.#lastStateLogAt = frame.t;
     }
@@ -488,6 +500,12 @@ export class VisualizerApp {
         control,
         checkpoints: this.#checkpoints,
         renderer: this.#renderer?.telemetry(),
+        shotGraph: {
+          staged: this.#shotGraphStaged,
+          prefetched: this.#shotGraphPrefetched,
+          selected: this.#shotGraphSelected,
+          pending: this.#shotRuntime !== null,
+        },
         audio: { level: frame.level, bass: frame.bass, flux: frame.flux, tempo: frame.tempo, hasStructure: frame.hasStructure },
       }));
       this.#streamFramesAtWindow = received;
