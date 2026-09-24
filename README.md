@@ -18,18 +18,19 @@ diffusion model paints the result.
   optional local `SongMeaning` manifest supplies motifs, relations, actions,
   evidence, and abstention. A System One director
   (the built-in local engine, hosted Jev, or a Laya sidecar) judges the music
-  and compiles its answer into a scene: a prompt for the painter, and a
-  procedural look (palette, symmetry, form). A 4-step keyframe is
-  denoised time-sliced into the fast loop, then painted into the live picture
-  region by region. Periodic re-seeding bounds drift. This is structural,
-  not a workaround.
+  and compiles its answer into structured `WorldState`, `Shot`, and
+  `SceneDiff` data. Prompt text is only a backend conditioning artifact. A
+  4-step keyframe is denoised time-sliced into the fast loop, then painted
+  into the live picture region by region. The default is one continuous
+  realization per track; scene commits are checkpoint-gated, and periodic
+  re-seeding is an explicit drift experiment rather than the normal path.
 
 ```
 audio ─► FeatureBus ─► ControlMapper ─► physics + bends ───────────────► stream sidecar
              │              └─► procedural scene (60 Hz) ── JPEG ──────►  (SD-Turbo + TAESD,
              │                        │                                    CUDA graphs)
              │                        └─► display ◄── mix(paint) ◄── painted JPEG ◄┘
-             └─► Director ─► scene (prompt + look) ─► CheckpointScheduler ─► keyframe on a downbeat
+             └─► Meaning ─► WorldState + Shot + SceneDiff ─► CheckpointScheduler ─► keyframe on a downbeat
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the design, and
@@ -55,6 +56,7 @@ npm run dev           # browser harness at localhost:5174 (?stream=off, ?stream=
 npm run stream:bench  # headless throughput + sample frames in output/stream-bench
 python tools/stream-server.py --bench 150 --bench-json output/stream-bench/report.json  # machine-readable timing
 npm run app -- --no-meaning  # isolate diffusion/procedural performance
+npm run app -- --meaning-language ja  # force Japanese Whisper decoding for validation
 ```
 
 `H` toggles the HUD. Expand it ("capture info") to see the live sampler
