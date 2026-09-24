@@ -58,7 +58,7 @@ def main() -> None:
     consistency: dict[str, object] = {}
     for group, indices in groups.items():
         pairwise = [
-            float(scores[a, text_index[rows[a]["identity"]]] * 0 + image_features[a] @ image_features[b])
+            float(image_features[a] @ image_features[b])
             for offset, a in enumerate(indices)
             for b in indices[offset + 1:]
         ]
