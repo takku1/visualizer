@@ -9,7 +9,7 @@ import { estimateTempoFromOnsetGaps } from '../src/audio/bus';
 import { compileSemanticScene, type SongMeaning } from '../src/director/semantic';
 import { CheckpointScheduler, realizationRequestFromCheckpoint, type StreamObservation } from '../src/stream/checkpoint';
 import { addShotCandidate, compileShotGraph, nextShots, shotGraphBoundary, ShotGraphRuntime } from '../src/stream/shot-graph';
-import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
+import { isLiveLyricHypothesis, isLiveLyricUpdate, type LiveLyricHypothesis } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
@@ -282,6 +282,30 @@ test('live meaning stabilizes short Japanese lyric chunks', () => {
   accumulator.update('ja-short', 2, make(2, '雨降る').hypotheses);
   const state = accumulator.update('ja-short', 3, make(3, '雨が降る').hypotheses);
   assert.equal(state.committed.length, 1);
+});
+
+test('live meaning tolerates a bounded missing ASR window before expiry', () => {
+  const accumulator = new LiveLyricAccumulator();
+  const hypothesis = (revision: number): LiveLyricHypothesis => ({
+    ...liveHypothesis,
+    id: `ja-gap-${revision}`,
+    text: '雨の駅で歩く',
+    language: 'ja',
+    startSec: 2.1,
+    endSec: 6.0,
+    confidence: 0.8,
+  });
+  accumulator.update('ja-gap', 1, [hypothesis(1)]);
+  accumulator.update('ja-gap', 2, []);
+  accumulator.update('ja-gap', 3, [hypothesis(3)]);
+  const committed = accumulator.update('ja-gap', 4, [hypothesis(4)]);
+  assert.equal(committed.committed.length, 1);
+
+  const expired = accumulator.update('ja-gap', 5, []);
+  accumulator.update('ja-gap', 6, []);
+  accumulator.update('ja-gap', 7, []);
+  assert.equal(expired.committed.length, 1, 'committed evidence remains stable');
+  assert.equal(accumulator.state().provisional.length, 0, 'unseen provisional evidence expires');
 });
 
 test('a new track and stale revision cannot inherit committed live meaning', () => {

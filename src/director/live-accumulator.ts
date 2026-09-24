@@ -13,6 +13,8 @@ type Candidate = {
   hypothesis: LiveLyricHypothesis;
   observations: number;
   lastRevision: number;
+  /** Bounded temporal hysteresis for overlapping ASR windows. */
+  missedRevisions: number;
 };
 
 /** Turns noisy overlapping ASR windows into reversible semantic evidence. */
@@ -50,6 +52,7 @@ export class LiveLyricAccumulator {
         },
         observations,
         lastRevision: revision,
+        missedRevisions: 0,
       };
       this.#candidates.set(key, candidate);
       if (candidate.observations >= 3 && candidate.hypothesis.confidence >= 0.65 && candidate.hypothesis.stability >= 0.6) {
@@ -58,7 +61,12 @@ export class LiveLyricAccumulator {
     }
 
     for (const [key, candidate] of this.#candidates) {
-      if (candidate.lastRevision !== revision && !seen.has(key)) this.#candidates.delete(key);
+      if (seen.has(key)) continue;
+      candidate.missedRevisions++;
+      // A phrase can disappear briefly when a singing voice crosses a window
+      // boundary or Whisper revises timestamps. Keep only a short evidence
+      // horizon; this is tracking hysteresis, not transcript memory.
+      if (candidate.missedRevisions > 2) this.#candidates.delete(key);
     }
     return this.state();
   }
