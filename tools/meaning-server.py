@@ -177,6 +177,14 @@ class Server:
             }))
         except ConnectionClosed:
             return
+        try:
+            await self._messages(websocket)
+        except (ConnectionClosed, ConnectionResetError, OSError):
+            # Electron closes the optional worker connection during normal
+            # restart. Do not report that owner handoff as an ASR failure.
+            return
+
+    async def _messages(self, websocket) -> None:
         async for message in websocket:
             if isinstance(message, str):
                 try:
@@ -216,7 +224,7 @@ class Server:
                 response["error"] = error
             try:
                 await websocket.send(json.dumps(response))
-            except ConnectionClosed:
+            except (ConnectionClosed, ConnectionResetError, OSError):
                 # The renderer may close normally while optional ASR is still
                 # finishing a window. This is not an inference failure.
                 return
