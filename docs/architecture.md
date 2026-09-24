@@ -257,6 +257,11 @@ available graph annotation, not an unconditional allocation.
   with `AppConfig.reseed: true` for long-run drift experiments, but are not the
   normal music-video path. It never fires mid-splice and scene changes land on
   a downbeat when possible.
+- **Telemetry distinction:** a director decision is a control-plane refresh,
+  not a new image. `ShotGraph.selected` means a candidate was chosen for
+  scheduling; `checkpoints` and `_checkpoint` records are the actual realization
+  commits. The normal invariant is one initial realization per track, plus only
+  justified scene transitions.
 - **How:** the sidecar denoises the 4-step keyframe (timesteps 999, 749, 499,
   249) one step per fast frame, batched with the live frame in a single
   batch-2 UNet call. The keyframe is never bent. With a procedural frame

@@ -116,6 +116,8 @@ export class VisualizerApp {
   #shotGraphStaged = 0;
   #shotGraphPrefetched = 0;
   #shotGraphSelected = 0;
+  #directionDecisions = 0;
+  #lastCheckpointReason: string | null = null;
 
   #meaningTelemetry(): object | null {
     if (!this.#liveMeaning) return null;
@@ -160,6 +162,7 @@ export class VisualizerApp {
       // are glided toward, so a faster cadence cannot jump the picture.
       ...(knobs ? { minIntervalMs: 3000, maxIntervalMs: 5000 } : {}),
       onPlan: (plan, features, ctx, baseline) => {
+        this.#directionDecisions++;
         const scene = sceneFromPlan(plan, ctx, this.#sceneIndex++, this.#motifLedger);
         if (this.#knobs) {
           const targets = this.#knobs.decide(plan, ctx);
@@ -438,7 +441,8 @@ export class VisualizerApp {
         stream.requestCheckpoint(request, continuousForcesFrom(frame, control));
         this.#checkpoints++;
         console.log(`[checkpoint] ${request.id} ${request.reason} splice=${request.spliceFrames}f continuity=${request.continuity}`);
-        this.#config.log?.(checkpointLine(frame.t, request));
+          this.#config.log?.(checkpointLine(frame.t, request));
+        this.#lastCheckpointReason = request.reason;
       }
       if (!stream.connected && this.#renderer?.telemetry().stream) this.#renderer.clearStream();
     }
@@ -477,6 +481,12 @@ export class VisualizerApp {
           selected: this.#shotGraphSelected,
           pending: this.#shotRuntime !== null,
         },
+        realization: {
+          mode: 'continuous-song',
+          directionDecisions: this.#directionDecisions,
+          checkpoints: this.#checkpoints,
+          lastCheckpointReason: this.#lastCheckpointReason,
+        },
       }));
       this.#lastStateLogAt = frame.t;
     }
@@ -505,6 +515,12 @@ export class VisualizerApp {
           prefetched: this.#shotGraphPrefetched,
           selected: this.#shotGraphSelected,
           pending: this.#shotRuntime !== null,
+        },
+        realization: {
+          mode: 'continuous-song',
+          directionDecisions: this.#directionDecisions,
+          checkpoints: this.#checkpoints,
+          lastCheckpointReason: this.#lastCheckpointReason,
         },
         audio: { level: frame.level, bass: frame.bass, flux: frame.flux, tempo: frame.tempo, hasStructure: frame.hasStructure },
       }));

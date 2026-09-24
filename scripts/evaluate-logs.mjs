@@ -89,6 +89,7 @@ const summary = {
     };
   })(),
   realization: {
+    latestControlPlane: telemetry.map((row) => row.realization).filter(Boolean).at(-1) ?? null,
     structuredTelemetrySamples: telemetry.filter((row) => row.stream?.meta?.realization?.structured === true).length,
     conditioningVersions: [...new Set(telemetry.map((row) => row.stream?.meta?.realization?.conditioning).filter(Boolean))],
     streamBuildHashes: [...new Set(telemetry.map((row) => row.stream?.buildHash).filter(Boolean))],
@@ -122,6 +123,7 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `World transitions: ${summary.worldTransitions.receipts}; identity breaks: ${summary.worldTransitions.identityBreaks}; keyframes required: ${summary.worldTransitions.keyframeRequired}`,
   `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
   `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
+  `Continuity: ${summary.realization.latestControlPlane ? `${summary.realization.latestControlPlane.mode}; direction refreshes=${summary.realization.latestControlPlane.directionDecisions}; committed checkpoints=${summary.realization.latestControlPlane.checkpoints}; last=${summary.realization.latestControlPlane.lastCheckpointReason ?? 'none'}` : 'no control-plane telemetry'}`,
   `Stream health: telemetry=${summary.streamHealth.samples}; zeroFps=${summary.streamHealth.zeroFpsSamples} (connected=${summary.streamHealth.zeroFpsWhileConnected}); disconnected=${summary.streamHealth.disconnectedSamples}; maxDropped=${summary.streamHealth.maxDropped}`,
   `ShotGraph: ${summary.shotGraph.latest ? `staged=${summary.shotGraph.latest.staged} prefetched=${summary.shotGraph.latest.prefetched} selected=${summary.shotGraph.latest.selected} pending=${summary.shotGraph.latest.pending}` : 'no runtime telemetry'}`,
   `Evidence-backed decisions: ${summary.evidence.semanticDecisions}; visual verification: deferred`,
