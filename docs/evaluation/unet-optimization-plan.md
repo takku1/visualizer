@@ -85,6 +85,22 @@ compiled into ordinary tensor inputs without changing the visual contract. If
 not, the engine remains a measured research backend and PyTorch remains the
 runtime backend.
 
+## Continuity diagnostic
+
+Rendered frame sequences can be evaluated with:
+
+```powershell
+python tools/evaluate-stream-sequence.py output/stream-bench
+```
+
+The tool reports normalized adjacent-frame pixel change and second difference
+at a small grayscale resolution. Adjacent change measures motion magnitude;
+second difference is a useful discontinuity/boiling proxy. It deliberately
+reports `identityVerified: false` and `actionVerified: false`: these metrics
+cannot prove object identity or distinguish camera motion from subject motion.
+Use the same frame cadence, fixture, and directory sampling when comparing
+backends.
+
 ## Bender diagnostic
 
 The production CUDA-graph benchmark was repeated with the Bender hooks enabled
