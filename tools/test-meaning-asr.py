@@ -21,6 +21,7 @@ class WholeWindow:
         assert "suppress_tokens" not in _kwargs["generate_kwargs"]
         assert "begin_suppress_tokens" not in _kwargs["generate_kwargs"]
         assert "clean_up_tokenization_spaces" not in _kwargs
+        assert _kwargs["return_language"] is True
         return {"text": "雨の駅", "language": "ja", "chunks": []}
 
 

@@ -84,6 +84,10 @@ class Probe:
         result = self.pipe(
             {"raw": samples, "sampling_rate": sample_rate},
             return_timestamps=True,
+            # Ask Whisper for its decoder language rather than inferring it
+            # from noisy sung text. This matters for Japanese, where short
+            # kana chunks can otherwise look like an accidental language hit.
+            return_language=True,
             generate_kwargs=generate_kwargs,
         )
         hypotheses: list[dict] = []
