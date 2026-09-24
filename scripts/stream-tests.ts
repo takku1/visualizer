@@ -12,7 +12,7 @@ import { addShotCandidate, compileShotGraph, nextShots, ShotGraphRuntime } from 
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive } from '../src/director/live-meaning';
-import { resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
+import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
@@ -369,6 +369,21 @@ test('emergent observations preserve anonymous handles through occlusion and fad
   state = applyEmergentObservations(state, [], 5);
   state = applyEmergentObservations(state, [], 6);
   assert.equal(state.hypotheses.length, 0);
+});
+
+test('realization telemetry cannot create emergent memory without correspondence handles', () => {
+  const unchanged = emergentWorldFromTelemetry(EMPTY_EMERGENT_WORLD, {
+    identityConfidence: 0.99,
+    actionConfidence: 0.8,
+  });
+  assert.deepEqual(unchanged, EMPTY_EMERGENT_WORLD);
+
+  const observed = emergentWorldFromTelemetry(EMPTY_EMERGENT_WORLD, {
+    emergentObservations: [{ handle: 'form-1', descriptors: ['upright'], confidence: 0.7, visible: true }],
+    observationRevision: 4,
+  });
+  assert.equal(observed.revision, 4);
+  assert.equal(observed.hypotheses[0]?.handle, 'form-1');
 });
 
 test('semantic checkpoint changes preserve emergent form memory until a newer observation arrives', () => {

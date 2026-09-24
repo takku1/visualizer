@@ -224,6 +224,11 @@ observer and tracks visible, persistent, occluded, and fading hypotheses. An
 empty state is the honest current SD-Turbo behavior; prompt text and sidecar
 drift telemetry do not create visual identities.
 
+If a future stateful backend supplies anonymous correspondence handles, it may
+return them through `RealizationTelemetry.emergentObservations`. The adapter
+updates emergent memory only from those explicit observations. `identityConfidence`
+and `actionConfidence` remain evaluation signals, not correspondence claims.
+
 In normal splice mode, `ShotGraphRuntime` stages each new director scene as a
 candidate and selects it only on a safe beat/downbeat. `CheckpointScheduler`
 still performs the world diff and realization commit. This keeps shot choice
