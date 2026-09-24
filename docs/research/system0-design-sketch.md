@@ -1,7 +1,10 @@
 # Design sketch: System 0, the structure-memory layer
 
-Researched 2026-09-24. Status: **proposal, not implemented.** No code exists
-for anything below.
+Researched 2026-09-24. Status: **minimal causal boundary promotion implemented;
+richer structure remains proposed.** `src/structure/memory.ts` observes the
+existing feature vector and `FeatureBus` promotes only sufficiently confident,
+non-silent boundary events. The richer prototype/lag-path design below remains
+research and is not claimed by the runtime.
 
 Each design choice points to a finding in
 [`system0-music-structure-memory.md`](system0-music-structure-memory.md),

@@ -2,9 +2,10 @@ import type { FeatureFrame } from '../types';
 
 /** A deliberately small, causal observation from System 0.
  *
- * This is shadow-mode structure memory: it reports evidence, but does not
- * drive section changes or renderer decisions yet. That boundary is
- * intentional because causal novelty detection is delayed and uncertain.
+ * This is a small causal structure-memory layer. It reports evidence and may
+ * provide a conservative boundary candidate; it never supplies semantic
+ * labels or literal content. Callers decide whether the confidence is high
+ * enough to commit a section transition.
  */
 export type StructureSource = 'system0' | 'abstain';
 export type BoundaryCause = 'novelty' | 'repeat-start' | 'repeat-end';
@@ -71,7 +72,9 @@ export class StructureMemory {
   observe(frame: FeatureFrame): StructureSnapshot {
     const trustedBeat = frame.hasStructure || frame.rhythmConfidence > 0.5;
     const due = trustedBeat ? frame.onBeat : frame.t >= this.#nextUntrustedTick;
-    if (!due) return this.#lastSnapshot;
+    // Events are edge-triggered. Returning the previous snapshot verbatim here
+    // would replay a boundary on every display frame until the next tick.
+    if (!due) return { ...this.#lastSnapshot, events: [] };
 
     if (!trustedBeat) this.#nextUntrustedTick = frame.t + UNTRUSTED_TICK_SEC;
     const vector = featureVector(frame);

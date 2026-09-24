@@ -117,7 +117,7 @@ test('System 0 observes a conservative repeat without changing section state', (
   assert.ok(events.some((event) => event.kind === 'repeat-start'));
 });
 
-test('System 0 exposes novelty as evidence rather than driving onSection', () => {
+test('System 0 exposes novelty as evidence without changing a raw snapshot', () => {
   const memory = new StructureMemory();
   const events = [] as ReturnType<StructureMemory['observe']>['events'];
   for (let i = 0; i < 18; i++) {
@@ -129,6 +129,51 @@ test('System 0 exposes novelty as evidence rather than driving onSection', () =>
   assert.equal(snapshot.source, 'system0');
   assert.ok(snapshot.novelty > 0);
   assert.ok(events.some((event) => event.kind === 'boundary'));
+});
+
+test('FeatureBus replaces the synthetic 24-second section timer with musical novelty', () => {
+  let changed = false;
+  const bus = new FeatureBus().add({
+    name: 'synthetic-structure',
+    ready: true,
+    start: async () => undefined,
+    stop: () => undefined,
+    sample: (f) => {
+      f.level = 0.5;
+      f.flux = changed ? 0.8 : 0.1;
+      f.chroma[changed ? 5 : 0] = 1;
+    },
+  });
+
+  // More than 24 seconds of stable material must not create a scene boundary.
+  for (let i = 0; i < 52; i++) {
+    const frame = bus.update(i * 500);
+    assert.equal(frame.onSection, false);
+  }
+
+  changed = true;
+  let boundary = bus.update(26_000);
+  for (let i = 1; i < 8 && !boundary.onSection; i++) boundary = bus.update(26_000 + i * 500);
+  assert.equal(boundary.onSection, true);
+  assert.equal(boundary.sectionIndex, 1);
+  assert.ok(boundary.structure?.events.some((event) => event.kind === 'boundary'));
+});
+
+test('FeatureBus does not promote silent novelty into a section', () => {
+  let changed = false;
+  const bus = new FeatureBus().add({
+    name: 'silent-structure',
+    ready: true,
+    start: async () => undefined,
+    stop: () => undefined,
+    sample: (f) => {
+      f.level = 0;
+      f.chroma[changed ? 5 : 0] = 1;
+    },
+  });
+  for (let i = 0; i < 24; i++) bus.update(i * 500);
+  changed = true;
+  for (let i = 24; i < 60; i++) assert.equal(bus.update(i * 500).onSection, false);
 });
 
 test('System 0 does not invent structure while capture is silent', () => {

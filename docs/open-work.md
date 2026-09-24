@@ -133,12 +133,13 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   discovery are implemented and tested. These improve observability and
   responsiveness but do not claim object-level visual identity.
 
-- System 0 structure memory now exists in shadow mode. It consumes existing
-  beat/onset/chroma/timbre-proxy features and emits bounded novelty,
-  repetition, and segment evidence without replacing the legacy 24-second
-  fallback or Spotify section clock. The next gate is replay/live comparison
-  against annotated boundaries; only then should it be allowed to schedule
-  director transitions. See
+- System 0 structure memory now consumes existing beat/onset/chroma/timbre-
+  proxy features and emits bounded novelty, repetition, and segment evidence.
+  It conservatively replaces the synthetic 24-second fallback clock: only a
+  non-silent boundary event above the promotion threshold advances the local
+  section index. It does not emit semantic labels or literal content. The
+  remaining gate is replay/live comparison against annotated boundaries before
+  adding richer boundary types or section recall. See
   [`docs/research/system0-design-sketch.md`](research/system0-design-sketch.md)
   and the cited MIR literature there.
 - A causal beat-tracking slice now consumes fixed-rate AudioWorklet onset

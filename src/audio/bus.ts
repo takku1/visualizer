@@ -20,7 +20,6 @@ export class FeatureBus {
   #clock = new FallbackBeatClock();
   #rhythm = new RhythmAnalyzer();
   #structure = new StructureMemory();
-  #lastSectionAt = 0;
   #trackLevel = new RunningStats();
 
   add(source: AudioSource): this {
@@ -40,7 +39,6 @@ export class FeatureBus {
     this.#clock.reset();
     this.#rhythm.reset();
     this.#structure.reset();
-    this.#lastSectionAt = this.#frame.t;
     this.#frame.sectionIndex = 0;
     this.#frame.beatIndex = 0;
   }
@@ -95,12 +93,26 @@ export class FeatureBus {
     f.polyrhythm = rhythm.layers.some((layer) => layer.kind === 'polyrhythm') ? 1 : 0;
     f.structure = this.#structure.observe(f);
 
+    // System 0 is now the only fallback section clock. It must earn a
+    // boundary from observed musical novelty; elapsed wall time alone is not
+    // evidence that the song changed. The event confidence is deliberately
+    // independent of beat confidence because the untrusted 0.5 s tick path is
+    // still useful for broad transitions, while silence remains abstained.
+    if (!f.hasStructure && f.beatSource !== 'tracker') {
+      const boundary = f.structure.events.find((event) => event.kind === 'boundary');
+      if (boundary && boundary.confidence >= 0.55 && f.level >= 0.02) {
+        f.onSection = true;
+        f.sectionIndex++;
+      }
+    }
+
     return f;
   }
 
   /**
-   * No analysis: build a beat grid from onsets, and call a "section" every 24
-   * seconds so the director still gets asked to reconsider periodically.
+   * No analysis: build a beat grid from onsets. Section boundaries are
+   * promoted from StructureMemory after the observation step; this fallback
+   * clock intentionally does not manufacture 24-second scene changes.
    */
   #synthesize(f: FeatureFrame): void {
     this.#clock.update(f);
@@ -111,11 +123,6 @@ export class FeatureBus {
     f.onBeat = this.#clock.onBeat;
     f.confidence = this.#clock.confidence;
 
-    if (f.t - this.#lastSectionAt > 24) {
-      this.#lastSectionAt = f.t;
-      f.onSection = true;
-      f.sectionIndex++;
-    }
   }
 }
 
