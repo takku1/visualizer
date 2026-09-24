@@ -33,6 +33,12 @@ try {
   const symbols = JSON.parse(fs.readFileSync(symbolsOutput, 'utf8'));
   assert.equal(symbols.abstained, true);
   assert.ok(symbols.motifs.every((motif) => motif.kind === 'symbol'));
+
+  const unsupportedOutput = path.join(root, 'unsupported.json');
+  execFileSync(process.execPath, ['scripts/meaning-import.mjs', '--lrc', lrc, '--track', 'fixture-track', '--out', unsupportedOutput, '--language', 'ko'], { stdio: 'pipe' });
+  const unsupported = JSON.parse(fs.readFileSync(unsupportedOutput, 'utf8'));
+  assert.equal(unsupported.abstained, true);
+  assert.ok(unsupported.motifs.every((motif) => motif.kind === 'symbol'));
   console.log('timed meaning import grounding contract ok');
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

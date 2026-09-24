@@ -34,6 +34,8 @@ const VOCAB = [
   ['force', /\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn|love|tears|time)\b/iu, /雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時/u],
   ['texture', /\b(fog|smoke|mist|water|ice|dust|glass|stone|shadow|sky|world)\b/iu, /霧|煙|水|氷|埃|ほこり|ガラス|石|影|空|世界|赤|青|白|色/u],
 ];
+const language = value('--language', 'und').trim().toLowerCase().split(/[-_]/, 1)[0] || 'und';
+const boundedLanguage = new Set(['en', 'ja', 'und', 'auto']);
 const symbolsOnly = args.includes('--symbols-only');
 const groundedLines = lines.map((line, index) => ({ ...line, index, motifs: symbolsOnly ? [] : boundedMotifs(line.text, index), action: symbolsOnly ? null : boundedAction(line.text) }));
 const motifs = groundedLines.flatMap((line) => line.motifs);
@@ -53,7 +55,7 @@ const sections = groundedLines.map((line) => ({
 }));
 const manifest = {
   revision: 1, thesis: 'meaning imported from timed lyric evidence', abstained: !grounded,
-  motifs: allMotifs, relations: [], language: value('--language', 'und'),
+  motifs: allMotifs, relations: [], language,
   sections,
   evidence: lines.map((line) => ({ source: 'lyrics', text: line.text, confidence, startSec: line.startSec, endSec: line.endSec })),
 };
@@ -62,6 +64,7 @@ fs.writeFileSync(output, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`Imported ${lines.length} timed lyric lines -> ${output} (${grounded ? 'bounded motifs/actions' : 'symbol-only abstention'})`);
 
 function boundedMotifs(value, index) {
+  if (!boundedLanguage.has(language)) return [];
   return VOCAB.flatMap(([kind, english, japanese]) => {
     if (!english.test(value) && !japanese.test(value)) return [];
     return [{ id: `lyric-line-${index}-${kind}`, kind, label: kind, attributes: [value], confidence, source: 'lyrics' }];
@@ -69,6 +72,7 @@ function boundedMotifs(value, index) {
 }
 
 function boundedAction(value) {
+  if (!boundedLanguage.has(language)) return null;
   if (/\b(walk|walking|walks)\b/iu.test(value) || /歩く|歩いて|歩き|歩み|歩いてる|歩き出す|進む|進んで|進んでいく/u.test(value)) return 'walks through the environment';
   if (/\b(run|running|runs)\b/iu.test(value) || /走る|走って|走り|走ってる|走り出す|駆ける|駆けて/u.test(value)) return 'runs through the environment';
   if (/\b(stand|standing|stands|wait|waiting)\b/iu.test(value) || /待つ|待って|待ってる|立つ|立って|佇む|佇んで|待ち続ける/u.test(value)) return 'waits in place';
