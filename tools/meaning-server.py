@@ -165,21 +165,30 @@ class Server:
             samples = np.frombuffer(message, dtype=np.float32)
             current = header
             header = None
-            hypotheses = await asyncio.to_thread(
-                self.probe.transcribe,
-                samples,
-                int(current.get("sampleRate", 16000)),
-                float(current.get("windowStartSec", 0.0)),
-            )
+            error: str | None = None
+            try:
+                hypotheses = await asyncio.to_thread(
+                    self.probe.transcribe,
+                    samples,
+                    int(current.get("sampleRate", 16000)),
+                    float(current.get("windowStartSec", 0.0)),
+                )
+            except Exception as exc:  # optional ASR must not take down the renderer
+                hypotheses = []
+                error = f"transcription-failed: {type(exc).__name__}"
+                print(f"[meaning] {error}", flush=True)
             self.revision += 1
-            await websocket.send(json.dumps({
+            response = {
                 "type": "live-lyrics",
                 "trackId": str(current.get("trackId", "")),
                 "playheadSec": float(current.get("playheadSec", 0.0)),
                 "revision": self.revision,
                 "model": self.probe.model_name,
                 "hypotheses": hypotheses,
-            }))
+            }
+            if error:
+                response["error"] = error
+            await websocket.send(json.dumps(response))
 
 
 async def main() -> None:
