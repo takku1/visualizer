@@ -4,6 +4,16 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 
 ## Implemented in this pass
 
+- Abstaining realization now explicitly asks the backend to avoid simple
+  geometric primitives, flat monochrome fills, isolated icon-like objects,
+  and abrupt replacement; it still preserves the evidence boundary rather
+  than inventing a literal story.
+- Non-monochrome palette families now carry distinct shadow, body, and
+  highlight colors (including complementary/analogous accents) so a palette
+  transition does not collapse into a single-color chapter. Procedural noise
+  seeds glide with the look transition, and normal scene splices paint over
+  two bars; explicit hard cuts remain immediate.
+
 - Typed scene continuity contracts accompany the legacy scalar `continuity` field.
 - Checkpoint timing receipts record source, confidence, requested beat, commit time, phase error, and timeout fallback.
 - A deterministic shot-graph seam supports candidate shots, weighted transitions, and prefetch intent.
