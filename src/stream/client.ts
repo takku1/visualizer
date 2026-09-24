@@ -144,6 +144,9 @@ export class StreamClient {
       this.concepts = null;
       this.meaning = null;
       this.liveLyrics = null;
+      // Do not expose the last sidecar frame as current generation telemetry.
+      // The procedural renderer may continue, but realization is disconnected.
+      this.meta = null;
       if (this.#closed) return;
       if (e.reason.startsWith('busy')) {
         // The sidecar has one driver and it is someone else. Retry calmly:
@@ -169,6 +172,7 @@ export class StreamClient {
     this.#ws = null;
     this.info = null;
     this.liveLyrics = null;
+    this.meta = null;
   }
 
   #scheduleRetry(delayMs: number): void {

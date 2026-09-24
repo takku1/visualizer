@@ -150,6 +150,7 @@ class Server:
             "type": "meaning-ready",
             "model": self.probe.model_name,
             "device": self.probe.device,
+            "language": self.probe.language or "auto",
         }))
         async for message in websocket:
             if isinstance(message, str):

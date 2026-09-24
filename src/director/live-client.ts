@@ -12,6 +12,7 @@ export class LiveMeaningClient {
   updatesReceived = 0;
   hypothesesReceived = 0;
   lastLanguage: string | null = null;
+  configuredLanguage: string | null = null;
   lastRevision: number | null = null;
 
   constructor(url: string, onUpdate: (update: LiveLyricUpdate) => void) {
@@ -33,11 +34,16 @@ export class LiveMeaningClient {
       if (typeof event.data !== 'string') return;
       try {
         const value: unknown = JSON.parse(event.data);
+        if (isRecord(value) && value.type === 'meaning-ready') {
+          this.configuredLanguage = typeof value.language === 'string' ? value.language : null;
+          if (!this.lastLanguage) this.lastLanguage = this.configuredLanguage;
+        }
         if (isLiveLyricUpdate(value)) {
           this.#inFlight = false;
           this.updatesReceived++;
           this.hypothesesReceived += value.hypotheses.length;
-          this.lastLanguage = value.hypotheses[0]?.language ?? this.lastLanguage;
+          const detected = value.hypotheses[0]?.language;
+          if (detected && detected !== 'und') this.lastLanguage = detected;
           this.lastRevision = value.revision;
           this.#onUpdate(value);
         }
@@ -56,12 +62,13 @@ export class LiveMeaningClient {
     ws.onerror = () => ws.close();
   }
 
-  telemetry(): { connected: boolean; updates: number; hypotheses: number; language: string | null; revision: number | null } {
+  telemetry(): { connected: boolean; updates: number; hypotheses: number; language: string | null; configuredLanguage: string | null; revision: number | null } {
     return {
       connected: this.connected,
       updates: this.updatesReceived,
       hypotheses: this.hypothesesReceived,
       language: this.lastLanguage,
+      configuredLanguage: this.configuredLanguage,
       revision: this.lastRevision,
     };
   }
@@ -87,4 +94,8 @@ export class LiveMeaningClient {
     }));
     ws.send(window.samples.slice().buffer);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

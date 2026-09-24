@@ -52,6 +52,7 @@ const summary = {
       samples: samples.length,
       latest,
       languages: [...new Set(samples.map((sample) => sample.language).filter(Boolean))],
+      configuredLanguages: [...new Set(samples.map((sample) => sample.configuredLanguage).filter(Boolean))],
       maxUpdates: samples.length ? Math.max(...samples.map((sample) => sample.updates ?? 0)) : 0,
       maxHypotheses: samples.length ? Math.max(...samples.map((sample) => sample.hypotheses ?? 0)) : 0,
       maxProvisional: samples.length ? Math.max(...samples.map((sample) => sample.provisional ?? 0)) : 0,
