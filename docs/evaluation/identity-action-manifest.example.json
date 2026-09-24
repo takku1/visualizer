@@ -1,0 +1,19 @@
+{
+  "references": {
+    "form-a": "reference/form-a.jpg"
+  },
+  "frames": [
+    {
+      "file": "captures/section-01-000.jpg",
+      "identity": "the persistent dominant form",
+      "identityGroup": "form-a",
+      "action": "flowing through open space"
+    },
+    {
+      "file": "captures/section-02-000.jpg",
+      "identity": "the persistent dominant form",
+      "identityGroup": "form-a",
+      "action": "gathering toward the center"
+    }
+  ]
+}
