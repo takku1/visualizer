@@ -8,9 +8,13 @@ audio/rhythm    meaning/shot  procedural structure + diffusion paint
 ```
 
 The clocks are intentionally different: feature physics runs every frame,
+System 0 structure memory observes beat or fixed half-second ticks on the CPU,
 semantic direction changes at sections or meaning revisions, and receipts are
 evaluated offline. Meaning is optional and may abstain; title concepts are a
-metadata fallback, not song understanding.
+metadata fallback, not song understanding. System 0 is currently shadow-only:
+its novelty/repetition evidence is logged through `FeatureFrame.structure`,
+while the legacy section clock remains authoritative until live-track
+evaluation shows that replacement is safer.
 
 ## Budget
 
@@ -46,6 +50,7 @@ Three planes, each with its own job:
 | Layer | Rate | Owns |
 | --- | --- | --- |
 | Perception + physics (browser) | 60 Hz / audio windows | rhythm, features, sampler controls, procedural structure |
+| System 0 structure memory | beat or 0.5 s CPU ticks | causal novelty/repetition evidence; no GPU work and no section authority yet |
 | Semantic direction (browser) | sections / meaning revisions | evidence, motifs, relations, actions, shot intent |
 | Realization (sidecar + renderer) | ~16 fps / 60 Hz display | diffusion paint, procedural composition, checkpoint transitions |
 

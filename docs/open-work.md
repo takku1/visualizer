@@ -117,6 +117,15 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 
 ## Still deliberately deferred
 
+- System 0 structure memory now exists in shadow mode. It consumes existing
+  beat/onset/chroma/timbre-proxy features and emits bounded novelty,
+  repetition, and segment evidence without replacing the legacy 24-second
+  fallback or Spotify section clock. The next gate is replay/live comparison
+  against annotated boundaries; only then should it be allowed to schedule
+  director transitions. See
+  [`docs/research/system0-design-sketch.md`](research/system0-design-sketch.md)
+  and the cited MIR literature there.
+
 - Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR and timed imports are available, but neither is a universal catalog solution.
 - Reference-image conditioning inside the real-time sidecar and a ground-truth visual identity/action evaluator remain deferred. The offline evaluator now supports optional reference-image diagnostics, adjacent temporal consistency, and explicit capture preflight; it cannot claim true object memory from CLIP scores alone.
 - TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.

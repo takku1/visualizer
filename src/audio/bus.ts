@@ -3,6 +3,7 @@ import { emptyFrame } from '../types';
 import { type AudioSource, BINS } from './source';
 import { RhythmAnalyzer } from '../rhythm';
 import type { RhythmicStructure } from '../rhythm';
+import { StructureMemory } from '../structure/memory';
 
 /**
  * Merges the audio sources into the single frame the renderer reads.
@@ -18,6 +19,7 @@ export class FeatureBus {
   #lastT = 0;
   #clock = new FallbackBeatClock();
   #rhythm = new RhythmAnalyzer();
+  #structure = new StructureMemory();
   #lastSectionAt = 0;
   #trackLevel = new RunningStats();
 
@@ -37,6 +39,7 @@ export class FeatureBus {
     this.#trackLevel.reset();
     this.#clock.reset();
     this.#rhythm.reset();
+    this.#structure.reset();
     this.#lastSectionAt = this.#frame.t;
     this.#frame.sectionIndex = 0;
     this.#frame.beatIndex = 0;
@@ -85,6 +88,7 @@ export class FeatureBus {
     f.microtiming = rhythm.feel.microtiming;
     f.subdivision = Math.min((rhythm.subdivisions[0]?.pulsesPerBeat ?? 1) / 8, 1);
     f.polyrhythm = rhythm.layers.some((layer) => layer.kind === 'polyrhythm') ? 1 : 0;
+    f.structure = this.#structure.observe(f);
 
     return f;
   }

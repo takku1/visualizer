@@ -18,6 +18,7 @@ import { CachedLyricsProvider, LocalTimedLyricsProvider, LrclibLyricsProvider, L
 import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
+import { StructureMemory } from '../src/structure/memory';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -45,6 +46,33 @@ function settle(patch: Partial<FeatureFrame>, seconds = 2): ReturnType<ControlMa
 }
 
 // ---------- audio -> sampling physics ----------
+
+test('System 0 observes a conservative repeat without changing section state', () => {
+  const memory = new StructureMemory();
+  let snapshot = memory.snapshot;
+  const events = [] as ReturnType<StructureMemory['observe']>['events'];
+  for (let i = 0; i < 10; i++) {
+    snapshot = memory.observe(frame({ t: i * 0.5, chroma: new Float32Array([1, ...new Array(11).fill(0)]) }));
+    events.push(...snapshot.events);
+  }
+  assert.equal(snapshot.source, 'system0');
+  assert.equal(snapshot.segmentId, 'A');
+  assert.ok(snapshot.repeatSimilarity >= 0.82);
+  assert.ok(events.some((event) => event.kind === 'repeat-start'));
+});
+
+test('System 0 exposes novelty as evidence rather than driving onSection', () => {
+  const memory = new StructureMemory();
+  for (let i = 0; i < 10; i++) {
+    const chroma = new Float32Array(12);
+    chroma[i % 12] = 1;
+    memory.observe(frame({ t: i * 0.5, chroma }));
+  }
+  const snapshot = memory.snapshot;
+  assert.equal(snapshot.source, 'system0');
+  assert.ok(snapshot.novelty > 0);
+  assert.ok(snapshot.events.some((event) => event.kind === 'boundary'));
+});
 
 test('silence yields the calm operating point', () => {
   assert.deepEqual(settle({ level: 0 }), CALM);

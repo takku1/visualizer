@@ -73,6 +73,8 @@ export interface FeatureFrame {
   microtiming: number;
   subdivision: number;
   polyrhythm: number;
+  /** Shadow-mode System 0 structure evidence; does not replace sectionIndex yet. */
+  structure?: import('./structure/memory').StructureSnapshot;
 }
 
 export function emptyFrame(bins: number): FeatureFrame {
