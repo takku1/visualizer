@@ -44,6 +44,9 @@ resolver for embedded tags or a neighboring `.lrc` file; it performs no file
 I/O itself. It is deliberately not
 silently promoted to licensed production evidence. A caller must explicitly
 decide whether unknown-rights development data may affect committed meaning.
+When a source omits a language tag, the adapter recovers Japanese or Korean
+only from their distinctive scripts; it does not infer an arbitrary language
+from Latin text.
 
 ## Cache identity
 

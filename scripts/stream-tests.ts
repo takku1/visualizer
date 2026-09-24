@@ -707,6 +707,13 @@ test('local timed lyric adapter preserves source and timing without filesystem w
   assert.equal(result?.language, 'ja');
 });
 
+test('timed lyric providers recover Japanese script language without guessing Latin languages', async () => {
+  const japanese = await new LocalTimedLyricsProvider(() => ({ source: 'file://song.lrc', text: '[00:01.00]雨の駅を歩いて' })).lookup({ trackId: 'ja', title: 'x', artist: 'y' });
+  const latin = await new LocalTimedLyricsProvider(() => ({ source: 'file://song.lrc', text: '[00:01.00]la noche canta' })).lookup({ trackId: 'latin', title: 'x', artist: 'y' });
+  assert.equal(japanese?.language, 'ja');
+  assert.equal(latin?.language, undefined);
+});
+
 test('timed lyric meaning shares bounded English/Japanese grounding with live ASR', () => {
   const english = meaningFromLyrics({
     provider: 'import', match: 'import', timing: 'line', rights: 'verified', confidence: 0.9,

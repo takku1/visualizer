@@ -124,7 +124,7 @@ export class LocalTimedLyricsProvider implements LyricsProvider {
       providerUrl: local.source,
       retrievedAt: new Date().toISOString(),
       match: 'import',
-      language: local.language,
+      language: languageFromEvidence(local.language, local.text),
       timing: 'line',
       // Local ownership/source does not prove redistribution rights.
       rights: 'unknown',
@@ -171,7 +171,7 @@ export class LrclibLyricsProvider implements LyricsProvider {
       providerUrl: 'https://lrclib.net',
       retrievedAt: new Date().toISOString(),
       match: 'metadata',
-      language: stringValue(raw.language) ?? undefined,
+      language: languageFromEvidence(stringValue(raw.language) ?? undefined, lines.map((line) => line.text).join('\n') || (plain ? raw.plainLyrics as string : '')),
       timing: lines.length ? 'line' : 'none',
       // LRCLIB is community data. Callers must explicitly opt into unknown
       // rights before using it as committed semantic evidence.
@@ -216,6 +216,15 @@ function stringValue(value: unknown): string | null {
 
 function numberValue(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** Recover only high-confidence script evidence; never guess a spoken language from Latin text. */
+function languageFromEvidence(hint: string | undefined, text: string): string | undefined {
+  const normalized = hint?.trim().toLowerCase().split(/[-_]/u, 1)[0];
+  if (normalized && normalized !== 'und' && normalized !== 'unknown') return normalized;
+  if (/[぀-ヿ]/u.test(text)) return 'ja';
+  if (/[가-힯]/u.test(text)) return 'ko';
+  return normalized === 'und' ? 'und' : undefined;
 }
 
 function matchConfidence(query: LyricsLookup, raw: Record<string, unknown>, duration: number | null): number {
