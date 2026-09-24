@@ -64,6 +64,11 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   visible sessions retain RAF cadence. A fresh forced-Japanese run sustained
   structured sidecar output at roughly 11–14 FPS and reported one committed
   symbol-only hypothesis; semantic grounding correctly remained zero.
+- A complementary auto-language run on two further tracks kept the same
+  continuous/structured realization invariant, but produced only one
+  provisional ASR update per track and no commits. This is insufficient
+  evidence for English semantic quality, not a false positive; a longer
+  foreground vocal capture remains required.
 - An isolated cuDNN-autotune experiment measured 85.0 ms median / 86.4 ms p90, but raised peak VRAM to 4080 MB and retains batch-shape autotuning stalls. It is rejected for the 6 GB live target; the default remains `cudnn.benchmark=False`.
 
 ## Still deliberately deferred
