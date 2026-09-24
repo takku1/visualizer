@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import net from 'node:net';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +29,19 @@ const children = new Set();
 let shuttingDown = false;
 const STREAM_PORT = 8771;
 const MEANING_PORT = 8772;
+
+// A terminal/PTY can disappear while Electron and the model workers are still
+// useful. Never let an inherited stdout pipe take a sidecar down with it.
+process.stdout.on('error', () => {});
+process.stderr.on('error', () => {});
+const sidecarLogDir = join(projectRoot, 'logs');
+mkdirSync(sidecarLogDir, { recursive: true });
+
+function sidecarStdio(label) {
+  const output = openSync(join(sidecarLogDir, `${label}.out.log`), 'a');
+  const errors = openSync(join(sidecarLogDir, `${label}.err.log`), 'a');
+  return ['ignore', output, errors];
+}
 
 function shutdown(code = 0) {
   if (shuttingDown) return;
@@ -82,8 +95,12 @@ async function restartSidecar(port, label) {
   }
 }
 
-function start(command, args) {
-  const child = spawn(command, args, { cwd: projectRoot, stdio: 'inherit', windowsHide: false });
+function start(command, args, options = {}) {
+  const child = spawn(command, args, {
+    cwd: projectRoot,
+    stdio: options.stdio ?? 'inherit',
+    windowsHide: false,
+  });
   children.add(child);
   child.once('exit', () => children.delete(child));
   return child;
@@ -118,7 +135,8 @@ try {
       if (await portIsListening(STREAM_PORT)) {
         console.warn(`[app] stream sidecar already listening on ${STREAM_PORT}; reusing it`);
       } else {
-        start(python, [join(projectRoot, 'tools/stream-server.py')]).once('error', (err) => console.error(`[app] stream sidecar: ${err.message}`));
+        start(python, [join(projectRoot, 'tools/stream-server.py')], { stdio: sidecarStdio('stream-sidecar') })
+          .once('error', (err) => console.error(`[app] stream sidecar: ${err.message}`));
       }
     } else {
       console.warn('[app] models missing - run `npm run models` first. Starting without the stream.');
@@ -130,7 +148,7 @@ try {
     if (await portIsListening(MEANING_PORT)) {
       console.warn(`[app] meaning worker already listening on ${MEANING_PORT}; reusing it`);
     } else {
-      start(python, [join(projectRoot, 'tools/meaning-server.py')])
+      start(python, [join(projectRoot, 'tools/meaning-server.py')], { stdio: sidecarStdio('meaning-sidecar') })
         .once('error', (err) => console.error(`[app] meaning worker: ${err.message}`))
         .once('exit', (code) => {
           if (code !== 0 && !shuttingDown) console.warn(`[app] meaning worker exited (${code}); procedural/metadata mode remains available`);

@@ -444,6 +444,12 @@ test('Japanese grounding accepts common inflections without widening abstention'
   }, 1, 0)?.abstained, true);
 });
 
+test('Japanese pronouns do not create weak person entities when a concrete cue is available', () => {
+  const motifs = groundMotifs('とりがわたしを呼んでいる', 'ja', 0.9, 'ja-call', 'audio');
+  assert.deepEqual(motifs.map((motif) => motif.kind), ['object']);
+  assert.equal(groundedAction('とりがわたしを呼んでいる', 'ja'), 'calls or summons another form');
+});
+
 test('grounding is language-gated and unsupported languages remain symbols', () => {
   assert.deepEqual(groundMotifs('여자가 걷는다', 'ko', 0.9, 'ko-1', 'audio').map((motif) => motif.kind), ['symbol']);
   assert.equal(groundedAction('여자가 걷는다', 'ko'), null);

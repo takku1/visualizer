@@ -24,9 +24,12 @@ export interface GroundingResult {
 }
 
 const VOCAB: Record<GroundableKind, readonly [RegExp, string][]> = {
-  person: [[/\b(woman|girl|man|boy|person|child|mother|father|lover)\b/iu, 'person'], [/彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人|人|ひと|僕|ぼく|私|わたし|君|きみ|あなた|誰/u, 'person']],
+  // First/second-person pronouns are common lyric language but weak evidence
+  // for a persistent visual entity. Keep concrete person nouns here; a future
+  // discourse-aware adapter can resolve pronouns without polluting the world.
+  person: [[/\b(woman|girl|man|boy|person|child|mother|father|lover)\b/iu, 'person'], [/彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人/u, 'person']],
   place: [[/\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|field|night)\b/iu, 'place'], [/駅|駅前|ホーム|街|町|通り|道|路地|部屋|家|森|庭|川|海|海辺|山|橋|学校|野原|夜|夜空|世界|場所/u, 'place']],
-  object: [[/\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\b/iu, 'object'], [/電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|犬|猫|夢|心|声|歌|手紙|身体|体/u, 'object']],
+  object: [[/\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\b/iu, 'object'], [/電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|とり|犬|猫|夢|心|声|歌|手紙|身体|体/u, 'object']],
   force: [[/\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn|love|tears|time)\b/iu, 'force'], [/雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時/u, 'force']],
   texture: [[/\b(fog|smoke|mist|water|ice|dust|glass|stone|shadow|sky|world)\b/iu, 'texture'], [/霧|煙|水|氷|埃|ほこり|ガラス|石|影|空|世界|赤|青|白|色/u, 'texture']],
 };
@@ -44,6 +47,7 @@ const ACTIONS: readonly [RegExp, string][] = [
   [/\b(sway|swaying|sways|flow|flowing|flows|drift|drifting|drifts|float|floating)\b/iu, 'moves with a flowing motion'],
   [/\b(gather|gathering|gathers|meet|meeting|meets|converge|converging|cross|crossing|crosses)\b/iu, 'converges with another form'],
   [/\b(open|opening|opens|close|closing|closes|unfold|unfolding)\b/iu, 'reveals or conceals space'],
+  [/\b(call|calling|calls|summon|summoning)\b/iu, 'calls or summons another form'],
 ];
 
 const JAPANESE_ACTIONS: readonly [RegExp, string][] = [
@@ -59,6 +63,7 @@ const JAPANESE_ACTIONS: readonly [RegExp, string][] = [
   [/揺れる|揺れて|揺らぐ|揺らいで|揺らめく|流れる|流れて|流れていく|漂う|漂って|浮かぶ|浮かんで|たゆたう/u, 'moves with a flowing motion'],
   [/集まる|集まって|集う|出会う|出会って|交差する|交差して|重なる|重なって|寄り添う|繋がる|つながる/u, 'converges with another form'],
   [/開く|開いて|閉じる|閉じて|ほどける|ほどけて|ひらく|ひらいて|解ける|解けて/u, 'reveals or conceals space'],
+  [/呼ぶ|呼んで|呼んでいる|呼びかける|呼びかけて|叫ぶ|叫んで/u, 'calls or summons another form'],
 ];
 
 function normalizedLanguage(language: string): string {

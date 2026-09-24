@@ -28,9 +28,9 @@ const confidence = 0.9;
 // recognized labels only expose safe renderer handles. Unknown text remains a
 // symbol so an importer cannot silently invent a world.
 const VOCAB = [
-  ['person', /\b(woman|girl|man|boy|person|child|mother|father|lover)\b/iu, /彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人|人|ひと|僕|ぼく|私|わたし|君|きみ|あなた|誰/u],
+  ['person', /\b(woman|girl|man|boy|person|child|mother|father|lover)\b/iu, /彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人/u],
   ['place', /\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|field|night)\b/iu, /駅|駅前|ホーム|街|町|通り|道|路地|部屋|家|森|庭|川|海|海辺|山|橋|学校|野原|夜|夜空|世界|場所/u],
-  ['object', /\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\b/iu, /電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|犬|猫|夢|心|声|歌|手紙|身体|体/u],
+  ['object', /\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\b/iu, /電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|とり|犬|猫|夢|心|声|歌|手紙|身体|体/u],
   ['force', /\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn|love|tears|time)\b/iu, /雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時/u],
   ['texture', /\b(fog|smoke|mist|water|ice|dust|glass|stone|shadow|sky|world)\b/iu, /霧|煙|水|氷|埃|ほこり|ガラス|石|影|空|世界|赤|青|白|色/u],
 ];
@@ -86,5 +86,6 @@ function boundedAction(value) {
     || /集まる|集まって|出会う|出会って|交差する|交差して|重なる|重なって|寄り添う/u.test(value)) return 'converges with another form';
   if (/\b(sway|swaying|sways|flow|flowing|flows|drift|drifting|drifts|float|floating)\b/iu.test(value) || /揺れる|揺れて|揺らぐ|揺らいで|流れる|流れて|漂う|漂って|浮かぶ|浮かんで/u.test(value)) return 'moves with a flowing motion';
   if (/\b(open|opening|opens|close|closing|closes|unfold|unfolding)\b/iu.test(value) || /開く|開いて|閉じる|閉じて|ほどける|ほどけて|ひらく|ひらいて|解ける|解けて/u.test(value)) return 'reveals or conceals space';
+  if (/\b(call|calling|calls|summon|summoning)\b/iu.test(value) || /呼ぶ|呼んで|呼んでいる|呼びかける|呼びかけて|叫ぶ|叫んで/u.test(value)) return 'calls or summons another form';
   return null;
 }

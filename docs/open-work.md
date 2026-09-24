@@ -14,6 +14,8 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   `keyframesEnabled` so one-session-per-song behavior is directly auditable.
 - `WorldState` transitions now have a pure `applySceneDiff` reducer; checkpoint commits calculate against the prior committed world and expose the committed world to callers.
 - World diffs reconcile rolling ASR evidence IDs by stable entity kind/label before declaring replacement. This prevents a revised transcript window from turning the same bounded cue into an identity break; duplicate labels are matched deterministically and true unmatched additions/removals remain explicit.
+- The app launcher isolates sidecar stdout/stderr into persistent log files and tolerates launcher pipe closure, so closing a terminal or losing a PTY cannot propagate `BrokenPipe` failure into the diffusion or meaning worker.
+- Japanese grounding treats first/second-person pronouns as weak lyric evidence rather than persistent person entities, while recognizing kana forms such as `とり` and bounded calling actions when concrete cues are present.
 - Persistent `ColorState` and `LightingState` now live with world visual identity and compile deterministically to the existing `Look`; knob blending updates both representations.
 - `Shot` and `RealizationRequest` now separate presentation/backend compilation from authoritative world state; the current sidecar remains a legacy-compatible adapter.
 - Continuous audio is now mapped into bounded renderer-neutral forces and transported separately from semantic content; ShotGraph nodes carry world/shot diffs instead of only prompt candidates.
