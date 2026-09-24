@@ -129,6 +129,13 @@ def compile_structured_prompt(realization: dict) -> str:
         parts.append(f"shot grammar: {shot['grammar']}")
     if shot.get("framing"):
         parts.append(f"framing: {shot['framing']}")
+    visual = world.get("visualIdentity", {})
+    color = visual.get("color", {}) if isinstance(visual, dict) else {}
+    lighting = visual.get("lighting", {}) if isinstance(visual, dict) else {}
+    if isinstance(color, dict) and color.get("scheme"):
+        parts.append(f"persistent color scheme: {color['scheme']}, temperature {float(color.get('temperature', 0.5)):.2f}, accent weight {float(color.get('accentWeight', 0.0)):.2f}")
+    if isinstance(lighting, dict) and lighting.get("direction"):
+        parts.append(f"persistent lighting: {lighting['direction']}, warmth {float(lighting.get('warmth', 0.5)):.2f}, atmosphere {float(lighting.get('atmosphere', 0.0)):.2f}")
     additions = diff.get("add", []) if isinstance(diff, dict) else []
     if additions:
         labels = [str(item.get("label")) for item in additions if isinstance(item, dict) and item.get("label")]
