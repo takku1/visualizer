@@ -108,7 +108,12 @@ export function compileSemanticScene(meaning: SongMeaning, sectionIndex: number,
   // in a song. Narrative realization requires timestampable lyric/transcript or
   // validated audio-language evidence in addition to the motif graph.
   const hasNarrativeEvidence = meaning.evidence.some((item) => item.source === 'lyrics' || item.source === 'audio');
-  if (meaning.abstained || !meaning.motifs.length || !hasNarrativeEvidence) return null;
+  // A timestamped line is still not an observed world handle. Unknown or
+  // unsupported-language lines are retained as symbols for provenance, but
+  // must remain in perceptual fallback mode rather than becoming a semantic
+  // scene with a fake "central motif".
+  const hasGroundedMotif = meaning.motifs.some((motif) => motif.kind !== 'symbol');
+  if (meaning.abstained || !hasGroundedMotif || !hasNarrativeEvidence) return null;
   ledger?.update(meaning, sectionIndex);
   const anchors = new Map(ledger?.entries().map((entry) => [entry.motifId, entry.anchor]));
   const section = meaning.sections.find((candidate) => candidate.index === sectionIndex) ?? meaning.sections[0];

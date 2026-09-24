@@ -1308,6 +1308,16 @@ test('scene generation keeps semantic manifests separate from legacy world prose
   assert.equal(metadataOnlyManifest.source, 'abstract-fallback');
   assert.ok(metadataOnlyManifest.prompt.includes('no literal subject'));
 
+  const symbolOnlyMeaning: SongMeaning = {
+    ...meaning,
+    motifs: [{ id: 'symbol', kind: 'symbol', label: 'unsupported lyric window', attributes: [], confidence: 0.9, source: 'lyrics' }],
+    relations: [],
+    sections: [{ ...meaning.sections[0]!, activeMotifs: ['symbol'] }],
+  };
+  const symbolOnly = sceneFromPlan(initialPlan(), { trackId: 'symbol-only-track', meaning: symbolOnlyMeaning }, 0);
+  assert.equal(symbolOnly.source, 'abstract-fallback');
+  assert.ok(symbolOnly.prompt.includes('no literal subject'));
+
   const metadata = sceneFromPlan(initialPlan(), { trackId: 'metadata-track', concepts: ['miku'] }, 0);
   assert.equal(metadata.source, 'metadata-fallback');
   assert.ok(metadata.prompt.startsWith('Music-video realization under uncertainty:'));
