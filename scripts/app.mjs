@@ -12,6 +12,9 @@ const python = process.env.PYTHON ?? 'python';
 const withStream = !process.argv.includes('--no-stream');
 // Meaning is part of the normal product path. Use --no-meaning only for performance isolation.
 const withMeaning = !process.argv.includes('--no-meaning');
+const meaningLanguageIndex = process.argv.indexOf('--meaning-language');
+const meaningLanguage = meaningLanguageIndex >= 0 ? process.argv[meaningLanguageIndex + 1] : null;
+if (meaningLanguage && !meaningLanguage.startsWith('--')) process.env.MEANING_ASR_LANGUAGE = meaningLanguage;
 const children = new Set();
 let shuttingDown = false;
 
