@@ -619,7 +619,12 @@ export class VisualizerApp {
           drift: stream.meta.drift ?? null,
         } : null,
         meaning: this.#meaningTelemetry(),
-        control: { strength: control.strength, feedback: control.feedback, noise: control.noise, flow: control.flow },
+        control: {
+          strength: control.strength, feedback: control.feedback, noise: control.noise,
+          flow: control.flow, flowSpeed: control.flowSpeed, detail: control.detail,
+          hue: control.hue, swell: control.swell, glass: control.glass, lurch: control.lurch,
+          push: this.#mapper.push, energy: this.#mapper.energy,
+        },
         shotGraph: this.#shotGraphTelemetry(),
         realization: {
           mode: 'continuous-song',
