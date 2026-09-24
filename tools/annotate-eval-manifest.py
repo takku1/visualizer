@@ -26,6 +26,8 @@ def annotate(
     identity_indices: list[int] | None = None,
     action: str | None = None,
     action_indices: list[int] | None = None,
+    action_direction: str | None = None,
+    action_axis: str | None = None,
     reference: str | None = None,
 ) -> dict:
     frames = manifest.get("frames")
@@ -46,6 +48,10 @@ def annotate(
             raise ValueError("action annotation requires --action and --action-indices")
         for index in action_indices:
             frames[index]["action"] = action
+            if action_direction:
+                frames[index]["actionDirection"] = action_direction
+            if action_axis:
+                frames[index]["actionAxis"] = action_axis
     manifest.setdefault("capture", {})["annotationStatus"] = "annotated"
     return manifest
 
@@ -58,6 +64,8 @@ def main() -> None:
     parser.add_argument("--identity-indices", help="comma-separated zero-based frame indices")
     parser.add_argument("--action")
     parser.add_argument("--action-indices", help="comma-separated zero-based frame indices")
+    parser.add_argument("--action-direction", choices=("left", "right", "up", "down", "any"))
+    parser.add_argument("--action-axis", choices=("horizontal", "vertical", "any"))
     parser.add_argument("--reference")
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -69,6 +77,8 @@ def main() -> None:
         identity_indices=parse_indices(args.identity_indices, size) if args.identity_indices else None,
         action=args.action,
         action_indices=parse_indices(args.action_indices, size) if args.action_indices else None,
+        action_direction=args.action_direction,
+        action_axis=args.action_axis,
         reference=args.reference,
     )
     args.manifest.write_text(json.dumps(updated, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

@@ -23,8 +23,8 @@ with tempfile.TemporaryDirectory() as directory:
     base = {
         "references": {"form-a": "ref.jpg"},
         "frames": [
-            {"file": "a.jpg", "identity": "form", "identityGroup": "form-a", "action": "flowing"},
-            {"file": "b.jpg", "identity": "form", "identityGroup": "form-a", "action": "flowing"},
+            {"file": "a.jpg", "identity": "form", "identityGroup": "form-a", "action": "flowing", "actionDirection": "right", "actionAxis": "horizontal"},
+            {"file": "b.jpg", "identity": "form", "identityGroup": "form-a", "action": "flowing", "actionDirection": "right", "actionAxis": "horizontal"},
         ],
     }
     valid = module.validate_manifest(base, root)
@@ -69,5 +69,14 @@ with tempfile.TemporaryDirectory() as directory:
     )
     assert flow["sequences"]["moving-form"]["adjacentPairs"] == 1
     assert flow["sequences"]["moving-form"]["meanMagnitude"] > 0
+    assert flow["sequences"]["moving-form"]["directionLabeledPairs"] == 0
+
+    flow = module.optical_flow_diagnostics(
+        [{"file": "flow-a.png", "actionDirection": "right", "actionAxis": "horizontal"}, {"file": "flow-b.png", "actionDirection": "right", "actionAxis": "horizontal"}],
+        root,
+        {"moving-form": [0, 1]},
+    )
+    assert flow["sequences"]["moving-form"]["directionLabeledPairs"] == 1
+    assert flow["sequences"]["moving-form"]["axisLabeledPairs"] == 1
 
 print("world evaluation preflight contract ok")

@@ -34,9 +34,11 @@ It is deliberately outside the real-time loop.
      --identity-group form-a `
      --identity "persistent dominant form" `
      --identity-indices 0,1,2 `
-     --action "moving laterally" `
-     --action-indices 0,1,2 `
-     --reference reference/form-a.jpg
+   --action "moving laterally" `
+   --action-indices 0,1,2 `
+   --action-direction right `
+   --action-axis horizontal `
+   --reference reference/form-a.jpg
    ```
 
    The command rejects references that reuse captured frames.
@@ -79,6 +81,13 @@ comparison between conditions, not proof of object identity, correspondence,
 or narrative truth. Every report explicitly declares `evaluationMode:
 diagnostic`, `identityVerified: false`, and `actionVerified: false` until a
 correspondence/action evaluator with ground-truth validation is connected.
+
+When a human can specify a coarse expected motion direction or axis, the
+annotation tool records `actionDirection` (`left`, `right`, `up`, `down`, or
+`any`) and/or `actionAxis` (`horizontal`, `vertical`, or `any`). The optical
+flow report then includes direction/axis agreement for adjacent pairs. This is
+useful action evidence, not an action classifier: it does not separate camera
+motion from subject motion and does not change the verification flags.
 
 For an abstaining or emergent run where no persistent subject can be honestly
 annotated, use `sequenceGroup` without `identity`, `identityGroup`, or `action`.

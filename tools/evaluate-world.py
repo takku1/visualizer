@@ -131,6 +131,10 @@ def optical_flow_diagnostics(rows: list[dict], root: Path, groups: dict[str, lis
     for index, row in enumerate(rows):
         loaded[index] = np.asarray(Image.open(root / row["file"]).convert("L"))
     report: dict[str, object] = {}
+    direction_vectors = {
+        "left": (-1.0, 0.0), "right": (1.0, 0.0),
+        "up": (0.0, -1.0), "down": (0.0, 1.0),
+    }
     for group, indices in groups.items():
         pairs: list[dict[str, float]] = []
         for first, second in zip(indices, indices[1:]):
@@ -142,6 +146,17 @@ def optical_flow_diagnostics(rows: list[dict], root: Path, groups: dict[str, lis
             magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1], angleInDegrees=True)
             mean_vector = np.array([flow[..., 0].mean(), flow[..., 1].mean()])
             mean_magnitude = float(magnitude.mean())
+            expected_direction = str(rows[second].get("actionDirection") or rows[first].get("actionDirection") or "")
+            expected_axis = str(rows[second].get("actionAxis") or rows[first].get("actionAxis") or "")
+            vector_norm = float(np.linalg.norm(mean_vector))
+            direction_agreement = None
+            axis_agreement = None
+            if expected_direction in direction_vectors and vector_norm > 1e-8:
+                expected = np.array(direction_vectors[expected_direction])
+                direction_agreement = float(np.dot(mean_vector / vector_norm, expected))
+            if expected_axis in {"horizontal", "vertical"} and vector_norm > 1e-8:
+                dominant_axis = "horizontal" if abs(float(mean_vector[0])) >= abs(float(mean_vector[1])) else "vertical"
+                axis_agreement = float(dominant_axis == expected_axis)
             pairs.append({
                 "from": first,
                 "to": second,
@@ -151,19 +166,29 @@ def optical_flow_diagnostics(rows: list[dict], root: Path, groups: dict[str, lis
                 if np.linalg.norm(mean_vector) > 1e-8 else None,
                 "directionalCoherence": float(np.linalg.norm(mean_vector) / max(mean_magnitude, 1e-8)),
                 "meanAngleDegrees": float(np.mean(angle)),
+                "expectedDirection": expected_direction or None,
+                "expectedAxis": expected_axis or None,
+                "directionAgreement": direction_agreement,
+                "axisAgreement": axis_agreement,
             })
         magnitudes = [pair["meanMagnitude"] for pair in pairs]
         coherences = [pair["directionalCoherence"] for pair in pairs]
+        direction_scores = [pair["directionAgreement"] for pair in pairs if pair["directionAgreement"] is not None]
+        axis_scores = [pair["axisAgreement"] for pair in pairs if pair["axisAgreement"] is not None]
         report[group] = {
             "frames": len(indices),
             "adjacentPairs": len(pairs),
             "meanMagnitude": float(np.mean(magnitudes)) if magnitudes else None,
             "meanDirectionalCoherence": float(np.mean(coherences)) if coherences else None,
+            "directionLabeledPairs": len(direction_scores),
+            "meanDirectionAgreement": float(np.mean(direction_scores)) if direction_scores else None,
+            "axisLabeledPairs": len(axis_scores),
+            "axisAgreementRate": float(np.mean(axis_scores)) if axis_scores else None,
             "pairs": pairs,
         }
     return {
         "sequences": report,
-        "note": "Dense Farneback flow is motion evidence only; it does not identify subjects, separate camera motion, or verify an action label.",
+        "note": "Dense Farneback flow is motion evidence only; it does not identify subjects, separate camera motion, or verify an action label. Direction/axis agreement is meaningful only when human annotation supplies the expected direction or axis and remains a diagnostic.",
         "method": "Farneback-2003 dense optical flow",
     }
 
