@@ -30,11 +30,11 @@ export function perceptualIntentFromScene(scene: Scene): PerceptualIntent {
   const lighting = lightingStateFromLook(scene.look);
   return {
     form: organic ? ['organic', 'soft-bodied', 'asymmetric'] : ['structured', 'layered', 'articulated'],
-    behavior: actionWords(action),
+    behavior: scene.provisionalCue?.behavior ?? actionWords(action),
     spatiality: shotWords(shot),
-    materiality: organic ? ['fibrous', 'translucent'] : ['mineral', 'laminated'],
-    motion: motionWords(action, scene.look.warp),
-    lighting: [lighting.direction, lighting.atmosphere > 0.55 ? 'diffuse' : 'defined'],
+    materiality: scene.provisionalCue?.materiality?.length ? scene.provisionalCue.materiality : organic ? ['fibrous', 'translucent'] : ['mineral', 'laminated'],
+    motion: scene.provisionalCue?.motion?.length ? scene.provisionalCue.motion : motionWords(action, scene.look.warp),
+    lighting: scene.provisionalCue?.lighting?.length ? scene.provisionalCue.lighting : [lighting.direction, lighting.atmosphere > 0.55 ? 'diffuse' : 'defined'],
     color: [color.scheme, color.temperature >= 0.55 ? 'warm pressure' : 'cool pressure'],
     tension: scene.continuityContract.transition === 'cut' ? ['restrained', 'expanding'] : ['continuous', 'evolving'],
     affect: semantic ? (semantic.action ? [semantic.action] : []) : [],

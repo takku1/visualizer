@@ -143,6 +143,12 @@ internal motion substrate.
 `SongMeaning.language` is an optional BCP 47 tag propagated to telemetry; language
 identification and translation remain upstream research seams.
 
+Live ASR can also yield a `provisionalCue`. This is intentionally weaker than
+`SongMeaning`: recognized actions or weather can modulate perceptual behavior,
+material, motion, or lighting, but the cue cannot create an entity, replace an
+identity, or request a checkpoint. Only committed evidence enters semantic
+world state.
+
 The prompt realization is now shot-oriented rather than a comma-joined visualizer
 tag list. Evidence-backed scenes name a music-video shot, action, camera, and
 visual treatment. In a metadata or abstract fallback, title words are explicitly

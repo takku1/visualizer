@@ -1,6 +1,40 @@
 import type { LiveMeaningState } from './live-accumulator';
 import type { SongMeaning } from './semantic';
 
+/** Low-risk cue from current ASR; it cannot create or replace world entities. */
+export interface ProvisionalPerceptualCue {
+  behavior: string[];
+  materiality: string[];
+  motion: string[];
+  lighting: string[];
+  confidence: number;
+}
+
+export function perceptualCueFromLive(state: LiveMeaningState): ProvisionalPerceptualCue | null {
+  const candidates = state.provisional
+    .filter((item) => item.status === 'provisional' && item.confidence >= 0.6)
+    .slice(-4);
+  if (!candidates.length) return null;
+  const text = candidates.map((item) => item.text).join(' ');
+  const action = actionFor(text, candidates[0]!.language);
+  const weather = /\b(rain|rainy|snow|wind|fog|mist|fire|wave|water)\b/iu.test(text)
+    || /雨|雪|風|霧|煙|火|波|水/u.test(text);
+  if (!action && !weather) return null;
+  const behavior = action === 'walks through the environment' || action === 'runs through the environment'
+    ? ['traveling', 'rhythmic', 'forward-pulling']
+    : action === 'moves rhythmically' ? ['gathering', 'pulsing', 'expressive']
+      : action === 'waits in place' ? ['suspended', 'gathered', 'restrained']
+        : action === 'converges with another form' ? ['gathering', 'reaching', 'converging']
+          : ['drifting', 'revealing', 'becoming'];
+  return {
+    behavior,
+    materiality: weather ? ['wet', 'atmospheric'] : [],
+    motion: action === 'runs through the environment' ? ['accelerating', 'urgent'] : ['flowing', 'responsive'],
+    lighting: weather ? ['diffuse', 'reflective'] : [],
+    confidence: Math.max(...candidates.map((item) => item.confidence)),
+  };
+}
+
 /** Promote only accumulator-approved ASR phrases into the normal meaning contract. */
 export function meaningFromLive(state: LiveMeaningState, revision: number, sectionIndex: number): SongMeaning | null {
   const committed = state.committed.filter((item) => item.status === 'committed');

@@ -11,7 +11,7 @@ import { CheckpointScheduler, realizationRequestFromCheckpoint, type StreamObser
 import { addShotCandidate, compileShotGraph, nextShots, ShotGraphRuntime } from '../src/stream/shot-graph';
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
-import { meaningFromLive } from '../src/director/live-meaning';
+import { meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
@@ -361,6 +361,16 @@ test('unknown committed live wording remains a symbol instead of inventing a wor
   }, 4, 0);
   assert.deepEqual(meaning?.motifs.map((motif) => motif.kind), ['symbol']);
   assert.equal(meaning?.sections[0]?.action, 'the vocal motif moves through the frame');
+});
+
+test('provisional live action becomes a perceptual cue without creating entities', () => {
+  const cue = perceptualCueFromLive({
+    trackId: 'provisional', provisional: [{ ...liveHypothesis, text: '雨の中を歩いている', language: 'ja', status: 'provisional' }],
+    committed: [], candidateCount: 1, maxCandidateObservations: 1,
+  });
+  assert.ok(cue);
+  assert.ok(cue.behavior.includes('traveling'));
+  assert.ok(cue.materiality.includes('wet'));
 });
 
 test('abstaining fallback compiles perceptual constraints before legacy geometry', () => {

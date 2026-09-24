@@ -130,7 +130,9 @@ meaning over time while never breaking visual continuity.
    vocal tracks before choosing a model.
 3. Add an evidence accumulator with overlap stability, expiration, and
    contradiction handling.
-4. Add provisional low-risk controls only: motion, camera, and shot pressure.
+4. Add provisional low-risk controls only: perceptual behavior, material,
+   motion, lighting, camera, and shot pressure. These cues must not add or
+   replace entities, change identity, or trigger a checkpoint.
 5. Add section-boundary commits into the existing meaning compiler and motif
    ledger.
 6. Add repeated-section detection and reversible reprise prediction.

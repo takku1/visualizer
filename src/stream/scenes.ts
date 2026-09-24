@@ -3,6 +3,7 @@ import type { TrackContext } from '../director/director';
 import { compileSemanticScene, type MotifLedger, type SemanticScene } from '../director/semantic';
 import { worldStateFromScene, type WorldState } from '../world/state';
 import type { Shot } from '../world/shot';
+import type { ProvisionalPerceptualCue } from '../director/live-meaning';
 
 export type Rgb = [number, number, number];
 
@@ -38,6 +39,8 @@ export interface Scene {
   fingerprint: SceneFingerprint;
   /** Renderer-independent persistent world representation. */
   world: WorldState;
+  /** Provisional cue may shape perceptual intent, never literal identity. */
+  provisionalCue?: ProvisionalPerceptualCue;
 }
 
 export type SceneSource = 'semantic-manifest' | 'metadata-fallback' | 'abstract-fallback';
@@ -154,7 +157,7 @@ function visualTreatment(plan: VisualPlan, includeProceduralVocabulary = true): 
  * diffusion adapter can discover a stable visual ontology while the procedural
  * renderer remains the continuous motion substrate.
  */
-function perceptualFallback(plan: VisualPlan): string {
+function perceptualFallback(plan: VisualPlan, cue?: ProvisionalPerceptualCue): string {
   const organic = ORGANIC[plan.texture.top] >= 0.55;
   const form = organic ? 'organic, soft-bodied, asymmetric' : 'structured, layered, articulated';
   const behavior = ({
@@ -166,14 +169,17 @@ function perceptualFallback(plan: VisualPlan): string {
   const material = organic ? 'fibrous, translucent material' : 'mineral, laminated material';
   const motion = plan.intensity >= 3 ? 'accelerating and volatile' : plan.intensity >= 1.5 ? 'flowing with rising pressure' : 'slow, suspended, and continuous';
   const tension = plan.hardCut > 0.5 ? 'restrained becoming expansive' : 'continuous and evolving';
-  return `Music-video realization under uncertainty: no literal subject, event, or location is asserted. Discover an emergent world from these perceptual constraints: form ${form}; behavior ${behavior}; space ${space}; material ${material}; motion ${motion}; tension ${tension}. Preserve the dominant visual form and its identity across frames; let music modulate existing motion, light, and atmosphere without inventing a new story, text, logo, or object. ${visualTreatment(plan, false)}`;
+  const cueText = cue
+    ? ` A provisional low-risk cue suggests behavior ${cue.behavior.join(', ')}${cue.materiality.length ? ` and material ${cue.materiality.join(', ')}` : ''}; treat it as pressure, not as a literal subject or event.`
+    : '';
+  return `Music-video realization under uncertainty: no literal subject, event, or location is asserted. Discover an emergent world from these perceptual constraints: form ${form}; behavior ${behavior}; space ${space}; material ${material}; motion ${motion}; tension ${tension}.${cueText} Preserve the dominant visual form and its identity across frames; let music modulate existing motion, light, and atmosphere without inventing a new story, text, logo, or object. ${visualTreatment(plan, false)}`;
 }
 
 export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number, ledger?: MotifLedger): Scene {
   const semantic = ctx.meaning ? compileSemanticScene(ctx.meaning, ctx.sectionIndex ?? 0, PALETTE[plan.palette.top], ledger) : null;
   const subject = ctx.concepts?.length ? ctx.concepts.join(' and ') : '';
   const source: SceneSource = semantic ? 'semantic-manifest' : subject ? 'metadata-fallback' : 'abstract-fallback';
-  const narrative = semantic?.prompt ?? perceptualFallback(plan);
+  const narrative = semantic?.prompt ?? perceptualFallback(plan, ctx.provisionalCue);
   const parts = semantic ? [narrative, visualTreatment(plan)] : [narrative];
   const seed = hash(`${ctx.trackId ?? ctx.title ?? 'session'}#${index}`);
   const semanticParts = semantic ? {
@@ -228,6 +234,7 @@ export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number
       },
     },
     look: lookFromPlan(plan, seed),
+    provisionalCue: ctx.provisionalCue,
     semantic: semantic ?? undefined,
     fingerprint: {
       identity: hash(semanticParts.identity),

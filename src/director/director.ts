@@ -5,6 +5,7 @@ import { type Answer, type SystemOneRequest } from './jev';
 import type { DecisionEngine } from './engine';
 import { LocalSystemOne } from './local';
 import type { SongMeaning } from './semantic';
+import type { ProvisionalPerceptualCue } from './live-meaning';
 
 /** Musical context the director reports to Jev alongside the live features. */
 export interface TrackContext {
@@ -32,6 +33,8 @@ export interface TrackContext {
   concepts?: string[];
   /** Versioned evidence-bearing meaning; optional until a lyric/local extractor supplies it. */
   meaning?: SongMeaning;
+  /** Low-risk live cue; never establishes literal entities or story state. */
+  provisionalCue?: ProvisionalPerceptualCue;
   /** Album-art visual DNA (see src/audio/artwork.ts). Spicetify build only. */
   artwork?: { color: [number, number, number]; luminance: number; saturation: number; contrast: number };
 }

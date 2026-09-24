@@ -22,7 +22,7 @@ import { MotifLedger } from './director/semantic';
 import { LiveMeaningClient } from './director/live-client';
 import type { LiveLyricUpdate } from './director/live';
 import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-accumulator';
-import { meaningFromLive } from './director/live-meaning';
+import { meaningFromLive, perceptualCueFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
 import { addShotCandidate, compileShotGraph, ShotGraphRuntime } from './stream/shot-graph';
@@ -343,8 +343,13 @@ export class VisualizerApp {
     const localMeaning = liveState && liveState.trackId === baseCtx.trackId
       ? meaningFromLive(liveState, this.#liveMeaningRevision, frame.sectionIndex)
       : undefined;
+    const provisionalCue = liveState && liveState.trackId === baseCtx.trackId
+      ? perceptualCueFromLive(liveState)
+      : undefined;
     const meaning = stream0?.meaning?.trackId === baseCtx.trackId ? stream0?.meaning?.manifest : localMeaning;
-    const ctx = concepts?.length || meaning ? { ...baseCtx, ...(concepts?.length ? { concepts } : {}), ...(meaning ? { meaning } : {}) } : baseCtx;
+    const ctx = concepts?.length || meaning || provisionalCue
+      ? { ...baseCtx, ...(concepts?.length ? { concepts } : {}), ...(meaning ? { meaning } : {}), ...(provisionalCue ? { provisionalCue } : {}) }
+      : baseCtx;
     this.#director.tick(frame, ctx);
 
     const plan = this.#director.plan;
