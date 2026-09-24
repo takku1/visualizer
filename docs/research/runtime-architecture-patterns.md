@@ -84,6 +84,15 @@ telemetry revision records configured language independently from detected
 hypothesis language so an empty or noisy window cannot be mistaken for a
 language failure.
 
+A fresh current-build validation on 2026-09-24
+(`session-2026-09-24T15-52-51-077Z-c9893a28.jsonl`) confirmed the lifecycle
+contract: both the stream and meaning worker reported build `c9893a28`, forced
+Japanese mode reported `language=ja` and `configuredLanguage=ja`, and the
+session sustained roughly 57--59 display FPS, 14.6 stream FPS, and 63--66 ms
+generation. It produced four provisional hypotheses and zero committed
+meaning items across two tracks. This proves transport and build alignment,
+not Japanese transcription quality or semantic promotion.
+
 ## Architectural implications
 
 - Keep `Director`, `WorldState`, `ShotGraph`, `CheckpointScheduler`, and the
