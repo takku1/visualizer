@@ -34,7 +34,7 @@ export interface SceneDiff {
 export function worldStateFromScene(scene: Scene, section: number, positionSec = 0): WorldState {
   const semantic = scene.semantic;
   const entities = semantic?.subjects.map((label, index) => ({
-    id: `subject-${index}-${stable(label)}`,
+    id: semantic.subjectIds[index] ?? `subject-${index}-${stable(label)}`,
     label,
     kind: 'subject',
     attributes: [],
@@ -42,7 +42,7 @@ export function worldStateFromScene(scene: Scene, section: number, positionSec =
   })) ?? [];
   return {
     entities,
-    environment: semantic?.environment ?? [],
+    environment: semantic?.environmentIds ?? semantic?.environment ?? [],
     relation: semantic?.relation ?? null,
     action: semantic?.action ?? 'abstain',
     camera: semantic?.camera ?? scene.continuityContract.camera,

@@ -292,6 +292,30 @@ test('timed lyric import preserves evidence and rejects untimed results', () => 
   assert.equal(meaningFromLyrics({ provider: 'x', match: 'metadata', timing: 'none', rights: 'unknown', confidence: 0.4, lines }), null);
 });
 
+test('world identity follows motif ids across semantic section changes', () => {
+  const meaning: SongMeaning = {
+    revision: 1, thesis: 'a figure crosses a field', abstained: false,
+    motifs: [
+      { id: 'figure-a', kind: 'person', label: 'the figure', attributes: ['red coat'], confidence: 0.9, source: 'lyrics' },
+      { id: 'field-b', kind: 'place', label: 'the field', attributes: [], confidence: 0.9, source: 'lyrics' },
+    ],
+    relations: [],
+    sections: [
+      { index: 0, startSec: 0, action: 'waits', activeMotifs: ['figure-a', 'field-b'], affect: [], confidence: 0.9 },
+      { index: 1, startSec: 10, action: 'crosses', activeMotifs: ['figure-a', 'field-b'], affect: [], confidence: 0.9 },
+    ],
+    evidence: [{ source: 'lyrics', text: 'figure crosses field', confidence: 0.9 }],
+  };
+  const first = sceneFromPlan(initialPlan(), { trackId: 'identity', meaning, sectionIndex: 0 }, 0);
+  const next = sceneFromPlan(initialPlan(), { trackId: 'identity', meaning, sectionIndex: 1 }, 1);
+  const diff = diffWorldState(first.world, next.world);
+  assert.deepEqual(diff.keep.map((entity) => entity.id).sort(), ['figure-a']);
+  assert.equal(diff.add.length, 0);
+  assert.equal(diff.remove.length, 0);
+  assert.deepEqual(diff.environmentAdded, []);
+  assert.deepEqual(diff.environmentRemoved, []);
+});
+
 /** Drive a scheduler through `seconds` of a 120 bpm 4/4 grid (2 s bars); returns requests with their times. */
 function drive(s: CheckpointScheduler, seconds: number, obs: StreamObservation, t0 = 0, structure = true) {
   const out: { t: number; reason: string; spliceFrames: number }[] = [];

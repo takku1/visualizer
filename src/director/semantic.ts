@@ -64,8 +64,10 @@ export type SemanticShot = 'establish' | 'follow' | 'approach' | 'encounter' | '
 export interface SemanticScene {
   shot: SemanticShot;
   subjects: string[];
+  subjectIds: string[];
   relation: string | null;
   environment: string[];
+  environmentIds: string[];
   action: string;
   camera: string;
   transition: 'hold' | 'reveal' | 'cut' | 'dissolve';
@@ -132,8 +134,8 @@ export function compileSemanticScene(meaning: SongMeaning, sectionIndex: number,
     'Cinematic frame with coherent subject identity and detailed lighting.',
   ].filter(Boolean).join(' ');
   return {
-    shot, subjects: subjects.map((motif) => motif.label), relation: relationText,
-    environment: environment.map((motif) => motif.label), action,
+    shot, subjects: subjects.map((motif) => motif.label), subjectIds: subjects.map((motif) => motif.id), relation: relationText,
+    environment: environment.map((motif) => motif.label), environmentIds: environment.map((motif) => motif.id), action,
     camera: cameraFor(shot), transition: shot === 'establish' ? 'reveal' : 'dissolve',
     prompt, meaningRevision: meaning.revision, language: meaning.language ?? 'und', source,
   };
