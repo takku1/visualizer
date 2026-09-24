@@ -38,12 +38,12 @@ class Probe:
     def load(self) -> None:
         from transformers import pipeline
 
-        torch_dtype = "float16" if self.device.startswith("cuda") else "float32"
+        dtype = "float16" if self.device.startswith("cuda") else "float32"
         self.pipe = pipeline(
             "automatic-speech-recognition",
             model=self.model_name,
             device=self.device,
-            torch_dtype=torch_dtype,
+            dtype=dtype,
         )
         # Recent Transformers versions may forward pipeline call kwargs into
         # Whisper.generate(). Configure the tokenizer once instead of passing
