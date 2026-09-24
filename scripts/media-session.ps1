@@ -7,6 +7,12 @@
 param([switch]$Once)
 
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell otherwise inherits an OEM/ANSI stdout encoding when its
+# output is piped into Electron. That turns Japanese/Korean titles into '?'
+# before the lyrics provider can use the metadata. Emit UTF-8 explicitly.
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8
+$OutputEncoding = $utf8
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $null = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime]
 
