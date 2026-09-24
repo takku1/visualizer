@@ -116,6 +116,9 @@ export class VisualizerApp {
   #shotGraphStaged = 0;
   #shotGraphPrefetched = 0;
   #shotGraphSelected = 0;
+  #shotGraphStagedIds: string[] = [];
+  #shotGraphPrefetchedIds: string[] = [];
+  #shotGraphSelectedIds: string[] = [];
   #directionDecisions = 0;
   #lastCheckpointReason: string | null = null;
 
@@ -138,6 +141,18 @@ export class VisualizerApp {
         motion: cue.motion,
         lighting: cue.lighting,
       } : { active: false },
+    };
+  }
+
+  #shotGraphTelemetry(): object {
+    return {
+      staged: this.#shotGraphStaged,
+      prefetched: this.#shotGraphPrefetched,
+      selected: this.#shotGraphSelected,
+      pending: this.#shotRuntime !== null,
+      stagedIds: this.#shotGraphStagedIds.slice(-8),
+      prefetchedIds: this.#shotGraphPrefetchedIds.slice(-8),
+      selectedIds: this.#shotGraphSelectedIds.slice(-8),
     };
   }
 
@@ -194,9 +209,10 @@ export class VisualizerApp {
           if (!current) {
             this.#scheduler.setScene(scene);
           } else if (!sameSceneFingerprint(current, scene)) {
+            const candidateId = `candidate-${this.#sceneIndex}`;
             const graph = addShotCandidate(
               compileShotGraph(current),
-              `candidate-${this.#sceneIndex}`,
+              candidateId,
               scene,
               8,
               scene.continuityContract.confidence,
@@ -204,7 +220,10 @@ export class VisualizerApp {
             );
             this.#shotRuntime = new ShotGraphRuntime(graph);
             this.#shotGraphStaged++;
-            this.#shotGraphPrefetched += this.#shotRuntime.prefetchCandidates().length;
+            this.#shotGraphStagedIds.push(candidateId);
+            const prefetched = this.#shotRuntime.prefetchCandidates();
+            this.#shotGraphPrefetched += prefetched.length;
+            this.#shotGraphPrefetchedIds.push(...prefetched.map((candidate) => candidate.id));
           }
           // Abstaining mode still needs strong visual chapters. Change the
           // procedural substrate on director cadence, but keep the diffusion
@@ -424,6 +443,7 @@ export class VisualizerApp {
           this.#scheduler.setScene(candidate.scene);
           this.#shotRuntime = null;
           this.#shotGraphSelected++;
+          this.#shotGraphSelectedIds.push(candidate.id);
         }
       }
       stream.sendControl(control, now);
@@ -477,12 +497,7 @@ export class VisualizerApp {
         } : null,
         meaning: this.#meaningTelemetry(),
         control: { strength: control.strength, feedback: control.feedback, noise: control.noise, flow: control.flow },
-        shotGraph: {
-          staged: this.#shotGraphStaged,
-          prefetched: this.#shotGraphPrefetched,
-          selected: this.#shotGraphSelected,
-          pending: this.#shotRuntime !== null,
-        },
+        shotGraph: this.#shotGraphTelemetry(),
         realization: {
           mode: 'continuous-song',
           directionDecisions: this.#directionDecisions,
@@ -512,12 +527,7 @@ export class VisualizerApp {
         control,
         checkpoints: this.#checkpoints,
         renderer: this.#renderer?.telemetry(),
-        shotGraph: {
-          staged: this.#shotGraphStaged,
-          prefetched: this.#shotGraphPrefetched,
-          selected: this.#shotGraphSelected,
-          pending: this.#shotRuntime !== null,
-        },
+        shotGraph: this.#shotGraphTelemetry(),
         realization: {
           mode: 'continuous-song',
           directionDecisions: this.#directionDecisions,
