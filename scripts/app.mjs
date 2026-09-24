@@ -25,6 +25,10 @@ if (evalEvery && !evalEvery.startsWith('--')) process.env.STREAM_EVAL_EVERY = ev
 const meaningLanguageIndex = process.argv.indexOf('--meaning-language');
 const meaningLanguage = meaningLanguageIndex >= 0 ? process.argv[meaningLanguageIndex + 1] : null;
 if (meaningLanguage && !meaningLanguage.startsWith('--')) process.env.MEANING_ASR_LANGUAGE = meaningLanguage;
+const lyricsIndex = process.argv.indexOf('--lyrics');
+const lyricsProvider = lyricsIndex >= 0 ? process.argv[lyricsIndex + 1] : null;
+if (lyricsProvider && !lyricsProvider.startsWith('--')) process.env.S1_LYRICS_PROVIDER = lyricsProvider;
+if (process.argv.includes('--lyrics-rights=community')) process.env.S1_LYRICS_RIGHTS = 'community';
 const children = new Set();
 let shuttingDown = false;
 const STREAM_PORT = 8771;

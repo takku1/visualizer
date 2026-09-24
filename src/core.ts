@@ -27,6 +27,8 @@ import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
 import { resonanceFrom } from './world/resonance';
 import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime, type ShotSelectionDiagnostic } from './stream/shot-graph';
+import { meaningFromLyrics, type LyricsProvider } from './director/lyrics';
+import type { SongMeaning } from './director/semantic';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -50,6 +52,10 @@ export interface AppConfig {
   reseed?: boolean;
   /** Optional local ASR worker, e.g. ws://127.0.0.1:8772. */
   meaningUrl?: string;
+  /** Optional track-start lyric source. Lookup is once per track, never per frame. */
+  lyricsProvider?: LyricsProvider;
+  /** Explicitly permit community/unknown-rights results to become meaning. */
+  allowUnknownLyrics?: boolean;
   /**
    * 'splice' (default): each director decision is a new scene, spliced in as a
    * keyframe. 'knobs': the director steers prompt-blend weights, the
@@ -117,6 +123,9 @@ export class VisualizerApp {
   #liveMeaningState: LiveMeaningState | null = null;
   #liveMeaningRevision = 0;
   #liveCommittedSignature = '';
+  #lyricsMeaning: SongMeaning | null = null;
+  #lyricsLookupFor: string | null = null;
+  #lyricsLookupEpoch = 0;
   #liveAccumulator = new LiveLyricAccumulator();
   #lastMeaningSendAt = -Infinity;
   #shotRuntime: ShotGraphRuntime | null = null;
@@ -441,6 +450,9 @@ export class VisualizerApp {
       // track, director revisions remain control-plane updates over the
       // continuous latent/raster state.
       if (previousTrack !== null || trackKey !== null) {
+        this.#lyricsMeaning = null;
+        this.#lyricsLookupFor = null;
+        this.#lyricsLookupEpoch++;
         this.#scheduler.resetTrack();
         this.#shotRuntime = null;
         this.#realizationTrackId = trackKey;
@@ -456,6 +468,7 @@ export class VisualizerApp {
         this.#lastCheckpointReason = null;
       }
     }
+    this.#requestTrackLyrics(baseCtx);
     const graphClock = shotGraphBoundary(frame.barPhase, this.#lastBarPhase, frame.onBeat, frame.hasStructure, frame.rhythmConfidence);
     this.#lastBarPhase = frame.barPhase;
     if (this.#liveMeaning?.connected && baseCtx.trackId && now - this.#lastMeaningSendAt >= 1500) {
@@ -481,7 +494,9 @@ export class VisualizerApp {
     const provisionalCue = liveState && liveState.trackId === baseCtx.trackId
       ? perceptualCueFromLive(liveState)
       : undefined;
-    const meaning = stream0?.meaning?.trackId === baseCtx.trackId ? stream0?.meaning?.manifest : localMeaning;
+    const meaning = stream0?.meaning?.trackId === baseCtx.trackId
+      ? stream0?.meaning?.manifest
+      : (localMeaning ?? this.#lyricsMeaning ?? undefined);
     const ctx = concepts?.length || meaning || provisionalCue
       ? { ...baseCtx, ...(concepts?.length ? { concepts } : {}), ...(meaning ? { meaning } : {}), ...(provisionalCue ? { provisionalCue } : {}) }
       : baseCtx;
@@ -643,6 +658,31 @@ export class VisualizerApp {
 
     this.overlay.update(frame, plan, [...this.#streamLines(), ...(this.#config.status?.() ?? []), ...this.#errors], ctx);
   };
+
+  #requestTrackLyrics(ctx: TrackContext): void {
+    const provider = this.#config.lyricsProvider;
+    if (!provider || !ctx.trackId || !ctx.title || !ctx.artist || this.#lyricsLookupFor === ctx.trackId) return;
+    this.#lyricsLookupFor = ctx.trackId;
+    const epoch = ++this.#lyricsLookupEpoch;
+    void provider.lookup({
+      trackId: ctx.trackId,
+      title: ctx.title,
+      artist: ctx.artist,
+      album: ctx.album,
+      durationSec: ctx.durationSec,
+    }).then((result) => {
+      if (!result || epoch !== this.#lyricsLookupEpoch || this.#barTrackId !== ctx.trackId) return;
+      const meaning = meaningFromLyrics(result, 1, { allowUnknownRights: this.#config.allowUnknownLyrics });
+      if (meaning) {
+        this.#lyricsMeaning = meaning;
+        console.info(`[lyrics] ${result.provider} supplied ${result.timing}-timed evidence for ${ctx.title}`);
+      } else {
+        console.info(`[lyrics] ${result.provider} result retained as evidence but not committed (${result.rights}/${result.timing})`);
+      }
+    }).catch((error: unknown) => {
+      if (epoch === this.#lyricsLookupEpoch) console.warn(`[lyrics] lookup unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
 
   /** Render the procedural scene small and hand it to the sidecar as its camera. */
   async #sendSource(now: number): Promise<void> {

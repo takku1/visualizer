@@ -235,7 +235,11 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'dist', 'dev', 'index.html'), {
-    query: process.env.S1_MEANING_URL ? { meaning: process.env.S1_MEANING_URL } : undefined,
+    query: Object.fromEntries([
+      process.env.S1_MEANING_URL ? ['meaning', process.env.S1_MEANING_URL] : null,
+      process.env.S1_LYRICS_PROVIDER ? ['lyrics', process.env.S1_LYRICS_PROVIDER] : null,
+      process.env.S1_LYRICS_RIGHTS === 'community' ? ['lyrics-rights', 'community'] : null,
+    ].filter(Boolean)),
   });
   startMediaSession(win);
   return win;

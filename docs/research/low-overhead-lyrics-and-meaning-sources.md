@@ -93,6 +93,9 @@ for broad sound concepts, not proof of sung words or narrative events
 2. Add local audio-tag/sidecar discovery without blocking playback.
 3. Enable LRCLIB only as an explicit development/community provider and measure
    match rate, language coverage, duration mismatches, and semantic promotion.
+   The Electron harness can exercise this with `npm run app -- --lyrics lrclib`;
+   adding `--lyrics-rights=community` is a separate explicit decision that
+   permits the unknown-rights result to affect committed meaning.
 4. Add a rights-cleared provider adapter if the intended distribution permits
    lyric synchronization.
 5. Only then evaluate multilingual embeddings or emotion resources against a
