@@ -430,6 +430,19 @@ test('live action extraction recognizes bounded environmental motion in English 
   assert.equal(japanese?.sections[0]?.action, 'reveals or conceals space');
 });
 
+test('Japanese grounding accepts common inflections without widening abstention', () => {
+  assert.equal(meaningFromLive({
+    trackId: 'ja-inflections',
+    provisional: [],
+    committed: [{ id: 'ja-1', text: '彼女は夜空を見つめている', language: 'ja', startSec: 1, endSec: 2, confidence: 0.9, stability: 0.9, status: 'committed', source: 'live-asr' }],
+  }, 1, 0)?.abstained, false);
+  assert.equal(meaningFromLive({
+    trackId: 'ja-unknown',
+    provisional: [],
+    committed: [{ id: 'ja-2', text: 'らららふわふわ', language: 'ja', startSec: 1, endSec: 2, confidence: 0.9, stability: 0.9, status: 'committed', source: 'live-asr' }],
+  }, 1, 0)?.abstained, true);
+});
+
 test('unknown committed live wording remains a symbol instead of inventing a world', () => {
   const meaning = meaningFromLive({
     trackId: 'track-unknown', provisional: [], committed: [{

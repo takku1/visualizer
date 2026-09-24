@@ -59,7 +59,7 @@ semantic representation and a user-selected `displayLanguage`. Until that exists
 the safe behavior is to preserve the original labels and abstain from invented
 narrative when evidence is missing.
 
-## Proposed extraction pipeline
+## Proposed language-neutral extraction pipeline
 
 ```text
 audio + metadata + optional lyrics
@@ -77,15 +77,41 @@ versioned SongMeaning(language=BCP47)
 scene compiler → prompt + typed fingerprint
 ```
 
+The normalization boundary must be language-neutral even when the first
+recognizers are not. A language adapter may recognize Japanese, English, or a
+future language, but it should emit the same bounded cue ontology:
+
+```ts
+type GroundedCue = {
+  kind: 'person' | 'place' | 'object' | 'force' | 'texture' | 'action';
+  canonical: string;
+  sourceLanguage: string;
+  evidence: string;
+  confidence: number;
+};
+```
+
+This is consistent with cross-lingual semantic parsing research: source text
+is mapped into a shared meaning representation rather than treated as if a
+single language's surface vocabulary were universal ([Cross-lingual Semantic
+Parsing](https://arxiv.org/abs/1804.08037), [XSemPLR](https://aclanthology.org/2023.acl-long.887/)).
+Multilingual encoders such as XLM-R are a plausible future adapter, but their
+cross-lingual transfer is not a guarantee of lyric-level grounding and would
+need an evaluation set before entering the hot path ([XLM-R](https://arxiv.org/abs/1911.02116)).
+Whisper's multilingual transcription and translation capabilities justify the
+current source-evidence boundary, not automatic semantic promotion
+([Whisper](https://arxiv.org/abs/2212.04356)).
+
 The current implementation slice supports manifests authored in any language,
 local Whisper ASR windows, explicit language forcing (including `ja`), bounded
-timestamps, script-based Japanese recovery when Whisper reports `und`, and
-conservative English/Japanese motif/action extraction. The Japanese extractor
-includes a deliberately bounded set of common entity, environmental,
-abstract-form, and action cues (for example `夢`, `心`, `雨`, `駅`, `進む`, and
-`揺れる`); it does not translate or infer arbitrary lyric meaning. It
+timestamps, script-based Japanese recovery when Whisper reports `und`, and a
+bounded English/Japanese lexical adapter. That adapter is only the first
+implementation of the language-neutral contract above; it is not the product's
+language model. It does not translate or infer arbitrary lyric meaning. It
 preserves source evidence and keeps provisional hypotheses separate from
-committed meaning.
+committed meaning. Unsupported languages therefore remain symbols until a
+validated adapter is installed, rather than silently receiving English or
+Japanese interpretations.
 Automatic translation is still intentionally absent from `sceneFromPlan`:
 translation would move uncertain, expensive work into the director/render path
 and violate the project's timescale separation.
@@ -104,8 +130,9 @@ recognition, not a claim that Whisper confidence is calibrated for singing.
 
 Implemented now: optional `language` on `SongMeaning`, propagation to
 `SemanticScene`, explicit scene-source telemetry, local multilingual ASR,
-language forcing, bounded live evidence, and conservative Japanese/English
-extraction. Timed lyric acquisition/providers, translation, broad language
-coverage, calibrated transcription quality, and cross-language visual
-evaluation remain deferred. A connected ASR worker or a language label alone
-must not be claimed as semantic or visual understanding.
+language forcing, bounded live evidence, and the first conservative lexical
+adapter. Timed lyric acquisition/providers, a validated multilingual semantic
+adapter, translation, broad language coverage, calibrated transcription
+quality, and cross-language visual evaluation remain deferred. A connected ASR
+worker or a language label alone must not be claimed as semantic or visual
+understanding.
