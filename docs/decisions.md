@@ -118,8 +118,10 @@ Spotify analysis it wandered 103–149 BPM in the first session.
 Accepted, 2026-09-24. A 60 Hz shader scene in the browser supplies
 structure and motion at exact beat sync: infinite forward travel through a
 domain-warped field, flow, swirl, treble sparkles, and harmony-driven hue.
-It is shown directly, and sent at 576×320 as the diffusion loop's camera
-input, one JPEG in flight. `paint` (0–1) mixes the procedural and painted
+It is shown directly, and sent as the diffusion loop's camera input with one
+JPEG in flight. The default realtime profile is 448×256; 576×320 remains an
+explicit quality profile selected through `STREAM_WIDTH`/`STREAM_HEIGHT`.
+`paint` (0–1) mixes the procedural and painted
 layers on screen and pulls the sidecar's strength toward 0.2 as it drops.
 
 Measured on a moving synthetic source: output/input luminance correlation

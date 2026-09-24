@@ -12,8 +12,9 @@ target GPU and covered by unit tests plus a live metamorphic smoke test.
   `change` / `drift` track the music, and whether reseeds land musically.
 - Tune the mapper curves in `src/stream/control.ts`. Each curve is one line,
   and `npm test` guards the monotonic relations.
-- Try 448×256 on AC for more fps against less detail
-  (`STREAM_WIDTH=448 STREAM_HEIGHT=256`).
+- ✅ Measured 448×256 on AC: 68.2 ms median / 14.7 FPS versus 88.2 ms /
+  11.3 FPS at 576×320, with nearly unchanged VRAM. It is now the default;
+  576×320 remains the explicit quality profile.
 - Optional: per-scene negative/style anchors if the look still drifts
   toward illustration.
 

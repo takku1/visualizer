@@ -16,10 +16,11 @@ metadata fallback, not song understanding.
 
 The display runs at 60 Hz in WebGL and renders the procedural scene itself,
 so motion and beat sync never wait on the GPU sidecar. The diffusion stream
-runs as fast as the sidecar allows. On the target (RTX A3000 Laptop, 6 GB,
-Ampere, on AC power) that is ~61 ms per frame, about 16 fps, at 576×320,
-measured with `npm run stream:bench`. The browser also renders the procedural
-scene a second time at 576×320 and JPEG-encodes it for the sidecar, about once
+runs as fast as the sidecar allows. The default realtime profile is 448×256;
+an isolated A3000 benchmark measures 68.2 ms median / 69.5 ms p90 (~14.7 fps)
+with 2.44 GB peak VRAM. The optional 576×320 quality profile measures 88.2 ms
+median / 89.9 ms p90 (~11.3 fps) at 2.48 GB. The browser also renders the
+procedural scene at the selected sidecar size and JPEG-encodes it about once
 per stream frame. Healthy sessions measure roughly 20–30 ms for `captureMs`.
 If shared-GPU pressure drives one capture above 250 ms, the browser discards
 that upload and pauses camera capture for 30 seconds while the sidecar falls
@@ -32,7 +33,7 @@ slideshow.
                 ┌────────────────────────────── browser (Electron) ───────────────────────────────┐
  system audio ─►│ FeatureBus ─► ControlMapper ─► SamplerControl + bends ──(ws text, 30 Hz)────────┐ │
                 │     │               └─► ProceduralScene (60 Hz phases)                         │ │
-                │     │                      ├─► capture 576×320 JPEG ──(ws binary, 1 in flight)─┤ │
+                │     │                      ├─► capture 448×256 JPEG ──(ws binary, 1 in flight)─┤ │
                 │     │                      └─► Renderer: procedural ─mix(paint)─► screen       │ │
                 │     │                                                     ▲                    ▼ │
                 │     └─► Meaning + Director ─► Scene {shot, fingerprint, prompt, look} ─► CheckpointScheduler ─► stream-server.py
@@ -288,8 +289,9 @@ The protocol is one websocket, with one owner at a time (ADR-013).
 
 - **Browser → sidecar, text:** `control` (latest wins, ~30 Hz), `track`
   (metadata/meaning lookup), `blend`, and `checkpoint`.
-- **Browser → sidecar, binary:** a 576×320 JPEG procedural frame. One is in
-  flight at a time; the next is sent when a painted frame returns, or after
+- **Browser → sidecar, binary:** a 448×256 JPEG procedural frame by default
+  (or 576×320 when the quality profile is selected). One is in flight at a
+  time; the next is sent when a painted frame returns, or after
   250 ms.
 - **Sidecar → browser, text:** `ready`, `concepts`, and `meaning` messages;
   meaning is a local manifest lookup and may be null. The sidecar does not
@@ -337,7 +339,8 @@ long evaluation campaigns. Rotated parts remain ordinary JSONL with their own
   lyrics, translation, broad language quality, and visual semantic validation
   remain separate unproven capabilities.
 
-- **Resolution:** 576×320, upscaled with an unsharp mask. There is no
+- **Resolution:** 448×256 by default, upscaled with an unsharp mask. Set
+  `STREAM_WIDTH=576 STREAM_HEIGHT=320` for the quality profile; there is no
   budget for AI upscaling on this GPU.
 - **Latency:** the painted layer trails the procedural one by about one
   capture, generation and decode round trip (~100–150 ms). The beat kick is

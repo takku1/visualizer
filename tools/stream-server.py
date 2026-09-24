@@ -55,10 +55,12 @@ MODEL_DIR = Path(os.environ.get("STREAM_MODEL", ROOT / "models" / "sd-turbo"))
 TAESD_DIR = Path(os.environ.get("STREAM_TAESD", ROOT / "models" / "taesd"))
 PORT = int(os.environ.get("STREAM_PORT", "8771"))
 BUILD_HASH = os.environ.get("S1_BUILD_HASH", "unknown")
-# 576x320 is ~16:9 and keeps every UNet level integral (latent 72x40). On the
-# A3000 this is the sweet spot; 512x512 costs ~40% more per frame.
-WIDTH = int(os.environ.get("STREAM_WIDTH", "576"))
-HEIGHT = int(os.environ.get("STREAM_HEIGHT", "320"))
+# 448x256 is ~16:9 and keeps every UNet level integral (latent 56x32). On the
+# 6 GB A3000 it is the default realtime profile: the isolated benchmark is
+# about 30% faster than 576x320 at nearly identical VRAM. Set both variables
+# to 576x320 for the higher-resolution quality profile.
+WIDTH = int(os.environ.get("STREAM_WIDTH", "448"))
+HEIGHT = int(os.environ.get("STREAM_HEIGHT", "256"))
 KEY_STEPS = int(os.environ.get("STREAM_KEY_STEPS", "4"))
 JPEG_QUALITY = int(os.environ.get("STREAM_JPEG_QUALITY", "88"))
 MAX_FPS = float(os.environ.get("STREAM_MAX_FPS", "30"))
