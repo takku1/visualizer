@@ -142,7 +142,10 @@ export class ControlMapper {
     // at strength 0.5. So strength stays high (it is what re-details the
     // frame) and noise turnover is slow and onset-driven.
     return {
-      strength: clamp(0.38 + 0.1 * this.#bass + 0.05 * energy + 0.1 * push, 0.3, 0.6),
+      // Keep quiet passages near the preservation end of the range while
+      // giving bass/beat energy more headroom before the sidecar clamp. This
+      // makes musical contrast visible without increasing fresh-noise share.
+      strength: clamp(0.32 + 0.14 * this.#bass + 0.08 * energy + 0.12 * push, 0.3, 0.6),
       noise: clamp(0.01 + 0.04 * this.#level ** 1.5 + 0.05 * f.transientness, 0, 0.12),
       detail: clamp(0.12 * f.treble + 0.25 * f.trebleFlux, 0, 0.3),
       zoom: 0.04 + 0.08 * energy + 1.6 * push,
@@ -188,7 +191,7 @@ export class ControlMapper {
     this.#hue = smooth(this.#hue, clamp(away * 0.45 * Math.min(clarity * 2, 1), -1.4, 1.4), dt, 0.5);
 
     // Bass swell follows the beat push, eased in over ~60 ms.
-    this.#swell = smooth(this.#swell, 0.3 * this.#push, dt, this.#push > this.#swell / 0.3 ? 0.06 : 0.25);
+    this.#swell = smooth(this.#swell, 0.4 * this.#push, dt, this.#push > this.#swell / 0.4 ? 0.06 : 0.25);
     // Treble onsets glint; the glint fades over ~200 ms.
     this.#glass = smooth(this.#glass, clamp(1.2 * f.trebleFlux, 0, 0.7), dt, f.trebleFlux * 1.2 > this.#glass ? 0.04 : 0.2);
 
