@@ -1,7 +1,9 @@
 """Fast regression checks for multilingual ASR evidence boundaries."""
 from __future__ import annotations
 
+import asyncio
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -48,4 +50,31 @@ probe.pipe = UndJapanese()
 hypotheses = probe.transcribe(np.zeros(16000, dtype=np.float32), 16000, 0.0)
 assert hypotheses[0]["language"] == "ja"
 assert hypotheses[0]["confidence"] == 0.7
+
+
+class CloseOnReady:
+    async def send(self, _message):
+        raise module.ConnectionClosed(None, None)
+
+
+asyncio.run(module.Server(module.Probe("fake", "cpu", pipe=WholeWindow())).handler(CloseOnReady()))
+
+
+class CloseOnResponse:
+    def __init__(self):
+        self.sends = 0
+
+    async def send(self, _message):
+        self.sends += 1
+        if self.sends == 2:
+            raise module.ConnectionClosed(None, None)
+
+    def __aiter__(self):
+        async def messages():
+            yield json.dumps({"type": "audio-window", "sampleRate": 16000, "windowStartSec": 0})
+            yield np.zeros(160, dtype=np.float32).tobytes()
+        return messages()
+
+
+asyncio.run(module.Server(module.Probe("fake", "cpu", pipe=WholeWindow())).handler(CloseOnResponse()))
 print("multilingual ASR contract ok")

@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import websockets
+from websockets.exceptions import ConnectionClosed
 
 
 @dataclass
@@ -153,7 +154,7 @@ class Server:
                 "device": self.probe.device,
                 "language": self.probe.language or "auto",
             }))
-        except websockets.exceptions.ConnectionClosed:
+        except ConnectionClosed:
             return
         async for message in websocket:
             if isinstance(message, str):
@@ -194,7 +195,7 @@ class Server:
                 response["error"] = error
             try:
                 await websocket.send(json.dumps(response))
-            except websockets.exceptions.ConnectionClosed:
+            except ConnectionClosed:
                 # The renderer may close normally while optional ASR is still
                 # finishing a window. This is not an inference failure.
                 return
