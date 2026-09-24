@@ -1239,6 +1239,31 @@ def bench(frames: int, report_path: str | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
     engine.request_checkpoint({"id": "a", "prompt": "bioluminescent coral cathedral, deep ocean, volumetric light", "seed": 1, "spliceFrames": 16})
     times: list[float] = []
+    stage_ms: dict[str, list[float]] = {"encode": [], "unet": [], "decode": []}
+    if DEVICE == "cuda":
+        # Diagnose-only timers around each accelerated stage, so the next
+        # optimization targets the measured bottleneck. Engine numerics are
+        # untouched: each wrapper records cuda events and forwards the call.
+        # All UNet work (live and keyframe) flows through _unet, so the
+        # split below covers steady-state, denoising, and splice phases.
+        _orig = (engine._encode, engine._unet, engine._decode)
+
+        def _timed(name: str, fn):  # type: ignore[no-untyped-def]
+            def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+                start, end = torch.cuda.Event(True), torch.cuda.Event(True)
+                start.record()
+                out = fn(*args, **kwargs)
+                end.record()
+                torch.cuda.synchronize()
+                if len(times) >= 5:
+                    stage_ms[name].append(start.elapsed_time(end))
+                return out
+
+            return wrapper
+
+        engine._encode = _timed("encode", _orig[0])
+        engine._unet = _timed("unet", _orig[1])
+        engine._decode = _timed("decode", _orig[2])
     for i in range(frames):
         beat = i % 15 == 0
         c = Control(strength=0.3 + (0.2 if beat else 0.0), noise=0.1, detail=0.15, zoom=0.1 + (1.5 if beat else 0.0), rotate=0.08, noiseWalk=0.8, feedback=0.15, flow=0.04, flowSpeed=0.6)
@@ -1269,9 +1294,19 @@ def bench(frames: int, report_path: str | None = None) -> None:
         "p90Ms": round(p90_ms, 3),
         "fps": round(1000 / median_ms, 3) if median_ms else 0,
         "includesJpeg": False,
+        "stageMedianMs": {},
+        "stageCalls": {},
     }
     print(f"frames {len(times)}  median {median_ms:.1f} ms  p90 {p90_ms:.1f} ms"
           f"  -> {report['fps']:.1f} fps (engine only, excl. JPEG)")
+    for name, samples in stage_ms.items():
+        if not samples:
+            continue
+        ordered = sorted(samples)
+        med = ordered[len(ordered) // 2]
+        report["stageMedianMs"][name] = round(med, 3)
+        report["stageCalls"][name] = len(ordered)
+        print(f"stage {name}: median {med:.1f} ms over {len(ordered)} calls")
     if DEVICE == "cuda":
         report["peakVramMb"] = round(torch.cuda.max_memory_allocated() / 2**20, 1)
         report["totalVramMb"] = round(torch.cuda.get_device_properties(0).total_memory / 2**20, 1)

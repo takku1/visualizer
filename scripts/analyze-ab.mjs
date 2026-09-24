@@ -22,8 +22,8 @@ for (const path of paths.sort()) {
   }
 
   const rows = lines.map(parseLine).filter(Boolean);
-  const decisions = rows.filter((row) => !row._telemetry && row.system1 && row.baseline);
-  const telemetry = rows.filter((row) => row._telemetry && typeof row.fps === 'number');
+  const decisions = rows.filter((row) => row.kind === 'decision' || (row.kind === undefined && !row._telemetry && row.system1 && row.baseline));
+  const telemetry = rows.filter((row) => (row.kind === 'telemetry' || (row.kind === undefined && row._telemetry)) && typeof row.fps === 'number');
   if (!decisions.length) continue;
 
   const divergence = Object.fromEntries(dimensions.map((dimension) => [

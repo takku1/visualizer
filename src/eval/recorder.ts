@@ -177,6 +177,17 @@ export function buildRecord(
 /** A place to send one JSONL line. Electron wires this to a real file; other hosts can no-op. */
 export type LogSink = (line: string) => void;
 
+/**
+ * Envelope version stamped on every JSONL event this module emits.
+ * Readers must accept older versions and rows without an envelope: match
+ * `kind` first, fall back to the legacy key sniffing (`_checkpoint`,
+ * `_telemetry`, `_state`, `scene && system1`) when `kind` is absent.
+ */
+export const LOG_ENVELOPE_VERSION = 1;
+
+/** Discriminator for the four event shapes below. */
+export type LogEventKind = 'decision' | 'checkpoint' | 'telemetry' | 'state';
+
 export function recordLine(
   system1: VisualPlan,
   baseline: VisualPlan,
@@ -185,22 +196,22 @@ export function recordLine(
   capturing: boolean,
   scene: Scene,
 ): string {
-  return JSON.stringify(buildRecord(system1, baseline, features, ctx, capturing, scene));
+  return JSON.stringify({ ...buildRecord(system1, baseline, features, ctx, capturing, scene), kind: 'decision', v: LOG_ENVELOPE_VERSION });
 }
 
 /** One checkpoint realization request, with why it fired. */
 export function checkpointLine(t: number, request: CheckpointRequest): string {
-  return JSON.stringify({ _checkpoint: true, t: r2(t), ...request });
+  return JSON.stringify({ _checkpoint: true, t: r2(t), ...request, kind: 'checkpoint', v: LOG_ENVELOPE_VERSION });
 }
 
 /** Periodic health: display fps, stream fps/latency, splice activity, audio. */
 export function telemetryLine(event: { t: number } & Record<string, unknown>): string {
-  return JSON.stringify({ _telemetry: true, ...event });
+  return JSON.stringify({ _telemetry: true, ...event, kind: 'telemetry', v: LOG_ENVELOPE_VERSION });
 }
 
 /** Compact one-hertz state sample for phrase-scale analysis. */
 export function stateLine(t: number, state: Record<string, unknown>): string {
-  return JSON.stringify({ _state: true, t: r2(t), ...state });
+  return JSON.stringify({ _state: true, t: r2(t), ...state, kind: 'state', v: LOG_ENVELOPE_VERSION });
 }
 
 const r2 = (n: number): number => Math.round(n * 100) / 100;

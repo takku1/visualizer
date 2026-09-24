@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { mkdirSync, copyFileSync } from 'node:fs';
+import { mkdirSync, copyFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -62,8 +62,9 @@ if (watch) {
     console.log('\n  watching…\n');
   }
 } else {
-  await esbuild.build(ext);
-  await esbuild.build(harness);
+  const [extResult] = await Promise.all([esbuild.build({ ...ext, metafile: true }), esbuild.build(harness)]);
+  writeFileSync(join(distRoot, 'system1-visualizer.metafile.json'), JSON.stringify(extResult.metafile));
+  
   mkdirSync(join(distRoot, 'dev'), { recursive: true });
   copyFileSync(join(projectRoot, 'dev/index.html'), join(distRoot, 'dev/index.html'));
 }

@@ -12,12 +12,15 @@ if (!file || process.argv.includes('--help')) {
 const rows = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean).flatMap((line, index) => {
   try { return [JSON.parse(line)]; } catch { console.warn(`Skipping malformed JSONL line ${index + 1}`); return []; }
 });
-const checkpoints = rows.filter((row) => row._checkpoint);
-const decisions = rows.filter((row) => row.scene && row.system1);
+const isKind = (row, kind) => row.kind === kind;
+// Envelope-first: rows without `kind` (logs written before the recorder
+// envelope) fall back to the legacy key sniffing.
+const checkpoints = rows.filter((row) => isKind(row, 'checkpoint') || (row.kind === undefined && row._checkpoint));
+const decisions = rows.filter((row) => isKind(row, 'decision') || (row.kind === undefined && row.scene && row.system1));
 const receipts = checkpoints.map((row) => row.timing).filter(Boolean);
 const diffs = checkpoints.map((row) => row.worldDiff).filter(Boolean);
-const telemetry = rows.filter((row) => row._telemetry);
-const stateRows = rows.filter((row) => row._state);
+const telemetry = rows.filter((row) => isKind(row, 'telemetry') || (row.kind === undefined && row._telemetry));
+const stateRows = rows.filter((row) => isKind(row, 'state') || (row.kind === undefined && row._state));
 const structureSamples = stateRows.map((row) => row.structure).filter(Boolean);
 const structureEvents = structureSamples.flatMap((sample) => sample.events ?? []);
 const latestStructure = structureSamples.at(-1) ?? null;

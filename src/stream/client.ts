@@ -26,6 +26,10 @@ export interface StreamMeta {
   width: number;
   height: number;
   error?: string;
+  /** Extra sidecar telemetry carried through but not interpreted here. */
+  worldDiff: unknown;
+  realization: unknown;
+  resonance: unknown;
 }
 
 export interface StreamInfo {
@@ -243,6 +247,13 @@ export class StreamClient {
     if (!jpeg.byteLength) return;
     this.#sourceSentAt = 0; // the sidecar has taken the last source: send the next one
     this.framesReceived++;
+    if (meta.frame <= this.#newestShown) {
+      // Stale frame: drop before the async JPEG decode, which is the
+      // expensive step (Blob + createImageBitmap). Counters and liveness
+      // semantics above are preserved; only the wasted decode is skipped.
+      this.framesDropped++;
+      return;
+    }
     const bitmap = await createImageBitmap(new Blob([jpeg], { type: 'image/jpeg' }));
     if (meta.frame <= this.#newestShown) {
       this.framesDropped++;

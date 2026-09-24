@@ -6,7 +6,8 @@ import { spawnSync } from 'node:child_process';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 's1-evaluate-logs-'));
 const file = path.join(root, 'session.jsonl');
-const sample = (language, groundedMotifs) => JSON.stringify({
+const sample = (language, groundedMotifs, envelope = {}) => JSON.stringify({
+  ...envelope,
   _telemetry: true,
   meaning: {
     language,
@@ -25,6 +26,11 @@ try {
   assert.equal(passSummary.liveMeaning.languageValidation, 'pass');
   assert.equal(passSummary.liveMeaning.languageEvidence.en.status, 'pass');
   assert.equal(passSummary.liveMeaning.languageEvidence.ja.status, 'pass');
+
+  fs.writeFileSync(file, `${sample('en', 1, { kind: 'telemetry', v: 1 })}\n${sample('ja', 1, { kind: 'telemetry', v: 1 })}\n`);
+  const enveloped = spawnSync(process.execPath, ['scripts/evaluate-logs.mjs', file, '--require-languages=en,ja', '--json'], { encoding: 'utf8' });
+  assert.equal(enveloped.status, 0);
+  assert.equal(JSON.parse(enveloped.stdout).liveMeaning.languageValidation, 'pass');
 
   fs.writeFileSync(file, `${sample('ja', 1)}\n`);
   const incomplete = spawnSync(process.execPath, ['scripts/evaluate-logs.mjs', file, '--require-languages=en,ja', '--json'], { encoding: 'utf8' });
