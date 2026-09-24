@@ -25,6 +25,10 @@ vec3 sharpSample(sampler2D tex, vec2 uv) {
   return clamp(c + (c - n * 0.25) * 0.35, 0.0, 1.0);
 }
 
+float luma(vec3 c) {
+  return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
 void main() {
   vec2 uv = (vUv - 0.5) * (1.0 - 0.035 * uKick) + 0.5;
   vec3 procedural = proceduralScene(uv);
@@ -38,7 +42,18 @@ void main() {
     else s.x = (s.x - 0.5) * r + 0.5;
     s.y = 1.0 - s.y; // image rows are top-down
     vec3 painted = mix(sharpSample(uPrev, s), sharpSample(uCurr, s), uBlend);
-    color = mix(procedural, painted, uPaint);
+
+    // The diffusion frame owns texture and luminance, but it can collapse a
+    // whole chapter into one dominant hue. Reuse the persistent procedural
+    // palette as a low-cost chroma prior: preserve the painted luminance and
+    // detail while borrowing only a bounded amount of the current world
+    // colour. This keeps palette continuity in the display path without
+    // another VAE/diffusion pass.
+    float paintedLum = max(luma(painted), 0.04);
+    float proceduralLum = max(luma(procedural), 0.04);
+    vec3 paletteTint = clamp(procedural * (paintedLum / proceduralLum), 0.0, 1.0);
+    vec3 paletteGuarded = mix(painted, paletteTint, 0.28);
+    color = mix(procedural, paletteGuarded, uPaint);
   }
 
   vec2 v = vUv - 0.5;

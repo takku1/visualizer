@@ -13,6 +13,10 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   transition does not collapse into a single-color chapter. Procedural noise
   seeds glide with the look transition, and normal scene splices paint over
   two bars; explicit hard cuts remain immediate.
+- The display compositor now preserves painted luminance and texture while
+  borrowing a bounded amount of the persistent procedural palette. This keeps
+  the diffusion layer from collapsing an entire song chapter into one hue
+  without adding diffusion or VAE work to the frame path.
 
 - Typed scene continuity contracts accompany the legacy scalar `continuity` field.
 - Checkpoint timing receipts record source, confidence, requested beat, commit time, phase error, and timeout fallback.
