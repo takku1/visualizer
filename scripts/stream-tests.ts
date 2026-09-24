@@ -13,6 +13,7 @@ import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive } from '../src/director/live-meaning';
 import { diffWorldState } from '../src/world/state';
+import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 
 let passed = 0;
@@ -279,6 +280,16 @@ test('world diffs preserve stable subjects while changing action', () => {
   assert.equal(diff.add.length, 0);
   assert.equal(diff.remove.length, 0);
   assert.equal(diff.action.to, 'enters the field');
+});
+
+test('timed lyric import preserves evidence and rejects untimed results', () => {
+  const lines = parseLrc('[00:01.00]first line\n[00:03.50]second line');
+  assert.equal(lines[0]!.startSec, 1);
+  assert.equal(lines[0]!.endSec, 3.5);
+  const meaning = meaningFromLyrics({ provider: 'import', match: 'import', timing: 'line', rights: 'verified', confidence: 0.9, lines });
+  assert.equal(meaning?.evidence.length, 2);
+  assert.equal(meaning?.evidence[0]?.source, 'lyrics');
+  assert.equal(meaningFromLyrics({ provider: 'x', match: 'metadata', timing: 'none', rights: 'unknown', confidence: 0.4, lines }), null);
 });
 
 /** Drive a scheduler through `seconds` of a 120 bpm 4/4 grid (2 s bars); returns requests with their times. */

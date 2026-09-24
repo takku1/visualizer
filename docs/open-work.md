@@ -10,12 +10,13 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Scenes carry persistent `WorldState`; checkpoints expose renderer-independent `SceneDiff` data for future stateful backends.
 - The current sidecar consumes `SceneDiff` identity-break/preserve intent and reports the diff summary in stream telemetry.
 - Shot graphs now support guarded runtime selection, prefetch candidates, and cancellation epochs; GPU pre-rendering remains measurement-gated.
+- Timed lyric import/provider interfaces now exist; `npm run meaning:import -- --lrc song.lrc --track <id> --out meaning/<id>.json` creates an evidence-bearing manifest.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
 - `npm run app` starts the local ASR worker by default; use `npm run app -- --no-meaning` only for performance isolation. Committed live hypotheses promote into `SongMeaning` without blocking procedural rendering.
 
 ## Still deliberately deferred
 
-- Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR is now the default implementation, not a universal lyrics solution.
+- Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR and timed imports are available, but neither is a universal catalog solution.
 - Reference-image identity conditioning and a ground-truth visual identity/action evaluator remain deferred; the current sidecar now consumes continuity intent but cannot claim true object memory.
 - TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.
 

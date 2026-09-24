@@ -15,6 +15,7 @@
     "models": "python tools/fetch-models.py",
     "test": "node scripts/run-stream-tests.mjs",
     "meaning:new": "node scripts/meaning-new.mjs",
+    "meaning:import": "node scripts/meaning-import.mjs",
     "analyze:logs": "node scripts/analyze-ab.mjs",
     "analyze:real": "node scripts/analyze-ab.mjs --require-real",
     "evaluate:logs": "node scripts/evaluate-logs.mjs",
