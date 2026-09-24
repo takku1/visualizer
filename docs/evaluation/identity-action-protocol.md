@@ -27,6 +27,19 @@ It is deliberately outside the real-time loop.
    frame being scored.
 4. Annotate the intended action at the same timestamps. If action is
    ambiguous, omit it rather than inventing a label.
+   Labels can be applied explicitly with:
+
+   ```powershell
+   python tools/annotate-eval-manifest.py output/eval-capture/manifest.json `
+     --identity-group form-a `
+     --identity "persistent dominant form" `
+     --identity-indices 0,1,2 `
+     --action "moving laterally" `
+     --action-indices 0,1,2 `
+     --reference reference/form-a.jpg
+   ```
+
+   The command rejects references that reuse captured frames.
 5. Preflight the capture and annotation set before loading the model:
 
 ```powershell
