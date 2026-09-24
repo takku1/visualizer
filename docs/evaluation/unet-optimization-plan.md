@@ -101,6 +101,14 @@ cannot prove object identity or distinguish camera motion from subject motion.
 Use the same frame cadence, fixture, and directory sampling when comparing
 backends.
 
+The first full 120-frame baseline used a 16-frame splice. Its adjacent-change
+maximum was `0.10198` at the retarget boundary, with P95 `0.06529`; second-
+difference P95 was `0.09596`. A 32-frame splice plus `STREAM_KEYFRAME_LIVE_MIX`
+at its default `0.5` reduced those values to adjacent maximum `0.08057`,
+adjacent P95 `0.05719`, and second-difference P95 `0.07935`. The easing applies
+only while a keyframe is being denoised; ordinary audio-reactive frames keep
+their existing path.
+
 ## Bender diagnostic
 
 The production CUDA-graph benchmark was repeated with the Bender hooks enabled

@@ -65,6 +65,8 @@ KEY_STEPS = int(os.environ.get("STREAM_KEY_STEPS", "4"))
 JPEG_QUALITY = int(os.environ.get("STREAM_JPEG_QUALITY", "88"))
 MAX_FPS = float(os.environ.get("STREAM_MAX_FPS", "30"))
 BENDER_ENABLED = os.environ.get("STREAM_BENDER", "1") != "0"
+BENCH_SPLICE_FRAMES = max(1, int(os.environ.get("STREAM_BENCH_SPLICE_FRAMES", "16")))
+KEYFRAME_LIVE_MIX = max(0.0, min(1.0, float(os.environ.get("STREAM_KEYFRAME_LIVE_MIX", "0.5"))))
 MEANING_DIR = Path(os.environ.get("STREAM_MEANING_DIR", ROOT / "meaning"))
 EVAL_DIR = Path(os.environ["STREAM_EVAL_DIR"]) if os.environ.get("STREAM_EVAL_DIR") else None
 EVAL_EVERY = max(1, int(os.environ.get("STREAM_EVAL_EVERY", "15")))
@@ -969,6 +971,12 @@ class Engine:
         if job is not None and job.phase == "denoising":
             # Batch the keyframe step with the live frame: one UNet call, batch 2.
             z_new = self._key_step(job, (x_t, t_fast, emb))
+            if z_new is not None and KEYFRAME_LIVE_MIX < 1.0:
+                # The first live x0 prediction shares a batched UNet call with
+                # the new keyframe and can move farther than ordinary feedback.
+                # Ease it in during retarget denoising; paint-in handles the
+                # keyframe itself afterward.
+                z_new = torch.lerp(prev, z_new, KEYFRAME_LIVE_MIX)
         else:
             eps_pred = self._unet(x_t, [t_fast], emb, live=[1.0])
             z_new = (x_t - (1 - a).sqrt() * eps_pred) / a.sqrt()
@@ -1255,7 +1263,7 @@ def bench(frames: int, report_path: str | None = None) -> None:
     out = Path(os.environ.get("STREAM_BENCH_OUT", ROOT / "output" / "stream-bench"))
     out.mkdir(parents=True, exist_ok=True)
     dump_all = os.environ.get("STREAM_BENCH_DUMP_ALL", "0") == "1"
-    engine.request_checkpoint({"id": "a", "prompt": "bioluminescent coral cathedral, deep ocean, volumetric light", "seed": 1, "spliceFrames": 16})
+    engine.request_checkpoint({"id": "a", "prompt": "bioluminescent coral cathedral, deep ocean, volumetric light", "seed": 1, "spliceFrames": BENCH_SPLICE_FRAMES})
     times: list[float] = []
     stage_ms: dict[str, list[float]] = {"encode": [], "unet": [], "decode": []}
     stage_events: list[tuple[str, torch.cuda.Event, torch.cuda.Event]] = []
@@ -1285,7 +1293,7 @@ def bench(frames: int, report_path: str | None = None) -> None:
         beat = i % 15 == 0
         c = Control(strength=0.3 + (0.2 if beat else 0.0), noise=0.1, detail=0.15, zoom=0.1 + (1.5 if beat else 0.0), rotate=0.08, noiseWalk=0.8, feedback=0.15, flow=0.04, flowSpeed=0.6)
         if i == frames // 3:
-            engine.request_checkpoint({"id": "b", "prompt": "molten ember desert canyon at dusk, cinematic", "seed": 7, "continuity": 0.4, "spliceFrames": 16})
+            engine.request_checkpoint({"id": "b", "prompt": "molten ember desert canyon at dusk, cinematic", "seed": 7, "continuity": 0.4, "spliceFrames": BENCH_SPLICE_FRAMES})
         if DEVICE == "cuda":
             torch.cuda.synchronize()
         t0 = time.perf_counter()
@@ -1314,6 +1322,8 @@ def bench(frames: int, report_path: str | None = None) -> None:
         "device": DEVICE,
         "dtype": str(DTYPE),
         "benderEnabled": BENDER_ENABLED,
+        "spliceFrames": BENCH_SPLICE_FRAMES,
+        "keyframeLiveMix": KEYFRAME_LIVE_MIX,
         "medianMs": round(median_ms, 3),
         "p90Ms": round(p90_ms, 3),
         "p95Ms": round(p95_ms, 3),
