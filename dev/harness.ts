@@ -24,10 +24,11 @@ declare global {
 const params = new URLSearchParams(location.search);
 
 // Lyrics lookup is off only when explicitly disabled. The provider is
-// cached and runs outside the frame loop; unknown-rights results still stay
-// evidence-only unless the user explicitly opts into community lyrics with
-// `lyrics-rights=community`.
+// cached and runs outside the frame loop. Community results retain their
+// provider/rights/confidence provenance; pass `lyrics=off` or
+// `lyrics-rights=off` to disable their semantic promotion.
 const lyricsMode = params.get('lyrics') ?? 'lrclib';
+const lyricsRights = params.get('lyrics-rights') ?? 'community';
 
 /** One line from scripts/media-session.ps1. */
 interface MediaInfo {
@@ -97,7 +98,7 @@ async function main(): Promise<void> {
     lyricsProvider: lyricsMode !== 'off'
       ? new CachedLyricsProvider(new LrclibLyricsProvider(), new StorageLyricsCache(localStorage))
       : undefined,
-    allowUnknownLyrics: params.get('lyrics-rights') === 'community',
+    allowUnknownLyrics: lyricsRights === 'community',
     paint: Number(params.get('paint') ?? storedPaint() ?? 0.6),
     keyframes: params.get('keyframes') !== 'off',
     continuousLatentMode: params.get('continuous') !== 'off',
