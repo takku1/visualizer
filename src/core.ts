@@ -597,8 +597,10 @@ export class VisualizerApp {
       const fps = (this.#fpsFrames / elapsed) * 1000;
       const received = stream?.framesReceived ?? 0;
       const streamFps = ((received - this.#streamFramesAtWindow) / elapsed) * 1000;
+      const genMs = stream?.meta?.genMs;
+      const generation = Number.isFinite(genMs) ? `  gen ${genMs}ms` : '';
       console.log(`[perf] display ${fps.toFixed(1)} fps  stream ${streamFps.toFixed(1)} fps` +
-        (stream?.meta ? `  gen ${stream.meta.genMs}ms` : ''));
+        generation);
       this.#config.log?.(telemetryLine({
         t: frame.t,
         fps,
