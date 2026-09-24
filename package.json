@@ -20,6 +20,7 @@
     "analyze:logs": "node scripts/analyze-ab.mjs",
     "analyze:real": "node scripts/analyze-ab.mjs --require-real",
     "evaluate:logs": "node scripts/evaluate-logs.mjs",
+    "test:evaluate-logs": "node scripts/test-evaluate-logs.mjs",
     "install-ext": "node build.mjs && node scripts/install.mjs",
     "typecheck": "tsc --noEmit"
   },
