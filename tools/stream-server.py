@@ -64,6 +64,7 @@ HEIGHT = int(os.environ.get("STREAM_HEIGHT", "256"))
 KEY_STEPS = int(os.environ.get("STREAM_KEY_STEPS", "4"))
 JPEG_QUALITY = int(os.environ.get("STREAM_JPEG_QUALITY", "88"))
 MAX_FPS = float(os.environ.get("STREAM_MAX_FPS", "30"))
+BENDER_ENABLED = os.environ.get("STREAM_BENDER", "1") != "0"
 MEANING_DIR = Path(os.environ.get("STREAM_MEANING_DIR", ROOT / "meaning"))
 EVAL_DIR = Path(os.environ["STREAM_EVAL_DIR"]) if os.environ.get("STREAM_EVAL_DIR") else None
 EVAL_EVERY = max(1, int(os.environ.get("STREAM_EVAL_EVERY", "15")))
@@ -549,7 +550,7 @@ class Engine:
         self.unet = UNet2DConditionModel.from_pretrained(
             MODEL_DIR / "unet", variant=variant("unet"), torch_dtype=DTYPE
         ).to(DEVICE).eval()
-        self.bender = Bender(self.unet)
+        self.bender = Bender(self.unet) if BENDER_ENABLED else None
         # Prefer the checkpoint's own tiny VAE (SDXS ships one finetuned for
         # its UNet); otherwise the generic TAESD for SD 1.x/2.x latents.
         own_vae = MODEL_DIR / "vae" / "config.json"
@@ -627,6 +628,8 @@ class Engine:
         Scaled so strength 1 moves the bottleneck by one standard deviation of
         its ordinary activations: the same unit on every axis.
         """
+        if self.bender is None:
+            return
         cache = ROOT / "models" / f"hspace-{WIDTH}x{HEIGHT}.pt"
         if cache.exists():
             saved = torch.load(cache, map_location=DEVICE, weights_only=True)
@@ -1042,7 +1045,8 @@ class Engine:
             hsLight=_clamp(self.control.hsLight + 0.35 * semantic["light"], -1.5, 1.5),
             hsOrganic=_clamp(self.control.hsOrganic + 0.35 * semantic["organic"], -1.5, 1.5),
         )
-        self.bender.set(bent, live or [0.0] * len(ts))
+        if self.bender is not None:
+            self.bender.set(bent, live or [0.0] * len(ts))
         t = torch.tensor(ts, device=DEVICE)
         g = self.graphs.get("unet1" if len(ts) == 1 else "unet2")
         if g is not None and x.shape[-2:] == g.inputs[0].shape[-2:]:
@@ -1308,6 +1312,7 @@ def bench(frames: int, report_path: str | None = None) -> None:
         "height": HEIGHT,
         "device": DEVICE,
         "dtype": str(DTYPE),
+        "benderEnabled": BENDER_ENABLED,
         "medianMs": round(median_ms, 3),
         "p90Ms": round(p90_ms, 3),
         "p95Ms": round(p95_ms, 3),

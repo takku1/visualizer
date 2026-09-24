@@ -85,6 +85,22 @@ compiled into ordinary tensor inputs without changing the visual contract. If
 not, the engine remains a measured research backend and PyTorch remains the
 runtime backend.
 
+## Bender diagnostic
+
+The production CUDA-graph benchmark was repeated with the Bender hooks enabled
+and disabled using the same 448x256 profile:
+
+| Mode | UNet median | End-to-end median |
+| --- | ---: | ---: |
+| Bender on | 35.4 ms | 49.6 ms |
+| Bender off | 35.0 ms | 49.0 ms |
+
+The difference is within run-to-run noise. Bender is already captured inside
+the CUDA graph, so it is not the measured bottleneck. This makes a custom
+TensorRT Bender plugin a poor first optimization: it adds feature risk without
+addressing the dominant cost. Preserve Bender in the PyTorch backend while the
+accelerated backend is treated as a separate research candidate.
+
 ## Acceptance gates
 
 An engine candidate is eligible for integration only when all gates pass:
