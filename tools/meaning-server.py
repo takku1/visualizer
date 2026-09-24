@@ -55,6 +55,14 @@ class Probe:
     def transcribe(self, samples: np.ndarray, sample_rate: int, offset_sec: float) -> list[dict]:
         if self.pipe is None:
             return []
+        # Whisper can emit plausible filler words for silence. Do not let a
+        # repeated silent window become semantic evidence. The threshold is
+        # deliberately conservative and configurable for different capture
+        # devices; the renderer remains independent of this optional gate.
+        min_rms = float(os.environ.get("MEANING_MIN_RMS", "0.003"))
+        rms = float(np.sqrt(np.mean(np.square(samples, dtype=np.float64)))) if samples.size else 0.0
+        if rms < min_rms:
+            return []
         # Whisper's pipeline adds these processors itself. Passing the config
         # values through generate() as well makes Transformers 5.x construct a
         # second copy and emit duplicate-processor warnings on every window.

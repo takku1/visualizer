@@ -29,6 +29,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - `npm run app -- --meaning-language ja` can force Japanese Whisper decoding for a validation session; omitting it preserves automatic language detection.
 - Automatic language detection now recovers Japanese from Hiragana/Katakana when Whisper returns `und`; live extraction covers a broader conservative Japanese vocabulary and action set without inventing unsupported narrative.
 - Whisper pipeline failures now produce an empty live update and keep the optional ASR worker alive; they no longer tear down the WebSocket or the renderer's semantic connection.
+- ASR now rejects configurable low-RMS windows (`MEANING_MIN_RMS`, default `0.003`) before Whisper inference, preventing silence hallucinations from becoming repeated semantic evidence.
 - The diffusion control hot path reuses CPU staging buffers instead of allocating tensors per frame. A controlled 40-frame CUDA comparison at 576×320 measured 62.4 ms median / 63.9 ms p90 after the change versus 63.2 ms / 65.1 ms before it, with peak VRAM unchanged at about 2.48 GB. Reproduce with `npm run stream:bench -- --bench-json output/stream-bench/current.json`.
 
 ## Still deliberately deferred

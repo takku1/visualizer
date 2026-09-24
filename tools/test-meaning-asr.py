@@ -25,7 +25,7 @@ class WholeWindow:
 
 
 probe = module.Probe("fake", "cpu", "ja", WholeWindow())
-hypotheses = probe.transcribe(np.zeros(16000, dtype=np.float32), 16000, 12.0)
+hypotheses = probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 12.0)
 assert hypotheses[0]["language"] == "ja"
 assert hypotheses[0]["startSec"] == 12.0
 assert hypotheses[0]["endSec"] == 13.0
@@ -37,7 +37,7 @@ class OpenChunk:
 
 
 probe.pipe = OpenChunk()
-hypotheses = probe.transcribe(np.zeros(16000, dtype=np.float32), 16000, 12.0)
+hypotheses = probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 12.0)
 assert hypotheses[0]["endSec"] == 13.0
 
 
@@ -47,9 +47,12 @@ class UndJapanese:
 
 
 probe.pipe = UndJapanese()
-hypotheses = probe.transcribe(np.zeros(16000, dtype=np.float32), 16000, 0.0)
+hypotheses = probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 0.0)
 assert hypotheses[0]["language"] == "ja"
 assert hypotheses[0]["confidence"] == 0.7
+
+probe.pipe = WholeWindow()
+assert probe.transcribe(np.zeros(16000, dtype=np.float32), 16000, 0.0) == []
 
 
 class CloseOnReady:
