@@ -29,11 +29,34 @@ def main() -> None:
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--model", type=Path, default=Path("models/clip-vit-b32"))
     parser.add_argument("--threshold", type=float, default=0.2)
+    parser.add_argument("--validate-only", action="store_true", help="check capture files and annotation coverage without loading the model")
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     rows = [row for row in manifest.get("frames", []) if row.get("file")]
     if not rows:
         raise SystemExit("manifest has no frames")
+    references_manifest = {str(group): path for group, path in (manifest.get("references") or {}).items() if path}
+    missing_frames = [str(row["file"]) for row in rows if not (args.manifest.parent / row["file"]).is_file()]
+    missing_references = [str(path) for path in references_manifest.values() if not (args.manifest.parent / path).is_file()]
+    groups: dict[str, list[int]] = {}
+    for index, row in enumerate(rows):
+        if row.get("identity"):
+            group = str(row.get("identityGroup") or row["identity"])
+            groups.setdefault(group, []).append(index)
+    validation = {
+        "ready": not missing_frames and not missing_references and bool(groups),
+        "frames": len(rows),
+        "missingFrames": missing_frames,
+        "missingReferences": missing_references,
+        "identityGroups": {group: len(indices) for group, indices in groups.items()},
+        "multiFrameIdentityGroups": sum(len(indices) >= 2 for indices in groups.values()),
+        "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
+    }
+    if args.validate_only:
+        print(json.dumps(validation, indent=2))
+        if not validation["ready"]:
+            raise SystemExit(2)
+        return
     model = CLIPModel.from_pretrained(args.model).eval()
     processor = CLIPProcessor.from_pretrained(args.model)
     images = [Image.open(args.manifest.parent / row["file"]).convert("RGB") for row in rows]
@@ -61,11 +84,6 @@ def main() -> None:
             "std": float(np.std(values)) if values else None,
             "aboveThreshold": float(np.mean(np.array(values) >= args.threshold)) if values else None,
         }
-    groups: dict[str, list[int]] = {}
-    for index, row in enumerate(rows):
-        if row.get("identity"):
-            group = str(row.get("identityGroup") or row["identity"])
-            groups.setdefault(group, []).append(index)
     consistency: dict[str, object] = {}
     for group, indices in groups.items():
         pairwise = [

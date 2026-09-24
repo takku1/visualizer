@@ -11,7 +11,17 @@ It is deliberately outside the real-time loop.
    frame being scored.
 4. Annotate the intended action at the same timestamps. If action is
    ambiguous, omit it rather than inventing a label.
-5. Run:
+5. Preflight the capture and annotation set before loading the model:
+
+```powershell
+python tools/evaluate-world.py path/to/manifest.json --validate-only
+```
+
+The preflight must report the frame/reference files as present and at least
+one identity group with two or more frames before temporal identity claims are
+interpretable.
+
+6. Run:
 
 ```powershell
 python tools/evaluate-world.py docs/evaluation/identity-action-manifest.example.json `
