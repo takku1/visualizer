@@ -7,6 +7,7 @@ export class LiveMeaningClient {
   #ws: WebSocket | null = null;
   #closed = false;
   #retryMs = 1000;
+  #inFlight = false;
   #onUpdate: (update: LiveLyricUpdate) => void;
 
   constructor(url: string, onUpdate: (update: LiveLyricUpdate) => void) {
@@ -28,7 +29,10 @@ export class LiveMeaningClient {
       if (typeof event.data !== 'string') return;
       try {
         const value: unknown = JSON.parse(event.data);
-        if (isLiveLyricUpdate(value)) this.#onUpdate(value);
+        if (isLiveLyricUpdate(value)) {
+          this.#inFlight = false;
+          this.#onUpdate(value);
+        }
       } catch {
         // A malformed optional ASR message must never affect rendering.
       }
@@ -36,6 +40,7 @@ export class LiveMeaningClient {
     ws.onopen = () => { this.#retryMs = 1000; };
     ws.onclose = () => {
       this.#ws = null;
+      this.#inFlight = false;
       if (this.#closed) return;
       setTimeout(() => this.connect(), this.#retryMs);
       this.#retryMs = Math.min(this.#retryMs * 2, 10000);
@@ -47,11 +52,13 @@ export class LiveMeaningClient {
     this.#closed = true;
     this.#ws?.close();
     this.#ws = null;
+    this.#inFlight = false;
   }
 
   sendWindow(trackId: string, playheadSec: number, window: AudioWindow): void {
     const ws = this.#ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN || !window.samples.length) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN || this.#inFlight || !window.samples.length) return;
+    this.#inFlight = true;
     ws.send(JSON.stringify({
       type: 'audio-window',
       trackId,
