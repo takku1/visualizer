@@ -116,6 +116,7 @@ def main() -> None:
     parser.add_argument("--model", type=Path, default=Path("models/clip-vit-b32"))
     parser.add_argument("--threshold", type=float, default=0.2)
     parser.add_argument("--validate-only", action="store_true", help="check capture files and annotation coverage without loading the model")
+    parser.add_argument("--out", type=Path, default=None, help="also write the JSON diagnostic report to this path")
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     validation = validate_manifest(manifest, args.manifest.parent)
@@ -134,7 +135,11 @@ def main() -> None:
         if row.get("sequenceGroup"):
             sequences.setdefault(str(row["sequenceGroup"]), []).append(index)
     if args.validate_only:
-        print(json.dumps(validation, indent=2))
+        rendered = json.dumps(validation, indent=2)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(rendered + "\n", encoding="utf-8")
+        print(rendered)
         if not validation["ready"]:
             raise SystemExit(2)
         return
@@ -248,7 +253,11 @@ def main() -> None:
         "actionReady": validation["actionReady"],
         "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group. Verification remains false until a correspondence/action evaluator is connected.",
     }
-    print(json.dumps(report, indent=2))
+    rendered = json.dumps(report, indent=2)
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(rendered + "\n", encoding="utf-8")
+    print(rendered)
 
 
 if __name__ == "__main__":

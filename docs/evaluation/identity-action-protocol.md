@@ -33,6 +33,9 @@ It is deliberately outside the real-time loop.
 python tools/evaluate-world.py path/to/manifest.json --validate-only
 ```
 
+Add `--out path/to/report.json` to persist the validation or model-backed
+diagnostic report alongside the capture.
+
 The preflight must report the frame/reference files as present and at least
 one identity group with two or more frames before temporal identity claims are
 interpretable. Every annotated identity group must have its own reference
