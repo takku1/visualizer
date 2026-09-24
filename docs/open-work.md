@@ -43,7 +43,9 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Reference-image conditioning inside the real-time sidecar and a ground-truth visual identity/action evaluator remain deferred. The offline evaluator now supports optional reference-image diagnostics, adjacent temporal consistency, and explicit capture preflight; it cannot claim true object memory from CLIP scores alone.
 - TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.
 
-The evaluator's `identityVerified` and `actionVerified` fields remain false until an actual visual evaluator is connected.
+The evaluator's `identityVerified` and `actionVerified` fields remain false
+until an actual visual evaluator is connected; every offline report now emits
+those fields explicitly with `evaluationMode: diagnostic`.
 
 ## Research basis
 

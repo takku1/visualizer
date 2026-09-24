@@ -76,6 +76,9 @@ def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
     action_ready = identity_ready and any(len(indices) >= 2 for indices in action_groups.values())
     return {
         "ready": temporal_ready or identity_ready,
+        "evaluationMode": "diagnostic",
+        "identityVerified": False,
+        "actionVerified": False,
         "temporalReady": temporal_ready,
         "identityReady": identity_ready,
         "actionReady": action_ready,
@@ -139,6 +142,11 @@ def main() -> None:
     scores = image_features @ text_features.T if text_features is not None else None
     text_index = {text: index for index, text in enumerate(texts)}
     report: dict[str, object] = {"frames": len(rows), "threshold": args.threshold}
+    report["evaluationMode"] = "diagnostic"
+    # These remain false by design: CLIP alignment and image cosine are
+    # comparison signals, not a correspondence/ground-truth evaluator.
+    report["identityVerified"] = False
+    report["actionVerified"] = False
     for kind in ("identity", "action"):
         values = [float(score_row[text_index[row[kind]]]) for row, score_row in zip(rows, scores) if row.get(kind)] if scores is not None else []
         report[kind] = {
@@ -209,12 +217,13 @@ def main() -> None:
         "identityGroups": len(groups),
         "multiFrameIdentityGroups": sum(len(indices) >= 2 for indices in groups.values()),
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
+        "actionGroups": validation["actionGroups"],
         "temporalIdentityEvidenceAvailable": any(len(indices) >= 2 for indices in groups.values()),
         "temporalSequenceEvidenceAvailable": any(len(indices) >= 2 for indices in sequences.values()),
         "temporalReady": validation["temporalReady"],
         "identityReady": validation["identityReady"],
         "actionReady": validation["actionReady"],
-        "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group.",
+        "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group. Verification remains false until a correspondence/action evaluator is connected.",
     }
     print(json.dumps(report, indent=2))
 

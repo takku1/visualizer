@@ -25,6 +25,9 @@ with tempfile.TemporaryDirectory() as directory:
         ],
     }
     valid = module.validate_manifest(base, root)
+    assert valid["evaluationMode"] == "diagnostic"
+    assert valid["identityVerified"] is False
+    assert valid["actionVerified"] is False
     assert valid["identityReady"] is True
     assert valid["actionReady"] is True
 

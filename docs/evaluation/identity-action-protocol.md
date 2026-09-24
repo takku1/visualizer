@@ -37,7 +37,9 @@ scores are the more relevant continuity diagnostic; all-pairs scores are useful
 for detecting broad identity drift across a section. The report also states
 whether enough multi-frame identity evidence exists. These are evidence for
 comparison between conditions, not proof of object identity, correspondence,
-or narrative truth.
+or narrative truth. Every report explicitly declares `evaluationMode:
+diagnostic`, `identityVerified: false`, and `actionVerified: false` until a
+correspondence/action evaluator with ground-truth validation is connected.
 
 For an abstaining or emergent run where no persistent subject can be honestly
 annotated, use `sequenceGroup` without `identity`, `identityGroup`, or `action`.
