@@ -300,6 +300,17 @@ test('committed Japanese live audio extracts only evidenced world handles', () =
   assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
 });
 
+test('Japanese live extraction recognizes non-literal form anchors and actions conservatively', () => {
+  const meaning = meaningFromLive({
+    trackId: 'track-ja-rich', provisional: [], committed: [{
+      ...liveHypothesis,
+      id: 'ja-rich-1', text: '森で花が揺れて彼女が踊っている', language: 'ja', status: 'committed',
+    }],
+  }, 2, 0);
+  assert.deepEqual(meaning?.motifs.map((motif) => motif.kind).sort(), ['object', 'person', 'place']);
+  assert.equal(meaning?.sections[0]?.action, 'moves rhythmically');
+});
+
 test('committed English live audio extracts person, place, force, and action', () => {
   const meaning = meaningFromLive({
     trackId: 'track-en', provisional: [], committed: [{

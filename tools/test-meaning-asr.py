@@ -37,4 +37,15 @@ class OpenChunk:
 probe.pipe = OpenChunk()
 hypotheses = probe.transcribe(np.zeros(16000, dtype=np.float32), 16000, 12.0)
 assert hypotheses[0]["endSec"] == 13.0
+
+
+class UndJapanese:
+    def __call__(self, *_args, **_kwargs):
+        return {"text": "雨の駅", "language": "und", "chunks": [], "confidence": None}
+
+
+probe.pipe = UndJapanese()
+hypotheses = probe.transcribe(np.zeros(16000, dtype=np.float32), 16000, 0.0)
+assert hypotheses[0]["language"] == "ja"
+assert hypotheses[0]["confidence"] == 0.7
 print("multilingual ASR contract ok")

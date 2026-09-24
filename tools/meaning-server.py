@@ -62,12 +62,18 @@ class Probe:
             generate_kwargs=generate_kwargs,
         )
         hypotheses: list[dict] = []
-        detected_language = str(result.get("language") or self.language or "und")
+        detected_language = infer_language(
+            str(result.get("language") or self.language or "und"),
+            str(result.get("text") or ""),
+        )
         for index, chunk in enumerate(result.get("chunks", [])):
             text = str(chunk.get("text", "")).strip()
+            if not text:
+                continue
+            chunk_language = infer_language(detected_language, text)
             timestamps = chunk.get("timestamp") or (None, None)
             start, end = timestamps
-            if not text or start is None:
+            if start is None:
                 continue
             # Singing, especially in non-Latin scripts, can produce a text
             # chunk without a terminal timestamp. Keep the evidence bounded
@@ -78,13 +84,13 @@ class Probe:
             hypotheses.append({
                 "id": f"asr-{int((offset_sec + start) * 1000)}-{index}",
                 "text": text,
-                "language": detected_language,
+                "language": chunk_language,
                 "startSec": round(offset_sec + float(start), 3),
                 "endSec": round(offset_sec + float(end), 3),
                 # Transformers does not expose a calibrated chunk confidence
                 # consistently. Keep this as a provisional calibrated floor;
                 # repeated-window stability is enforced in the browser.
-                "confidence": float(chunk.get("confidence", result.get("confidence", 0.7))),
+                "confidence": safe_confidence(chunk.get("confidence", result.get("confidence", 0.7))),
                 "stability": 0.0,
                 "status": "provisional",
                 "source": "live-asr",
@@ -99,12 +105,33 @@ class Probe:
                     "language": detected_language,
                     "startSec": round(offset_sec, 3),
                     "endSec": round(offset_sec + duration, 3),
-                    "confidence": float(result.get("confidence", 0.7)),
+                    "confidence": safe_confidence(result.get("confidence", 0.7)),
                     "stability": 0.0,
                     "status": "provisional",
                     "source": "live-asr",
                 })
         return hypotheses
+
+
+def infer_language(reported: str, text: str) -> str:
+    """Recover common Whisper omissions without overriding an explicit locale."""
+    normalized = reported.strip().lower()
+    if normalized not in {"", "auto", "und", "unknown", "none"}:
+        if normalized in {"japanese", "日本語"}:
+            return "ja"
+        return normalized
+    # Hiragana/Katakana are a stronger Japanese signal than generic CJK text.
+    if any(("\u3040" <= char <= "\u309f") or ("\u30a0" <= char <= "\u30ff") for char in text):
+        return "ja"
+    return reported or "und"
+
+
+def safe_confidence(value: object) -> float:
+    try:
+        confidence = float(value) if value is not None else 0.7
+    except (TypeError, ValueError):
+        confidence = 0.7
+    return max(0.0, min(1.0, confidence))
 
 
 class Server:
