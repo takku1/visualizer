@@ -8,7 +8,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Checkpoint timing receipts record source, confidence, requested beat, commit time, phase error, and timeout fallback.
 - A deterministic shot-graph seam supports candidate shots, weighted transitions, and prefetch intent.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
-- `npm run app -- --meaning` starts the opt-in local ASR worker; committed live hypotheses now promote into `SongMeaning` without blocking procedural rendering.
+- `npm run app` starts the local ASR worker by default; use `npm run app -- --no-meaning` only for performance isolation. Committed live hypotheses promote into `SongMeaning` without blocking procedural rendering.
 
 ## Still deliberately deferred
 

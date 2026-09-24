@@ -1,7 +1,8 @@
 # First-listen mode without external lyric APIs
 
-Status: local ASR transport and promotion path implemented; model quality and
-language coverage remain evaluation work.
+Status: local ASR transport and promotion path implemented and enabled by the
+default Electron launcher; model quality and language coverage remain
+evaluation work.
 
 ## The honest constraint
 

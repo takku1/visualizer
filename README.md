@@ -44,7 +44,7 @@ npm run models        # ~2.5 GB: SD-Turbo fp16 UNet + text encoder, TAESD
 npm run app           # builds, starts the sidecar, opens the Electron app
 ```
 
-`npm run app` starts `tools/stream-server.py` alongside Electron. The app
+`npm run app` starts `tools/stream-server.py` and the local meaning worker alongside Electron. The app
 connects as soon as the model has loaded (~5 s), and shows the procedural
 scene on its own until then. Only one window can drive the sidecar at a
 time; a second one waits and takes over when the first closes. To run the pieces separately:
@@ -53,12 +53,17 @@ time; a second one waits and takes over when the first closes. To run the pieces
 npm run stream        # sidecar alone, ws://127.0.0.1:8771
 npm run dev           # browser harness at localhost:5174 (?stream=off, ?stream=ws://...)
 npm run stream:bench  # headless throughput + sample frames in output/stream-bench
+npm run app -- --no-meaning  # isolate diffusion/procedural performance
 ```
 
 `H` toggles the HUD. Expand it ("capture info") to see the live sampler
 physics, the checkpoint phase, the stream fps, the paint level, and the
 current scene prompt. `[` and `]` lower and raise **paint**: 0 shows the
 procedural scene alone, 1 shows it fully painted by the diffusion stream.
+
+The meaning worker defaults to CPU so it does not compete with the diffusion
+sidecar's GPU. Procedural rendering never waits for semantic meaning; until
+evidence commits, the director remains explicitly abstaining.
 
 **Performance:** plug the laptop in. On battery the A3000 drops to ~585 MHz,
 and the same frame takes 3× longer.
