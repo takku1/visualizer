@@ -375,6 +375,7 @@ class Engine:
         self.job: KeyJob | None = None
         self.pending: dict | None = None
         self.last_key: dict = {"id": None, "ms": 0}
+        self.last_world_diff: dict | None = None
         self._emb_cache: dict[str, torch.Tensor] = {}
         self.control = Control()
         self.source_np: np.ndarray | None = None  # latest procedural frame (RGB uint8), set by the socket thread
@@ -578,6 +579,21 @@ class Engine:
     # ---------- System 2 ----------
 
     def request_checkpoint(self, msg: dict) -> None:
+        # The browser owns semantic state; the sidecar only consumes the small
+        # realization decision needed by this backend. An identity break must
+        # not accidentally reuse the current latent through the procedural
+        # source path. Action/camera-only changes preserve the live substrate.
+        diff = msg.get("worldDiff")
+        if isinstance(diff, dict):
+            self.last_world_diff = {
+                "identityBreak": bool(diff.get("identityBreak", False)),
+                "requiresKeyframe": bool(diff.get("requiresKeyframe", False)),
+                "keep": len(diff.get("keep", [])) if isinstance(diff.get("keep"), list) else 0,
+                "add": len(diff.get("add", [])) if isinstance(diff.get("add"), list) else 0,
+                "remove": len(diff.get("remove", [])) if isinstance(diff.get("remove"), list) else 0,
+            }
+            if self.last_world_diff["identityBreak"]:
+                msg = {**msg, "continuity": 0.0}
         self.pending = msg  # latest wins; picked up at the next frame boundary
 
     def _start_job(self, msg: dict) -> None:
@@ -585,7 +601,9 @@ class Engine:
         seed = int(msg.get("seed", 0)) & 0x7FFFFFFF
         gen = torch.Generator(DEVICE).manual_seed(seed)
         continuity = float(msg.get("continuity", 0.0)) if self.z is not None else 0.0
-        source = self._source()
+        world_diff = msg.get("worldDiff") if isinstance(msg.get("worldDiff"), dict) else {}
+        identity_break = bool(world_diff.get("identityBreak", False))
+        source = None if identity_break else self._source()
         if source is not None:
             # Paint the director's scene over the procedural structure, so the
             # keyframe and the live loop agree on where things are.
@@ -728,6 +746,7 @@ class Engine:
             "checkpoint": job.id if job else self.last_key["id"],
             "progress": (job.step / len(job.timesteps) * 0.5 + (job.splice_pos / job.splice_frames) * 0.5) if job else 1.0,
             "keyMs": self.last_key["ms"],
+            "worldDiff": self.last_world_diff,
             "strength": round(c.strength, 3),
             "change": round(change, 4),
             "jitter": round(jitter, 4),
