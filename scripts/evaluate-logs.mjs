@@ -29,6 +29,12 @@ const trackAt = (time) => {
   }
   return trackId;
 };
+const isGroundedSemanticDecision = (row) => row.scene?.source === 'semantic-manifest'
+  && ((row.scene.semantic?.subjects?.length ?? 0) > 0
+    || (row.scene.semantic?.environment?.length ?? 0) > 0
+    || (row.scene.world?.entities?.length ?? 0) > 0);
+const isUngroundedSemanticDecision = (row) => row.scene?.source === 'semantic-manifest'
+  && !isGroundedSemanticDecision(row);
 const checkpointsByTrack = Object.fromEntries(trackIds.map((trackId) => [
   trackId,
   checkpoints.filter((row) => trackAt(row.t) === trackId).length,
@@ -47,6 +53,8 @@ const liveMeaningByTrack = Object.fromEntries(trackIds.map((trackId) => {
     maxCommitted: samples.length ? Math.max(...samples.map((sample) => sample.committed ?? 0)) : 0,
     maxCandidateObservations: samples.length ? Math.max(...samples.map((sample) => sample.maxCandidateObservations ?? 0)) : 0,
     semanticDecisions: decisions.filter((row) => row.track?.id === trackId && row.scene?.source === 'semantic-manifest').length,
+    groundedSemanticDecisions: decisions.filter((row) => row.track?.id === trackId && isGroundedSemanticDecision(row)).length,
+    ungroundedSemanticDecisions: decisions.filter((row) => row.track?.id === trackId && isUngroundedSemanticDecision(row)).length,
   }];
 }));
 const changes = { identity: 0, action: 0, environment: 0, look: 0, camera: 0 };
@@ -126,6 +134,8 @@ const summary = {
   },
   evidence: {
     semanticDecisions: decisions.filter((row) => row.scene.source === 'semantic-manifest').length,
+    groundedSemanticDecisions: decisions.filter(isGroundedSemanticDecision).length,
+    ungroundedSemanticDecisions: decisions.filter(isUngroundedSemanticDecision).length,
     identityVerified: false,
     actionVerified: false,
     note: 'Fingerprint and timing telemetry are evaluated here; visual identity/action still require a human or model-backed evaluator.',
@@ -145,5 +155,5 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `Continuity: ${summary.realization.latestControlPlane ? `${summary.realization.latestControlPlane.mode}; direction refreshes=${summary.realization.latestControlPlane.directionDecisions}; committed checkpoints=${summary.realization.latestControlPlane.checkpoints}; last=${summary.realization.latestControlPlane.lastCheckpointReason ?? 'none'}` : 'no control-plane telemetry'}`,
   `Stream health: telemetry=${summary.streamHealth.samples}; zeroFps=${summary.streamHealth.zeroFpsSamples} (connected=${summary.streamHealth.zeroFpsWhileConnected}); disconnected=${summary.streamHealth.disconnectedSamples}; maxDropped=${summary.streamHealth.maxDropped}`,
   `ShotGraph: ${summary.shotGraph.latest ? `staged=${summary.shotGraph.latest.staged} prefetched=${summary.shotGraph.latest.prefetched} selected=${summary.shotGraph.latest.selected} pending=${summary.shotGraph.latest.pending}` : 'no runtime telemetry'}`,
-  `Evidence-backed decisions: ${summary.evidence.semanticDecisions}; visual verification: deferred`,
+  `Evidence-backed decisions: ${summary.evidence.semanticDecisions} (grounded=${summary.evidence.groundedSemanticDecisions}, ungrounded=${summary.evidence.ungroundedSemanticDecisions}); visual verification: deferred`,
 ].join('\n'));
