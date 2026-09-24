@@ -42,6 +42,16 @@ abstract visual direction, never an invented narrative presented as fact.
 entities, environment, relationships, action, camera, visual state, time, and
 provenance. It is not a prompt and it is not renderer memory.
 
+The default visual mode is **emergent**: the director should prefer a typed
+**PerceptualIntent** (form, behavior, spatiality, materiality, motion, light,
+color, tension, affect, and continuity pressure) over authoring a literal
+storyboard. Literal entities are evidence-backed anchors, not mandatory
+content. **EmergentWorldHypotheses** are anonymous, confidence-bearing
+observations of what the renderer appears to have formed; they are not asserted
+identities until a measured observer supports that claim. **RealizationState**
+is backend memory such as latents, references, masks, depth, motion, and
+telemetry; it never becomes semantic truth by itself.
+
 **SceneDiff** is the smallest evidence-backed transition proposed between two
 world states. It is applied by a deterministic reducer; it does not regenerate
 the entire world by default.

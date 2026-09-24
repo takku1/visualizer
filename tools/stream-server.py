@@ -118,6 +118,12 @@ def compile_structured_prompt(realization: dict) -> str:
             entities.append(f"{label}{', ' + attributes if attributes else ''}")
     if entities:
         parts.append("persistent subjects/objects: " + "; ".join(entities[:6]))
+    intent = world.get("intent", {})
+    if isinstance(intent, dict):
+        for key, label in (("form", "form"), ("behavior", "behavior"), ("spatiality", "space"), ("materiality", "material"), ("motion", "motion"), ("tension", "tension")):
+            values = intent.get(key)
+            if isinstance(values, list) and values:
+                parts.append(f"perceptual {label}: " + ", ".join(str(value) for value in values[:4]))
     environment = world.get("environment", [])
     if isinstance(environment, list) and environment:
         parts.append("persistent environment: " + ", ".join(str(item) for item in environment[:6]))

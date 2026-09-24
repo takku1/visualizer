@@ -347,6 +347,15 @@ test('world diffs preserve stable subjects while changing action', () => {
   assert.equal(diff.action.to, 'enters the field');
 });
 
+test('world state carries perceptual intent without requiring literal entities', () => {
+  const scene = sceneFromPlan(initialPlan(), {}, 0);
+  assert.ok(scene.world.intent.form.length > 0);
+  assert.ok(scene.world.intent.behavior.length > 0);
+  assert.ok(scene.world.intent.spatiality.length > 0);
+  assert.ok(scene.world.intent.continuityPressure >= 0 && scene.world.intent.continuityPressure <= 1);
+  assert.equal(scene.world.entities.length, 0);
+});
+
 test('world diff reducer preserves identity and reconstructs the proposed state', () => {
   const first = sceneFromPlan(initialPlan(), {}, 0);
   const prior = {

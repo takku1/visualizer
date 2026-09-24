@@ -210,3 +210,28 @@ into a 60-180 BPM pulse estimate, with confidence and hysteresis. It remains a
 fallback when trusted Spotify structure is unavailable, not a replacement for
 measured beat/bar analysis.
 
+## ADR-017: Perceptual intent is the default semantic output
+
+Accepted, 2026-09-24, after research on object-centric video representation,
+temporal correspondence, controllable diffusion, audiovisual alignment, and
+quality-diversity emergence (see
+`docs/research/emergent-intent-world-research.md`).
+
+The director must not default to authoring literal music-video storyboards.
+Its primary output is a typed `PerceptualIntent`: form, behavior, space,
+material, motion, light, color, tension, affect, and continuity pressure.
+Evidence-backed literal entities remain optional anchors. The renderer may
+discover whether an intent becomes cloth, a body-like form, vegetation, cloud,
+or architecture, but the system must preserve and evaluate the resulting
+realization rather than treating prompt text as identity.
+
+This is a hybrid rather than an abandonment of semantics. Grounded mode is
+retained for strong evidence; emergent mode is the default because it better
+matches the product's audiovisual-organism goal. Emergence is constrained by
+continuity, audio-timing, bounded change, and measurable novelty/coherence;
+otherwise it degenerates into drift and cannot be distinguished from noise.
+
+The current SD-Turbo backend does not yet provide true persistent memory or an
+observation model. This ADR changes the ownership and compiler direction, not
+that empirical limitation.
+
