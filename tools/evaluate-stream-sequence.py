@@ -32,13 +32,15 @@ def main() -> int:
             frames.append(cv2.resize(image, (144, 80), interpolation=cv2.INTER_AREA).astype(np.float32) / 255.0)
     adjacent = [float(np.abs(curr - prev).mean()) for prev, curr in zip(frames, frames[1:])]
     second = [float(np.abs(curr - 2 * prev + before).mean()) for before, prev, curr in zip(frames, frames[1:], frames[2:])]
+    adjacent_max_index = int(np.argmax(adjacent)) + 1 if adjacent else None
+    second_max_index = int(np.argmax(second)) + 2 if second else None
     result = {
         "evaluationMode": "diagnostic",
         "identityVerified": False,
         "actionVerified": False,
         "frames": len(frames),
-        "adjacent": {"mean": float(np.mean(adjacent)) if adjacent else 0.0, "p95": percentile(adjacent, 95), "max": max(adjacent, default=0.0)},
-        "secondDifference": {"mean": float(np.mean(second)) if second else 0.0, "p95": percentile(second, 95), "max": max(second, default=0.0)},
+        "adjacent": {"mean": float(np.mean(adjacent)) if adjacent else 0.0, "p95": percentile(adjacent, 95), "max": max(adjacent, default=0.0), "maxFrame": adjacent_max_index},
+        "secondDifference": {"mean": float(np.mean(second)) if second else 0.0, "p95": percentile(second, 95), "max": max(second, default=0.0), "maxFrame": second_max_index},
     }
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

@@ -1252,8 +1252,9 @@ async def serve(stream: Stream) -> None:
 def bench(frames: int, report_path: str | None = None) -> None:
     engine = Engine()
     print(f"loaded in {engine.load_s:.1f}s on {DEVICE}; vram {torch.cuda.memory_allocated() / 2**20:.0f} MB" if DEVICE == "cuda" else "loaded (cpu)")
-    out = ROOT / "output" / "stream-bench"
+    out = Path(os.environ.get("STREAM_BENCH_OUT", ROOT / "output" / "stream-bench"))
     out.mkdir(parents=True, exist_ok=True)
+    dump_all = os.environ.get("STREAM_BENCH_DUMP_ALL", "0") == "1"
     engine.request_checkpoint({"id": "a", "prompt": "bioluminescent coral cathedral, deep ocean, volumetric light", "seed": 1, "spliceFrames": 16})
     times: list[float] = []
     stage_ms: dict[str, list[float]] = {"encode": [], "unet": [], "decode": []}
@@ -1297,7 +1298,7 @@ def bench(frames: int, report_path: str | None = None) -> None:
                 if len(times) > 5:
                     stage_ms[name].append(start.elapsed_time(end))
             stage_events.clear()
-        if img is not None and i % max(1, frames // 10) == 0:
+        if img is not None and (dump_all or i % max(1, frames // 10) == 0):
             cv2.imwrite(str(out / f"frame-{i:04d}.jpg"), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         if i < 3 or meta.get("phase") != "idle" and i % 5 == 0:
             print(i, meta)
