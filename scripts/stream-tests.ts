@@ -701,6 +701,9 @@ test('checkpoint compiles to a backend-neutral realization request', () => {
   assert.equal(realization.shot.id, request.shot.id);
   assert.equal(realization.diff, request.worldDiff);
   assert.equal(realization.legacy.prompt, request.prompt);
+  assert.equal(realization.conditioning.version, 'structured-world-v2');
+  assert.ok(Number.isFinite(realization.conditioning.hspace.organic));
+  assert.equal(realization.conditioning.transition, 'preserve');
 });
 
 test('shot graph keeps alternate candidates explicit and ordered', () => {

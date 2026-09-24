@@ -17,6 +17,19 @@ export interface ContinuousForces {
   motionMagnitude: number;
 }
 
+/**
+ * Cheap, backend-neutral semantic conditioning for the current UNet adapter.
+ * These are perceptual directions, not object labels: the sidecar can apply
+ * them in its learned bottleneck space without pretending it has identity
+ * correspondence or a depth map.
+ */
+export interface StructuredConditioning {
+  version: 'structured-world-v2';
+  hspace: { energy: number; light: number; organic: number };
+  preservedEntityCount: number;
+  transition: 'preserve' | 'evolve' | 'replace';
+}
+
 /** The director's structured request before backend-specific compilation. */
 export interface RealizationRequest {
   world: WorldState;
@@ -24,12 +37,40 @@ export interface RealizationRequest {
   diff: SceneDiff;
   continuousForces: ContinuousForces;
   resonance: WorldResonance;
+  conditioning: StructuredConditioning;
   legacy: {
     prompt: string;
     look: Look;
     seed: number;
     continuity: number;
     spliceFrames: number;
+  };
+}
+
+export function structuredConditioningFrom(world: WorldState, diff: SceneDiff): StructuredConditioning {
+  const intent = world.intent;
+  const words = [
+    ...intent.form, ...intent.behavior, ...intent.motion, ...intent.lighting, ...intent.tension,
+  ].join(' ').toLowerCase();
+  const score = (positive: RegExp, negative: RegExp): number => clampSigned(
+    (positive.test(words) ? 0.65 : 0) - (negative.test(words) ? 0.65 : 0),
+  );
+  const organic = clampSigned(2 * world.visualIdentity.look.organic - 1
+    + (/(organic|soft|fluid|living|fibrous)/u.test(words) ? 0.25 : 0)
+    - (/(structured|angular|architectural|mineral|rigid)/u.test(words) ? 0.25 : 0));
+  const light = clampSigned(
+    2 * world.visualIdentity.lighting.keyIntensity - 1
+      + (world.visualIdentity.lighting.warmth - 0.5) * 0.25,
+  );
+  return {
+    version: 'structured-world-v2',
+    hspace: {
+      energy: score(/expanding|explosive|urgent|accelerating|pulsing|high-energy/u, /restrained|suspended|still|quiet/u),
+      light,
+      organic,
+    },
+    preservedEntityCount: diff.keep.length,
+    transition: diff.identityBreak ? 'replace' : diff.keep.length || diff.add.length || diff.remove.length ? 'evolve' : 'preserve',
   };
 }
 
@@ -98,4 +139,8 @@ export const ZERO_FORCES: ContinuousForces = {
 
 function clamp(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+}
+
+function clampSigned(value: number): number {
+  return Math.max(-1, Math.min(1, Number.isFinite(value) ? value : 0));
 }

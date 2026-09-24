@@ -20,7 +20,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   only checkpoint requests. The sidecar applies small bounded pressure to
   existing weather, camera, light, and entity-motion handles while preserving
   the audio control as the primary driver; missing resonance is a no-op.
-- The current sidecar compiles structured `WorldState`/`Shot`/`SceneDiff` into a backend-specific conditioning prompt (`structured-world-v1`), while preserving the legacy fields and reporting the diff summary, conditioned field set, and prompt hash in stream telemetry. This makes the current text bridge auditable without pretending SD-Turbo has object-level reference conditioning.
+- The current sidecar compiles structured `WorldState`/`Shot`/`SceneDiff` into a backend-specific request (`structured-world-v2`). In addition to the auditable prompt bridge, persistent perceptual intent is compiled into bounded energy/light/organic directions and applied through the existing UNet bottleneck network-bending path. This is real model conditioning, but it is not object-level identity/reference/depth conditioning; that stronger capability remains deferred.
 - The structured prompt bridge now carries the complete transition intent:
   preserved entities, additions, removals, relation, action transition, and
   camera transition. The sidecar therefore no longer silently drops the

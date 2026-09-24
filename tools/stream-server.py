@@ -118,6 +118,22 @@ def normalize_realization_request(msg: dict) -> dict | None:
     return raw
 
 
+def structured_hspace(realization: dict) -> dict[str, float]:
+    """Read bounded perceptual directions for the current UNet adapter.
+
+    This is intentionally not an identity/reference interface. It is the
+    small, measured bridge from structured world intent into the existing
+    Network-Bending bottleneck directions, so the structured request changes
+    activations rather than only changing prompt text.
+    """
+    conditioning = realization.get("conditioning")
+    raw = conditioning.get("hspace", {}) if isinstance(conditioning, dict) else {}
+    return {
+        axis: _clamp(float(raw.get(axis, 0.0)), -1.0, 1.0)
+        for axis in ("energy", "light", "organic")
+    }
+
+
 def compile_structured_prompt(realization: dict) -> str:
     """Compile authoritative world/shot state into this backend's text control.
 
@@ -230,13 +246,17 @@ def structured_conditioning_summary(realization: dict, compiled_prompt: str) -> 
         fields.append("shot")
     if isinstance(diff, dict):
         fields.append("diff")
+    conditioning = realization.get("conditioning")
+    if isinstance(conditioning, dict) and isinstance(conditioning.get("hspace"), dict):
+        fields.append("semantic-hspace")
     return {
-        "version": "structured-world-v1",
+        "version": "structured-world-v2",
         "fields": fields,
         "promptSha256": hashlib.sha256(compiled_prompt.encode("utf-8")).hexdigest()[:16],
         "entityCount": len(world.get("entities", [])) if isinstance(world.get("entities"), list) else 0,
         "emergentHypothesisCount": len(world.get("emergent", {}).get("hypotheses", [])) if isinstance(world.get("emergent"), dict) and isinstance(world.get("emergent", {}).get("hypotheses"), list) else 0,
         "identityBreak": bool(diff.get("identityBreak")) if isinstance(diff, dict) else False,
+        "semanticHspace": structured_hspace(realization),
     }
 
 
@@ -565,6 +585,7 @@ class Engine:
         self.last_key: dict = {"id": None, "ms": 0}
         self.last_world_diff: dict | None = None
         self.last_realization: dict = {"structured": False}
+        self.semantic_hspace = {"energy": 0.0, "light": 0.0, "organic": 0.0}
         self._emb_cache: dict[str, torch.Tensor] = {}
         self.control = Control()
         self.source_np: np.ndarray | None = None  # latest procedural frame (RGB uint8), set by the socket thread
@@ -779,6 +800,7 @@ class Engine:
             legacy = realization["legacy"]
             structured_prompt = compile_structured_prompt(realization)
             conditioning_summary = structured_conditioning_summary(realization, structured_prompt)
+            self.semantic_hspace = structured_hspace(realization)
             msg = {
                 **msg,
                 "prompt": structured_prompt or legacy.get("prompt", msg.get("prompt", "")),
@@ -795,11 +817,12 @@ class Engine:
                 "grammar": realization["shot"].get("grammar"),
                 "continuousForces": realization["continuousForces"],
                 "resonance": realization.get("resonance"),
-                "conditioning": "structured-world-v1",
+                "conditioning": "structured-world-v2",
                 "conditioningFields": conditioning_summary["fields"],
                 "conditioningHash": conditioning_summary["promptSha256"],
                 "conditioningEntities": conditioning_summary["entityCount"],
                 "conditioningEmergentHypotheses": conditioning_summary["emergentHypothesisCount"],
+                "conditioningHspace": self.semantic_hspace,
             }
         else:
             self.last_realization = {"structured": False}
@@ -992,7 +1015,17 @@ class Engine:
 
     def _unet(self, x: torch.Tensor, ts: list[int], emb: torch.Tensor, live: list[float] | None = None) -> torch.Tensor:
         """`live` flags which batch samples are the live frame (bent); default: none."""
-        self.bender.set(self.control, live or [0.0] * len(ts))
+        # Add the persistent structured direction to the audio/knob control.
+        # The bounded 0.35 gain keeps semantic intent legible without letting
+        # a checkpoint overpower the continuous audio physics.
+        semantic = self.semantic_hspace
+        bent = replace(
+            self.control,
+            hsEnergy=_clamp(self.control.hsEnergy + 0.35 * semantic["energy"], -1.5, 1.5),
+            hsLight=_clamp(self.control.hsLight + 0.35 * semantic["light"], -1.5, 1.5),
+            hsOrganic=_clamp(self.control.hsOrganic + 0.35 * semantic["organic"], -1.5, 1.5),
+        )
+        self.bender.set(bent, live or [0.0] * len(ts))
         t = torch.tensor(ts, device=DEVICE)
         g = self.graphs.get("unet1" if len(ts) == 1 else "unet2")
         if g is not None and x.shape[-2:] == g.inputs[0].shape[-2:]:

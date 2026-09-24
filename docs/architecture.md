@@ -214,6 +214,11 @@ current StreamDiffusion transport can continue consuming the legacy bundle;
 future adapters can consume references, masks, depth, pose, or temporal
 conditioning without changing the director/world interfaces.
 
+The current adapter also consumes `StructuredConditioning`: bounded
+energy/light/organic directions compiled from `WorldState` and applied in the
+UNet bottleneck network-bending path. This gives structured intent a measured
+model-side effect without claiming object identity or spatial correspondence.
+
 Live audio now compiles into bounded `ContinuousForces` (`bass`, `treble`,
 `energy`, `flux`, beat impulse, hue pressure, and motion magnitude). These are
 sent with checkpoint transport as physical pressure only; they do not create

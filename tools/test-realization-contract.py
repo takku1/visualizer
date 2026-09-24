@@ -23,10 +23,13 @@ base = {
         "camera": {"from": "wide", "to": "tracking"},
     },
     "continuousForces": {"bass": 0.8},
+    "conditioning": {"version": "structured-world-v2", "hspace": {"energy": 0.6, "light": 0.2, "organic": 0.8}, "preservedEntityCount": 1, "transition": "evolve"},
     "legacy": {"prompt": "woman walking", "look": {}, "seed": 3, "continuity": 0.5, "spliceFrames": 16},
 }
 
 assert module.normalize_realization_request({"realization": base}) == base
+assert module.structured_hspace(base) == {"energy": 0.6, "light": 0.2, "organic": 0.8}
+assert module.structured_hspace({"conditioning": {"hspace": {"energy": 9}}})["energy"] == 1.0
 compiled = module.compile_structured_prompt(base)
 assert "woman" in compiled
 assert "shot grammar: follow" in compiled
@@ -43,10 +46,11 @@ assert "remove only at this transition: umbrella" in compiled
 assert "action transition: waiting -> walking" in compiled
 assert "camera transition: wide -> tracking" in compiled
 summary = module.structured_conditioning_summary(base, compiled)
-assert summary["version"] == "structured-world-v1"
-assert set(("entities", "intent", "emergent", "shot", "visualIdentity", "diff")).issubset(summary["fields"])
+assert summary["version"] == "structured-world-v2"
+assert set(("entities", "intent", "emergent", "shot", "visualIdentity", "diff", "semantic-hspace")).issubset(summary["fields"])
 assert summary["entityCount"] == 1
 assert len(summary["promptSha256"]) == 16
+assert summary["semanticHspace"] == {"energy": 0.6, "light": 0.2, "organic": 0.8}
 assert module.normalize_realization_request({"realization": {**base, "legacy": {"look": {}}}}) is None
 assert module.normalize_realization_request({}) is None
 control = module.Control.parse({
