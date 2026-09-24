@@ -87,6 +87,8 @@ const summary = {
   realization: {
     structuredTelemetrySamples: telemetry.filter((row) => row.stream?.meta?.realization?.structured === true).length,
     conditioningVersions: [...new Set(telemetry.map((row) => row.stream?.meta?.realization?.conditioning).filter(Boolean))],
+    streamBuildHashes: [...new Set(telemetry.map((row) => row.stream?.buildHash).filter(Boolean))],
+    meaningWorkerBuildHashes: [...new Set(telemetry.map((row) => row.meaning?.workerBuildHash).filter(Boolean))],
   },
   evidence: {
     semanticDecisions: decisions.filter((row) => row.scene.source === 'semantic-manifest').length,

@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import net from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -75,6 +76,12 @@ process.once('SIGTERM', () => shutdown(143));
 
 try {
   await run(process.execPath, [join(projectRoot, 'build.mjs')]);
+  try {
+    const bundle = readFileSync(join(projectRoot, 'dist', 'dev', 'harness.js'));
+    process.env.S1_BUILD_HASH = createHash('sha256').update(bundle).digest('hex').slice(0, 8);
+  } catch {
+    process.env.S1_BUILD_HASH = 'unknown';
+  }
   if (withStream) {
     if (existsSync(join(projectRoot, 'models/sd-turbo/unet')) && existsSync(join(projectRoot, 'models/taesd'))) {
       if (await portIsListening(STREAM_PORT)) {

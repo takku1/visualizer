@@ -13,6 +13,7 @@ export class LiveMeaningClient {
   hypothesesReceived = 0;
   lastLanguage: string | null = null;
   configuredLanguage: string | null = null;
+  workerBuildHash: string | null = null;
   lastRevision: number | null = null;
 
   constructor(url: string, onUpdate: (update: LiveLyricUpdate) => void) {
@@ -36,6 +37,7 @@ export class LiveMeaningClient {
         const value: unknown = JSON.parse(event.data);
         if (isRecord(value) && value.type === 'meaning-ready') {
           this.configuredLanguage = typeof value.language === 'string' ? value.language : null;
+          this.workerBuildHash = typeof value.buildHash === 'string' ? value.buildHash : null;
           if (!this.lastLanguage) this.lastLanguage = this.configuredLanguage;
         }
         if (isLiveLyricUpdate(value)) {
@@ -55,6 +57,7 @@ export class LiveMeaningClient {
     ws.onclose = () => {
       this.#ws = null;
       this.#inFlight = false;
+      this.workerBuildHash = null;
       if (this.#closed) return;
       setTimeout(() => this.connect(), this.#retryMs);
       this.#retryMs = Math.min(this.#retryMs * 2, 10000);
@@ -62,13 +65,14 @@ export class LiveMeaningClient {
     ws.onerror = () => ws.close();
   }
 
-  telemetry(): { connected: boolean; updates: number; hypotheses: number; language: string | null; configuredLanguage: string | null; revision: number | null } {
+  telemetry(): { connected: boolean; updates: number; hypotheses: number; language: string | null; configuredLanguage: string | null; workerBuildHash: string | null; revision: number | null } {
     return {
       connected: this.connected,
       updates: this.updatesReceived,
       hypotheses: this.hypothesesReceived,
       language: this.lastLanguage,
       configuredLanguage: this.configuredLanguage,
+      workerBuildHash: this.workerBuildHash,
       revision: this.lastRevision,
     };
   }
@@ -78,6 +82,7 @@ export class LiveMeaningClient {
     this.#ws?.close();
     this.#ws = null;
     this.#inFlight = false;
+    this.workerBuildHash = null;
   }
 
   sendWindow(trackId: string, playheadSec: number, window: AudioWindow): void {

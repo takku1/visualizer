@@ -54,6 +54,7 @@ ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIR = Path(os.environ.get("STREAM_MODEL", ROOT / "models" / "sd-turbo"))
 TAESD_DIR = Path(os.environ.get("STREAM_TAESD", ROOT / "models" / "taesd"))
 PORT = int(os.environ.get("STREAM_PORT", "8771"))
+BUILD_HASH = os.environ.get("S1_BUILD_HASH", "unknown")
 # 576x320 is ~16:9 and keeps every UNet level integral (latent 72x40). On the
 # A3000 this is the sweet spot; 512x512 costs ~40% more per frame.
 WIDTH = int(os.environ.get("STREAM_WIDTH", "576"))
@@ -1024,6 +1025,7 @@ async def serve(stream: Stream) -> None:
             "type": "ready", "width": WIDTH, "height": HEIGHT, "model": MODEL_DIR.name,
             "device": torch.cuda.get_device_name(0) if DEVICE == "cuda" else "cpu",
             "vramMB": round(torch.cuda.memory_allocated() / 2**20) if DEVICE == "cuda" else 0,
+            "buildHash": BUILD_HASH,
         }))
 
         async def sender() -> None:

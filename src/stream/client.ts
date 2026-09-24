@@ -33,6 +33,7 @@ export interface StreamInfo {
   model: string;
   device: string;
   vramMB: number;
+  buildHash?: string;
 }
 
 /**
@@ -131,7 +132,7 @@ export class StreamClient {
           this.info = msg;
           this.waiting = false;
           this.#retryMs = 500;
-          console.log(`[stream] connected: ${msg.model} ${msg.width}x${msg.height} on ${msg.device} (${msg.vramMB} MB)`);
+          console.log(`[stream] connected: ${msg.model} ${msg.width}x${msg.height} on ${msg.device} (${msg.vramMB} MB, build ${msg.buildHash ?? 'unknown'})`);
         }
         return;
       }

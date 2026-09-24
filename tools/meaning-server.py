@@ -149,10 +149,11 @@ class Server:
         header: dict | None = None
         try:
             await websocket.send(json.dumps({
-                "type": "meaning-ready",
-                "model": self.probe.model_name,
-                "device": self.probe.device,
-                "language": self.probe.language or "auto",
+            "type": "meaning-ready",
+            "model": self.probe.model_name,
+            "device": self.probe.device,
+            "language": self.probe.language or "auto",
+            "buildHash": os.environ.get("S1_BUILD_HASH", "unknown"),
             }))
         except ConnectionClosed:
             return

@@ -430,6 +430,7 @@ export class VisualizerApp {
           shot: this.#scheduler.scene?.semantic?.shot ?? null,
         },
         stream: stream?.meta ? {
+          buildHash: stream.info?.buildHash ?? null,
           input: stream.meta.input ?? null,
           checkpoint: stream.meta.checkpoint ?? null,
           change: stream.meta.change ?? null,
@@ -455,7 +456,7 @@ export class VisualizerApp {
         t: frame.t,
         fps,
         streamFps,
-        stream: stream ? { connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10 } : null,
+        stream: stream ? { buildHash: stream.info?.buildHash ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10 } : null,
         paint: this.#paint,
         meaning: this.#meaningTelemetry(),
         control,
