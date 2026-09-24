@@ -39,12 +39,14 @@ Do not scrape Spotify lyric endpoints.
 The repository already contains `tools/meaning-server.py`, a local Whisper
 worker, `LiveLyricHypothesis`, and `LiveLyricAccumulator`. However:
 
-- Electron does not start the meaning worker by default;
-- `core.ts` stores live updates but does not turn committed hypotheses into
-  `SongMeaning`;
-- the worker emits `language: "und"`, `confidence: 0.5`, and `stability: 0.0`;
-- the accumulator requires confidence >= 0.65 and stability >= 0.6, so the
-  current worker cannot produce a committed meaning.
+- Electron now starts the meaning worker by default, with `--no-meaning` as an
+  explicit performance-isolation switch;
+- `core.ts` now promotes accumulator-approved hypotheses into `SongMeaning`;
+- the worker now forwards detected language when available and emits a
+  provisional confidence floor, while the browser derives stability from
+  repeated overlapping windows;
+- model calibration, lyric accuracy, and semantic extraction quality still
+  require real-track evaluation.
 
 Whisper supports multilingual recognition, language identification, and
 timestamped segments; its official implementation also supports word
@@ -74,6 +76,5 @@ and the [Parakeet model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
 7. Compare imported manifests, ASR, and abstention on the same tracks before
    switching ASR models.
 
-The correct next implementation is therefore the missing live-ASR promotion
-path plus an opt-in launcher, not a change that forces every metadata track to
-claim a story.
+The correct next work is therefore calibration and semantic extraction quality,
+not a change that forces every metadata track to claim a story.

@@ -12,7 +12,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 
 ## Still deliberately deferred
 
-- Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR is now an opt-in implementation, not a universal lyrics solution.
+- Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR is now the default implementation, not a universal lyrics solution.
 - Reference-image identity conditioning and a ground-truth visual identity/action evaluator: telemetry can expose the seam, but cannot claim visual correctness.
 - TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.
 
