@@ -97,6 +97,18 @@ test('System 0 exposes novelty as evidence rather than driving onSection', () =>
   assert.ok(events.some((event) => event.kind === 'boundary'));
 });
 
+test('System 0 does not invent structure while capture is silent', () => {
+  const memory = new StructureMemory();
+  let snapshot = memory.snapshot;
+  for (let i = 0; i < 80; i++) {
+    snapshot = memory.observe(frame({ t: i * 0.5, level: 0, flux: 0 }));
+  }
+  assert.equal(snapshot.source, 'abstain');
+  assert.equal(snapshot.segmentId, null);
+  assert.equal(snapshot.eventCounts.boundaries, 0);
+  assert.equal(snapshot.events.length, 0);
+});
+
 test('silence yields the calm operating point', () => {
   assert.deepEqual(settle({ level: 0 }), CALM);
 });

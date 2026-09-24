@@ -75,6 +75,15 @@ export class StructureMemory {
 
     if (!trustedBeat) this.#nextUntrustedTick = frame.t + UNTRUSTED_TICK_SEC;
     const vector = featureVector(frame);
+    // Analyser startup and device silence produce an all-zero frame. Treat it
+    // as missing evidence, not as a maximally novel musical observation:
+    // cosine(0, x) is 0, which otherwise turns into novelty 1 and manufactures
+    // System 0 boundaries before capture has begun.
+    if (vectorEnergy(vector) < 1e-8) {
+      return this.#lastSnapshot.events.length === 0
+        ? this.#lastSnapshot
+        : { ...this.#lastSnapshot, events: [] };
+    }
     const previous = this.#ticks[this.#ticks.length - 1];
     const novelty = previous ? 1 - cosine(vector, previous.vector) : 0;
     let bestSimilarity = 0;
@@ -153,6 +162,10 @@ function cosine(a: readonly number[], b: readonly number[]): number {
     bb += y * y;
   }
   return aa && bb ? dot / Math.sqrt(aa * bb) : 0;
+}
+
+function vectorEnergy(vector: readonly number[]): number {
+  return vector.reduce((sum, value) => sum + value * value, 0);
 }
 
 function nextSegment(id: string): string {
