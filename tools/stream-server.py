@@ -140,6 +140,8 @@ def compile_structured_prompt(realization: dict) -> str:
         value = world.get(key)
         if value:
             parts.append(f"{label}: {value}")
+    if world.get("relation"):
+        parts.append(f"persistent relation: {world['relation']}")
     if shot.get("grammar"):
         parts.append(f"shot grammar: {shot['grammar']}")
     if shot.get("framing"):
@@ -152,10 +154,28 @@ def compile_structured_prompt(realization: dict) -> str:
     if isinstance(lighting, dict) and lighting.get("direction"):
         parts.append(f"persistent lighting: {lighting['direction']}, warmth {float(lighting.get('warmth', 0.5)):.2f}, atmosphere {float(lighting.get('atmosphere', 0.0)):.2f}")
     additions = diff.get("add", []) if isinstance(diff, dict) else []
+    kept = diff.get("keep", []) if isinstance(diff, dict) else []
+    removals = diff.get("remove", []) if isinstance(diff, dict) else []
+    if kept:
+        labels = [str(item.get("label")) for item in kept if isinstance(item, dict) and item.get("label")]
+        if labels:
+            parts.append("preserve through this transition: " + ", ".join(labels[:6]))
     if additions:
         labels = [str(item.get("label")) for item in additions if isinstance(item, dict) and item.get("label")]
         if labels:
             parts.append("introduce only at this transition: " + ", ".join(labels[:4]))
+    if removals:
+        labels = [str(item.get("label")) for item in removals if isinstance(item, dict) and item.get("label")]
+        if labels:
+            parts.append("remove only at this transition: " + ", ".join(labels[:4]))
+    action_change = diff.get("action") if isinstance(diff, dict) else None
+    if isinstance(action_change, dict) and action_change.get("to"):
+        from_action = action_change.get("from") or "the prior action"
+        parts.append(f"action transition: {from_action} -> {action_change['to']}")
+    camera_change = diff.get("camera") if isinstance(diff, dict) else None
+    if isinstance(camera_change, dict) and camera_change.get("to"):
+        from_camera = camera_change.get("from") or "the prior camera"
+        parts.append(f"camera transition: {from_camera} -> {camera_change['to']}")
     if diff.get("identityBreak"):
         parts.append("intentional identity replacement at this checkpoint")
     return ", ".join(part for part in parts if part)

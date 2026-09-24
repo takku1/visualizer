@@ -12,9 +12,16 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 base = {
-    "world": {"entities": [{"id": "woman", "label": "woman", "attributes": ["red coat"]}], "intent": {"form": ["organic"], "behavior": ["reaching"], "spatiality": ["deep"], "materiality": ["fibrous"], "motion": ["flowing"], "tension": ["expanding"]}, "emergent": {"hypotheses": [{"handle": "form-1", "descriptors": ["upright", "fibrous"]}]}, "visualIdentity": {"color": {"scheme": "complementary", "temperature": 0.7, "accentWeight": 0.4}, "lighting": {"direction": "side", "warmth": 0.8, "atmosphere": 0.5}}},
+    "world": {"entities": [{"id": "woman", "label": "woman", "attributes": ["red coat"]}], "relation": "woman approaches train", "intent": {"form": ["organic"], "behavior": ["reaching"], "spatiality": ["deep"], "materiality": ["fibrous"], "motion": ["flowing"], "tension": ["expanding"]}, "emergent": {"hypotheses": [{"handle": "form-1", "descriptors": ["upright", "fibrous"]}]}, "visualIdentity": {"color": {"scheme": "complementary", "temperature": 0.7, "accentWeight": 0.4}, "lighting": {"direction": "side", "warmth": 0.8, "atmosphere": 0.5}}},
     "shot": {"id": "shot-1", "worldRevision": 2, "grammar": "follow"},
-    "diff": {"identityBreak": False},
+    "diff": {
+        "identityBreak": False,
+        "keep": [{"id": "platform", "label": "rainy platform"}],
+        "add": [{"id": "train", "label": "approaching train"}],
+        "remove": [{"id": "umbrella", "label": "umbrella"}],
+        "action": {"from": "waiting", "to": "walking"},
+        "camera": {"from": "wide", "to": "tracking"},
+    },
     "continuousForces": {"bass": 0.8},
     "legacy": {"prompt": "woman walking", "look": {}, "seed": 3, "continuity": 0.5, "spliceFrames": 16},
 }
@@ -29,6 +36,12 @@ assert "persistent lighting: side" in compiled
 assert "perceptual form: organic" in compiled
 assert "perceptual behavior: reaching" in compiled
 assert "persistent emergent forms: upright, fibrous" in compiled
+assert "persistent relation: woman approaches train" in compiled
+assert "preserve through this transition: rainy platform" in compiled
+assert "introduce only at this transition: approaching train" in compiled
+assert "remove only at this transition: umbrella" in compiled
+assert "action transition: waiting -> walking" in compiled
+assert "camera transition: wide -> tracking" in compiled
 summary = module.structured_conditioning_summary(base, compiled)
 assert summary["version"] == "structured-world-v1"
 assert set(("entities", "intent", "emergent", "shot", "visualIdentity", "diff")).issubset(summary["fields"])

@@ -17,6 +17,11 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - `Shot` and `RealizationRequest` now separate presentation/backend compilation from authoritative world state; the current sidecar remains a legacy-compatible adapter.
 - Continuous audio is now mapped into bounded renderer-neutral forces and transported separately from semantic content; ShotGraph nodes carry world/shot diffs instead of only prompt candidates.
 - The current sidecar compiles structured `WorldState`/`Shot`/`SceneDiff` into a backend-specific conditioning prompt (`structured-world-v1`), while preserving the legacy fields and reporting the diff summary, conditioned field set, and prompt hash in stream telemetry. This makes the current text bridge auditable without pretending SD-Turbo has object-level reference conditioning.
+- The structured prompt bridge now carries the complete transition intent:
+  preserved entities, additions, removals, relation, action transition, and
+  camera transition. The sidecar therefore no longer silently drops the
+  `SceneDiff` dimensions it receives; object-level persistence is still not
+  claimed until a reference/depth/correspondence backend is measured.
 - ShotGraph candidate insertion now supports true alternate branches from the current shot (with an explicit `fromId` escape hatch for chained transitions), so prefetch and weighted selection operate on competing production candidates rather than accidentally forming a candidate chain.
 - ShotGraph telemetry now includes recent staged, prefetched, and selected candidate IDs in addition to counts, making live production selection auditable from JSONL rather than inferred from aggregate counters.
 - ShotGraph runtime telemetry now records whether selection was made, is waiting
