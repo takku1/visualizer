@@ -119,6 +119,15 @@ export class LoopbackSource implements AudioSource {
     analyser.maxDecibels = -10;
     source.connect(analyser);
 
+    // Keep the MediaStream graph active without routing the captured system
+    // audio back to the speakers. Analyser nodes with no downstream consumer
+    // can otherwise remain dormant in Chromium/Electron: the track is active,
+    // but getFloatTimeDomainData() stays zero and ASR receives silence.
+    const analysisSink = ctx.createGain();
+    analysisSink.gain.value = 0;
+    analyser.connect(analysisSink);
+    analysisSink.connect(ctx.destination);
+
     // Stereo width needs the two channels kept apart, which a plain analyser
     // never gives you - so a second, parallel tap splits them before either
     // one reaches an AnalyserNode. A mono source leaves the R tap silent,
