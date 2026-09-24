@@ -124,6 +124,12 @@ def compile_structured_prompt(realization: dict) -> str:
             values = intent.get(key)
             if isinstance(values, list) and values:
                 parts.append(f"perceptual {label}: " + ", ".join(str(value) for value in values[:4]))
+    emergent = world.get("emergent", {})
+    hypotheses = emergent.get("hypotheses", []) if isinstance(emergent, dict) else []
+    if isinstance(hypotheses, list):
+        descriptors = [str(value) for item in hypotheses[:4] if isinstance(item, dict) for value in item.get("descriptors", [])[:3]]
+        if descriptors:
+            parts.append("persistent emergent forms: " + ", ".join(descriptors))
     environment = world.get("environment", [])
     if isinstance(environment, list) and environment:
         parts.append("persistent environment: " + ", ".join(str(item) for item in environment[:6]))

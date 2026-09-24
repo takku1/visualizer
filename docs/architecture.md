@@ -216,6 +216,14 @@ lighting, and entity motion handles, but has no operation for creating/removing
 entities or changing their IDs. This keeps semantic content and audio-driven
 physics separate while giving future backends a structured control surface.
 
+`WorldState.intent` carries the default emergent-mode `PerceptualIntent`
+(form, behavior, space, material, motion, light, color, tension, affect, and
+continuity pressure). `WorldState.emergent` is a separate, anonymous
+`EmergentWorldState`: it accepts correspondence handles from a future visual
+observer and tracks visible, persistent, occluded, and fading hypotheses. An
+empty state is the honest current SD-Turbo behavior; prompt text and sidecar
+drift telemetry do not create visual identities.
+
 In normal splice mode, `ShotGraphRuntime` stages each new director scene as a
 candidate and selects it only on a safe beat/downbeat. `CheckpointScheduler`
 still performs the world diff and realization commit. This keeps shot choice

@@ -13,6 +13,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - `Shot` and `RealizationRequest` now separate presentation/backend compilation from authoritative world state; the current sidecar remains a legacy-compatible adapter.
 - Continuous audio is now mapped into bounded renderer-neutral forces and transported separately from semantic content; ShotGraph nodes carry world/shot diffs instead of only prompt candidates.
 - The current sidecar compiles structured `WorldState`/`Shot`/`SceneDiff` into a backend-specific conditioning prompt (`structured-world-v1`), while preserving the legacy fields and reporting the diff summary in stream telemetry.
+- `PerceptualIntent` and anonymous `EmergentWorldState` now exist as typed seams; a measured backend observer still needs to provide correspondence handles before emergent hypotheses can be populated from pixels.
 - Shot graphs now support guarded runtime selection, prefetch candidates, and cancellation epochs; GPU pre-rendering remains measurement-gated.
 - Timed lyric import/provider interfaces now exist; `npm run meaning:import -- --lrc song.lrc --track <id> --out meaning/<id>.json` creates an evidence-bearing manifest.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.

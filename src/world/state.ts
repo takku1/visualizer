@@ -1,6 +1,7 @@
 import type { Look, Scene } from '../stream/scenes';
 import { colorStateFromLook, lightingStateFromLook, type ColorState, type LightingState } from './visual';
 import { perceptualIntentFromScene, type PerceptualIntent } from './intent';
+import { EMPTY_EMERGENT_WORLD, type EmergentWorldState } from './observation';
 
 export interface WorldEntity {
   id: string;
@@ -15,6 +16,7 @@ export interface WorldState {
   environment: string[];
   relation: string | null;
   intent: PerceptualIntent;
+  emergent: EmergentWorldState;
   action: string;
   camera: string;
   visualIdentity: { look: Look; source: Scene['source']; color: ColorState; lighting: LightingState };
@@ -31,7 +33,7 @@ export interface SceneDiff {
   action: { from: string | null; to: string };
   camera: { from: string | null; to: string };
   /** Non-entity state copied from the proposed next world at commit time. */
-  state: Pick<WorldState, 'relation' | 'intent' | 'visualIdentity' | 'time' | 'provenance'>;
+  state: Pick<WorldState, 'relation' | 'intent' | 'emergent' | 'visualIdentity' | 'time' | 'provenance'>;
   identityBreak: boolean;
   requiresKeyframe: boolean;
 }
@@ -50,6 +52,7 @@ export function worldStateFromScene(scene: Scene, section: number, positionSec =
     environment: semantic?.environmentIds ?? semantic?.environment ?? [],
     relation: semantic?.relation ?? null,
     intent: perceptualIntentFromScene(scene),
+    emergent: { revision: 0, hypotheses: [] },
     action: semantic?.action ?? 'abstain',
     camera: semantic?.camera ?? scene.continuityContract.camera,
     visualIdentity: {
@@ -83,6 +86,7 @@ export function diffWorldState(previous: WorldState | null, next: WorldState): S
     state: {
       relation: next.relation,
       intent: cloneIntent(next.intent),
+      emergent: cloneEmergent(next.emergent),
       visualIdentity: cloneVisualIdentity(next.visualIdentity),
       time: { ...next.time },
       provenance: { ...next.provenance },
@@ -114,6 +118,7 @@ export function applySceneDiff(previous: WorldState | null, diff: SceneDiff): Wo
     environment,
     relation: diff.state.relation,
     intent: cloneIntent(diff.state.intent),
+    emergent: cloneEmergent(diff.state.emergent),
     action: diff.action.to,
     camera: diff.camera.to,
     visualIdentity: cloneVisualIdentity(diff.state.visualIdentity),
@@ -140,7 +145,7 @@ function cloneVisualIdentity(identity: WorldState['visualIdentity']): WorldState
 
 function emptyWorld(): WorldState {
   return {
-    entities: [], environment: [], relation: null,
+    entities: [], environment: [], relation: null, emergent: { ...EMPTY_EMERGENT_WORLD, hypotheses: [] },
     intent: { form: ['neutral'], behavior: ['drifting'], spatiality: ['open'], materiality: ['unresolved'], motion: ['flowing'], lighting: ['ambient'], color: ['neutral'], tension: ['continuous'], affect: [], continuityPressure: 0, evidence: 'abstention', confidence: 0 },
     action: 'abstain', camera: 'abstain',
     visualIdentity: {
@@ -159,6 +164,13 @@ function cloneIntent(intent: PerceptualIntent): PerceptualIntent {
     form: [...intent.form], behavior: [...intent.behavior], spatiality: [...intent.spatiality],
     materiality: [...intent.materiality], motion: [...intent.motion], lighting: [...intent.lighting],
     color: [...intent.color], tension: [...intent.tension], affect: [...intent.affect],
+  };
+}
+
+function cloneEmergent(emergent: EmergentWorldState): EmergentWorldState {
+  return {
+    revision: emergent.revision,
+    hypotheses: emergent.hypotheses.map((hypothesis) => ({ ...hypothesis, descriptors: [...hypothesis.descriptors] })),
   };
 }
 

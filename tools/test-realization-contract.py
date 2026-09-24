@@ -12,7 +12,7 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 base = {
-    "world": {"entities": [{"id": "woman", "label": "woman", "attributes": ["red coat"]}], "intent": {"form": ["organic"], "behavior": ["reaching"], "spatiality": ["deep"], "materiality": ["fibrous"], "motion": ["flowing"], "tension": ["expanding"]}, "visualIdentity": {"color": {"scheme": "complementary", "temperature": 0.7, "accentWeight": 0.4}, "lighting": {"direction": "side", "warmth": 0.8, "atmosphere": 0.5}}},
+    "world": {"entities": [{"id": "woman", "label": "woman", "attributes": ["red coat"]}], "intent": {"form": ["organic"], "behavior": ["reaching"], "spatiality": ["deep"], "materiality": ["fibrous"], "motion": ["flowing"], "tension": ["expanding"]}, "emergent": {"hypotheses": [{"handle": "form-1", "descriptors": ["upright", "fibrous"]}]}, "visualIdentity": {"color": {"scheme": "complementary", "temperature": 0.7, "accentWeight": 0.4}, "lighting": {"direction": "side", "warmth": 0.8, "atmosphere": 0.5}}},
     "shot": {"id": "shot-1", "worldRevision": 2, "grammar": "follow"},
     "diff": {"identityBreak": False},
     "continuousForces": {"bass": 0.8},
@@ -28,6 +28,7 @@ assert "persistent color scheme: complementary" in compiled
 assert "persistent lighting: side" in compiled
 assert "perceptual form: organic" in compiled
 assert "perceptual behavior: reaching" in compiled
+assert "persistent emergent forms: upright, fibrous" in compiled
 assert module.normalize_realization_request({"realization": {**base, "legacy": {"look": {}}}}) is None
 assert module.normalize_realization_request({}) is None
 print("realization contract ok")

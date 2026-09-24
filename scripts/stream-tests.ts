@@ -16,6 +16,7 @@ import { resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
+import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 
 let passed = 0;
 function test(name: string, fn: () => void): void {
@@ -354,6 +355,20 @@ test('world state carries perceptual intent without requiring literal entities',
   assert.ok(scene.world.intent.spatiality.length > 0);
   assert.ok(scene.world.intent.continuityPressure >= 0 && scene.world.intent.continuityPressure <= 1);
   assert.equal(scene.world.entities.length, 0);
+});
+
+test('emergent observations preserve anonymous handles through occlusion and fade', () => {
+  let state = applyEmergentObservations(EMPTY_EMERGENT_WORLD, [{ handle: 'form-1', descriptors: ['fibrous'], confidence: 0.8, visible: true }], 1);
+  assert.equal(state.hypotheses[0]?.lifecycle, 'new');
+  state = applyEmergentObservations(state, [{ handle: 'form-1', descriptors: ['fibrous'], confidence: 0.9, visible: true }], 2);
+  assert.equal(state.hypotheses[0]?.lifecycle, 'persistent');
+  state = applyEmergentObservations(state, [], 3);
+  assert.equal(state.hypotheses[0]?.handle, 'form-1');
+  assert.equal(state.hypotheses[0]?.lifecycle, 'occluded');
+  state = applyEmergentObservations(state, [], 4);
+  state = applyEmergentObservations(state, [], 5);
+  state = applyEmergentObservations(state, [], 6);
+  assert.equal(state.hypotheses.length, 0);
 });
 
 test('world diff reducer preserves identity and reconstructs the proposed state', () => {
