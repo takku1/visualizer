@@ -146,12 +146,15 @@ class Server:
 
     async def handler(self, websocket) -> None:
         header: dict | None = None
-        await websocket.send(json.dumps({
-            "type": "meaning-ready",
-            "model": self.probe.model_name,
-            "device": self.probe.device,
-            "language": self.probe.language or "auto",
-        }))
+        try:
+            await websocket.send(json.dumps({
+                "type": "meaning-ready",
+                "model": self.probe.model_name,
+                "device": self.probe.device,
+                "language": self.probe.language or "auto",
+            }))
+        except websockets.exceptions.ConnectionClosed:
+            return
         async for message in websocket:
             if isinstance(message, str):
                 try:
@@ -189,7 +192,12 @@ class Server:
             }
             if error:
                 response["error"] = error
-            await websocket.send(json.dumps(response))
+            try:
+                await websocket.send(json.dumps(response))
+            except websockets.exceptions.ConnectionClosed:
+                # The renderer may close normally while optional ASR is still
+                # finishing a window. This is not an inference failure.
+                return
 
 
 async def main() -> None:
