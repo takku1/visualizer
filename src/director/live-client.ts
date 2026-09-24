@@ -9,6 +9,10 @@ export class LiveMeaningClient {
   #retryMs = 1000;
   #inFlight = false;
   #onUpdate: (update: LiveLyricUpdate) => void;
+  updatesReceived = 0;
+  hypothesesReceived = 0;
+  lastLanguage: string | null = null;
+  lastRevision: number | null = null;
 
   constructor(url: string, onUpdate: (update: LiveLyricUpdate) => void) {
     this.#url = url;
@@ -31,6 +35,10 @@ export class LiveMeaningClient {
         const value: unknown = JSON.parse(event.data);
         if (isLiveLyricUpdate(value)) {
           this.#inFlight = false;
+          this.updatesReceived++;
+          this.hypothesesReceived += value.hypotheses.length;
+          this.lastLanguage = value.hypotheses[0]?.language ?? this.lastLanguage;
+          this.lastRevision = value.revision;
           this.#onUpdate(value);
         }
       } catch {
@@ -46,6 +54,16 @@ export class LiveMeaningClient {
       this.#retryMs = Math.min(this.#retryMs * 2, 10000);
     };
     ws.onerror = () => ws.close();
+  }
+
+  telemetry(): { connected: boolean; updates: number; hypotheses: number; language: string | null; revision: number | null } {
+    return {
+      connected: this.connected,
+      updates: this.updatesReceived,
+      hypotheses: this.hypothesesReceived,
+      language: this.lastLanguage,
+      revision: this.lastRevision,
+    };
   }
 
   close(): void {

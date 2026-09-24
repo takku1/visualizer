@@ -82,6 +82,17 @@ an expensive video model.
    future realization adapters.
 6. Evaluate identity and action at slow/offline rates rather than in the 60 Hz
    procedural loop.
+7. Treat live ASR promotion as conservative evidence extraction, not as a
+   complete semantic parser. The current implementation recognizes a small,
+   explicit English/Japanese vocabulary and preserves unknown phrases as
+   symbols. This keeps uncertain language from silently becoming invented
+   entities while leaving room for a later multilingual parser.
+
+The ASR boundary is informed by Whisper's multilingual speech-recognition
+design, but Whisper transcription alone does not establish grounded entities,
+actions, or persistent identity. Those remain director/world-model concerns.
+Source: Radford et al., *Robust Speech Recognition via Large-Scale Weak
+Supervision*, 2022, [arXiv](https://arxiv.org/abs/2212.04356).
 
 ## Claims this research does not support
 

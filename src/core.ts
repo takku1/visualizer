@@ -398,6 +398,7 @@ export class VisualizerApp {
           jitter: stream.meta.jitter ?? null,
           drift: stream.meta.drift ?? null,
         } : null,
+        meaning: this.#liveMeaning?.telemetry() ?? null,
         control: { strength: control.strength, feedback: control.feedback, noise: control.noise, flow: control.flow },
       }));
       this.#lastStateLogAt = frame.t;
@@ -418,6 +419,7 @@ export class VisualizerApp {
         streamFps,
         stream: stream ? { connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10 } : null,
         paint: this.#paint,
+        meaning: this.#liveMeaning?.telemetry() ?? null,
         control,
         checkpoints: this.#checkpoints,
         renderer: this.#renderer?.telemetry(),

@@ -272,6 +272,17 @@ test('committed live audio promotes to SongMeaning without blocking the renderer
   assert.equal(meaning?.abstained, false);
 });
 
+test('committed Japanese live audio extracts only evidenced world handles', () => {
+  const meaning = meaningFromLive({
+    trackId: 'track-ja', provisional: [], committed: [{
+      ...liveHypothesis,
+      id: 'ja-1', text: '雨の駅で彼女が歩く', language: 'ja', status: 'committed',
+    }],
+  }, 2, 0);
+  assert.deepEqual(meaning?.motifs.map((motif) => motif.kind).sort(), ['force', 'person', 'place']);
+  assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
+});
+
 test('world diffs preserve stable subjects while changing action', () => {
   const first = sceneFromPlan(initialPlan(), {}, 0);
   const next = sceneFromPlan(initialPlan(), {}, 1);
