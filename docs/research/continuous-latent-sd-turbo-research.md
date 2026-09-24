@@ -106,10 +106,19 @@ capture as constrained by operator and shape compatibility:
 - [NVIDIA TensorRT performance optimization guidance](https://docs.nvidia.com/deeplearning/tensorrt/latest/performance/optimization.html)
 - [NVIDIA TensorRT benchmarking guidance](https://docs.nvidia.com/deeplearning/tensorrt/latest/performance/benchmarking.html)
 
-TensorRT is not installed, but installing it alone would not optimize this
-Diffusers UNet: it would still require an ONNX/TensorRT export, shape profile,
-precision validation, and a side-by-side temporal benchmark. That is the next
-legitimate UNet optimization project, not a safe one-line runtime switch. It
-must report the same P95, VRAM, temporal-change metrics, and checkpoint
-behavior; a faster UNet that destabilizes the persistent latent is not an
-acceptable optimization.
+TensorRT 11.3.0.99 is now installed in the isolated `.venv-tensorrt` probe
+environment and its modern builder API successfully produced a 2.5 KB identity
+engine. This proves that the local Python/runtime installation can build an
+engine; it does **not** prove that the diffusion UNet can be exported or that a
+TensorRT engine will outperform the current CUDA-graph path. The reproducible
+probe is:
+
+```powershell
+& '.\.venv-tensorrt\Scripts\python.exe' tools/tensorrt-probe.py
+```
+
+The next legitimate UNet optimization project still requires an ONNX/TensorRT
+export, shape profile, precision validation, and a side-by-side temporal
+benchmark. It must report the same P95, VRAM, temporal-change metrics, and
+checkpoint behavior; a faster UNet that destabilizes the persistent latent is
+not an acceptable optimization.
