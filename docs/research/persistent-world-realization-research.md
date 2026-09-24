@@ -1,0 +1,73 @@
+# Academic basis for persistent audiovisual world realization
+
+Status: design evidence for the reducer/world-state migration. This research
+supports architectural boundaries; it does not claim that the current
+SD-Turbo backend already provides object permanence.
+
+## Findings
+
+### Object-centric state should be explicit
+
+Slot Attention describes a representation in which a scene is decomposed into
+exchangeable object-centric slots rather than one undifferentiated feature
+vector. The relevant architectural implication is that entities need stable,
+separately addressable representations if later reasoning is expected to
+compose or preserve them.
+
+Source: Locatello et al., *Object-Centric Learning with Slot Attention*, 2020,
+the [arXiv paper](https://arxiv.org/abs/2006.15055).
+
+Repository consequence: `WorldState.entities` should be authoritative and
+addressable by stable IDs. `SongMeaning` can propose or revise entities, but a
+renderer must not become the owner of their identity.
+
+### Temporal consistency needs correspondence or memory
+
+TokenFlow reports that consistent diffusion video editing can be obtained by
+propagating diffusion features using inter-frame correspondences. CoDeF
+represents video using canonical content plus temporal deformation fields,
+separating persistent content from frame-specific motion.
+
+Sources: Geyer et al., *TokenFlow: Consistent Diffusion Features for
+Consistent Video Editing*, 2023, [arXiv](https://arxiv.org/abs/2307.10373);
+Ouyang et al., *CoDeF: Content Deformation Fields for Temporally Consistent
+Video Processing*, 2023, [arXiv](https://arxiv.org/abs/2308.07926).
+
+Repository consequence: the world reducer must preserve canonical identity and
+the renderer interface should eventually accept persistent references,
+correspondences, masks, depth, or motion fields. A changed prompt alone is
+not a temporal-continuity mechanism.
+
+### Structured state should remain separate from pixels
+
+The cited object-centric and correspondence work separates scene content from
+its spatial/temporal realization. This supports keeping a structured world
+model above `Scene`, while treating prompts, procedural uniforms, diffusion
+embeddings, and future reference conditioning as compiled realization
+artifacts.
+
+### Research does not justify an immediate text-to-video replacement
+
+These methods address representation and temporal consistency, not this
+repository's real-time audio-reactive loop or 6 GB GPU budget. They support a
+pluggable realization seam and persistent state, not an immediate migration to
+an expensive video model.
+
+## Design decisions grounded by the evidence
+
+1. Make `WorldState` authoritative before improving the renderer.
+2. Apply changes through a deterministic `SceneDiff` reducer.
+3. Preserve entity IDs across action, camera, color, and atmospheric changes.
+4. Compile structured state into the current prompt/look sidecar contract for
+   now.
+5. Reserve references, masks, depth, correspondence, and temporal latents for
+   future realization adapters.
+6. Evaluate identity and action at slow/offline rates rather than in the 60 Hz
+   procedural loop.
+
+## Claims this research does not support
+
+- A prompt containing “coherent subject identity” guarantees identity.
+- Raster feedback alone is equivalent to an object-centric world model.
+- A five-second text-to-video clip solves interactive state continuity.
+- CLIP similarity alone proves identity persistence or correct action.

@@ -35,3 +35,22 @@ versioned manifest of motifs, relations, section actions, and evidence. The
 motif ledger preserves anchors; the scene compiler produces a typed shot and
 fingerprint. Missing or abstained meaning falls back to metadata concepts or
 abstract visual direction, never an invented narrative presented as fact.
+
+## Persistent audiovisual world
+
+**WorldState** is the authoritative description of what currently exists:
+entities, environment, relationships, action, camera, visual state, time, and
+provenance. It is not a prompt and it is not renderer memory.
+
+**SceneDiff** is the smallest evidence-backed transition proposed between two
+world states. It is applied by a deterministic reducer; it does not regenerate
+the entire world by default.
+
+**Shot** describes how the current world is framed and presented. **Scene** is
+the current compatibility/realization artifact compiled from world state and
+shot intent. **Realization** turns that request into pixels but does not own
+semantic truth.
+
+Music acts continuously on an existing world through bounded physical forces
+and emphasis. It may affect motion, lighting, atmosphere, camera energy, and
+color modulation without inventing new entities on every beat.

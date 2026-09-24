@@ -12,7 +12,7 @@ import { addShotCandidate, compileShotGraph, nextShots, ShotGraphRuntime } from 
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive } from '../src/director/live-meaning';
-import { diffWorldState } from '../src/world/state';
+import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 
@@ -282,6 +282,22 @@ test('world diffs preserve stable subjects while changing action', () => {
   assert.equal(diff.action.to, 'enters the field');
 });
 
+test('world diff reducer preserves identity and reconstructs the proposed state', () => {
+  const first = sceneFromPlan(initialPlan(), {}, 0);
+  const next = sceneFromPlan(initialPlan(), {}, 1);
+  const prior = {
+    ...first.world,
+    entities: [{ id: 'woman', label: 'woman', kind: 'person', attributes: ['red coat'], confidence: 0.9 }],
+  };
+  const proposed = { ...next.world, entities: prior.entities, action: 'walks toward the platform' };
+  const diff = diffWorldState(prior, proposed);
+  const committed = applySceneDiff(prior, diff);
+  assert.deepEqual(committed, proposed);
+  assert.equal(committed.entities[0]?.id, prior.entities[0]?.id);
+  committed.entities[0]?.attributes.push('runtime mutation');
+  assert.equal(prior.entities[0]?.attributes.includes('runtime mutation'), false);
+});
+
 test('timed lyric import preserves evidence and rejects untimed results', () => {
   const lines = parseLrc('[00:01.00]first line\n[00:03.50]second line');
   assert.equal(lines[0]!.startSec, 1);
@@ -356,6 +372,25 @@ test('checkpoint receipts record the timing source and commit phase', () => {
   assert.equal(r?.timing.actualCommitTime, 0);
   const scene = s.scene!;
   assert.equal(scene.continuityContract.evidence, 'abstention');
+});
+
+test('checkpoint commits the world diff from the prior committed world', () => {
+  const s = new CheckpointScheduler({ minGapSec: 0 });
+  const first = sceneFromPlan(initialPlan(), {}, 0);
+  s.setScene(first);
+  assert.equal(s.update(frame({ t: 0, hasStructure: true, beatIndex: 0 }), live)?.reason, 'initial');
+  const changed = {
+    ...first,
+    fingerprint: { ...first.fingerprint, action: 99 },
+    world: { ...first.world, action: 'walks toward the platform' },
+  };
+  s.setScene(changed);
+  s.update(frame({ t: 1.9, barPhase: 0.95, hasStructure: true, beatIndex: 3 }), live);
+  const request = s.update(frame({ t: 2, barPhase: 0, hasStructure: true, beatIndex: 4 }), live);
+  assert.equal(request?.reason, 'scene');
+  assert.equal(request?.worldDiff.action.from, 'abstain');
+  assert.equal(request?.worldDiff.action.to, 'walks toward the platform');
+  assert.equal(s.world?.action, 'walks toward the platform');
 });
 
 test('shot graph keeps alternate candidates explicit and ordered', () => {

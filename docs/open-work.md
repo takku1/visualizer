@@ -8,6 +8,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Checkpoint timing receipts record source, confidence, requested beat, commit time, phase error, and timeout fallback.
 - A deterministic shot-graph seam supports candidate shots, weighted transitions, and prefetch intent.
 - Scenes carry persistent `WorldState`; checkpoints expose renderer-independent `SceneDiff` data for future stateful backends.
+- `WorldState` transitions now have a pure `applySceneDiff` reducer; checkpoint commits calculate against the prior committed world and expose the committed world to callers.
 - The current sidecar consumes `SceneDiff` identity-break/preserve intent and reports the diff summary in stream telemetry.
 - Shot graphs now support guarded runtime selection, prefetch candidates, and cancellation epochs; GPU pre-rendering remains measurement-gated.
 - Timed lyric import/provider interfaces now exist; `npm run meaning:import -- --lrc song.lrc --track <id> --out meaning/<id>.json` creates an evidence-bearing manifest.
@@ -25,3 +26,11 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.
 
 The evaluator's `identityVerified` and `actionVerified` fields remain false until an actual visual evaluator is connected.
+
+## Research basis
+
+The reducer and persistent-entity direction is documented in
+[`docs/research/persistent-world-realization-research.md`](research/persistent-world-realization-research.md).
+The academic evidence supports explicit object-centric state and temporal
+correspondence/memory, but does not imply that the current prompt-driven
+SD-Turbo backend provides true object permanence.

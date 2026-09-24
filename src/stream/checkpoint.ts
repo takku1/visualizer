@@ -1,7 +1,7 @@
 import type { FeatureFrame } from '../types';
 import type { Scene } from './scenes';
 import { hash } from './scenes';
-import { diffWorldState, type SceneDiff } from '../world/state';
+import { applySceneDiff, diffWorldState, type SceneDiff, type WorldState } from '../world/state';
 
 export type CheckpointReason = 'initial' | 'scene' | 'reseed' | 'stagnant';
 
@@ -71,6 +71,7 @@ export class CheckpointScheduler {
 
   #scene: Scene | null = null;
   #current: Scene | null = null;
+  #world: WorldState | null = null;
   #sceneChanged = false;
   #count = 0;
   #bars = 0;
@@ -91,6 +92,11 @@ export class CheckpointScheduler {
 
   get scene(): Scene | null {
     return this.#current;
+  }
+
+  /** The last world state committed at a checkpoint boundary. */
+  get world(): WorldState | null {
+    return this.#world;
   }
 
   /** The director's latest scene. A different prompt schedules a splice on the next downbeat. */
@@ -153,8 +159,13 @@ export class CheckpointScheduler {
   }
 
   #emit(reason: CheckpointReason, f: FeatureFrame, s: StreamObservation, scene: Scene, bars: number, fallbackUsed: boolean): CheckpointRequest {
+    const previousWorld = this.#world;
+    const worldDiff = diffWorldState(previousWorld, scene.world);
+    const committedWorld = applySceneDiff(previousWorld, worldDiff);
+    const committedScene = { ...scene, world: committedWorld };
     this.#count++;
-    this.#current = scene;
+    this.#current = committedScene;
+    this.#world = committedWorld;
     this.#sceneChanged = false;
     this.#forced = false;
     this.#bars = 0;
@@ -167,7 +178,7 @@ export class CheckpointScheduler {
     const inferredGrid = !trustedStructure && f.rhythmConfidence > 0.5;
     const phase = trustedStructure ? f.barPhase : inferredGrid ? f.beatPhase : null;
     return {
-      ...scene,
+      ...committedScene,
       id: `k${this.#count}`,
       reason,
       spliceFrames: bars === 0 ? 1 : Math.round(Math.min(Math.max(secondsPerBar * bars * fps, 6), 60)),
@@ -179,7 +190,7 @@ export class CheckpointScheduler {
         phaseError: phase == null ? null : Math.min(phase, 1 - phase),
         fallbackUsed,
       },
-      worldDiff: diffWorldState(this.#current?.world ?? null, scene.world),
+      worldDiff,
     };
   }
 }
