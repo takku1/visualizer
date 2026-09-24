@@ -4,6 +4,24 @@ This is an offline diagnostic protocol for grounded or emergent-world runs.
 It is deliberately outside the real-time loop.
 
 1. Capture frames at fixed section/beat positions from one song session.
+   The sidecar can sample its actual output without changing the realtime
+   path:
+
+   ```powershell
+   $env:STREAM_EVAL_DIR = "output/eval-capture"
+   $env:STREAM_EVAL_EVERY = "30"
+   npm run app
+   ```
+
+   Package the resulting frames for annotation:
+
+   ```powershell
+   python tools/prepare-eval-manifest.py output/eval-capture `
+     --sequence-group song-a
+   ```
+
+   This creates an explicitly `unannotated` manifest. It never invents
+   identity or action labels from prompts, telemetry, or filenames.
 2. Have a human annotate which frames are expected to contain the same
    persistent form. Use `identityGroup` for that correspondence claim.
 3. Keep reference images separate from generated frames. A reference may be a
