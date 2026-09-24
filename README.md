@@ -53,6 +53,7 @@ time; a second one waits and takes over when the first closes. To run the pieces
 npm run stream        # sidecar alone, ws://127.0.0.1:8771
 npm run dev           # browser harness at localhost:5174 (?stream=off, ?stream=ws://...)
 npm run stream:bench  # headless throughput + sample frames in output/stream-bench
+python tools/stream-server.py --bench 150 --bench-json output/stream-bench/report.json  # machine-readable timing
 npm run app -- --no-meaning  # isolate diffusion/procedural performance
 ```
 

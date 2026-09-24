@@ -16,6 +16,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Opt-in frame capture plus `tools/evaluate-world.py` provides a CLIP-based identity/action measurement seam without adding work to the real-time loop.
 - Live ASR now enforces one in-flight audio window, preventing slow transcription from queueing behind itself.
 - `npm run app` starts the local ASR worker by default; use `npm run app -- --no-meaning` only for performance isolation. Committed live hypotheses promote into `SongMeaning` without blocking procedural rendering.
+- The diffusion control hot path reuses CPU staging buffers instead of allocating tensors per frame. A controlled 40-frame CUDA comparison at 576×320 measured 62.4 ms median / 63.9 ms p90 after the change versus 63.2 ms / 65.1 ms before it, with peak VRAM unchanged at about 2.48 GB. Reproduce with `npm run stream:bench -- --bench-json output/stream-bench/current.json`.
 
 ## Still deliberately deferred
 
