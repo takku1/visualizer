@@ -34,6 +34,7 @@ export class LoopbackSource implements AudioSource {
   #audioRing = new Float32Array(16000 * 6);
   #audioWrite = 0;
   #audioCount = 0;
+  #audioRms = 0;
   #chroma = new Float32Array(12);
 
   // Each band gets its own gain, tracking its own history. A single shared
@@ -62,6 +63,15 @@ export class LoopbackSource implements AudioSource {
   /** True once the capture has been granted; used to drive the HUD prompt. */
   get capturing(): boolean {
     return this.#stream?.active ?? false;
+  }
+
+  /** Recent PCM energy, distinct from a merely active capture permission. */
+  get audioRms(): number {
+    return this.#audioRms;
+  }
+
+  get hasAudioSignal(): boolean {
+    return this.#audioRms >= 0.003;
   }
 
   /** Return the most recent six seconds at the model-friendly 16 kHz rate. */
@@ -133,6 +143,7 @@ export class LoopbackSource implements AudioSource {
     this.#analyserR = analyserR;
     this.#audioWrite = 0;
     this.#audioCount = 0;
+    this.#audioRms = 0;
     this.#audioRing.fill(0);
     this.#ready = true;
   }
@@ -162,12 +173,16 @@ export class LoopbackSource implements AudioSource {
     const newSamples = Math.min(maxNewSamples, Math.max(1, Math.round(16000 * Math.max(frame.dt, 1 / 240))));
     const sourceSpan = Math.min(this.#timeMono.length, Math.ceil(newSamples * step));
     const sourceStart = this.#timeMono.length - sourceSpan;
+    let squareSum = 0;
     for (let i = 0; i < newSamples; i++) {
       const sourceIndex = sourceStart + Math.min(sourceSpan - 1, Math.floor(i * sourceSpan / newSamples));
-      this.#audioRing[this.#audioWrite] = this.#timeMono[sourceIndex] ?? 0;
+      const sample = this.#timeMono[sourceIndex] ?? 0;
+      squareSum += sample * sample;
+      this.#audioRing[this.#audioWrite] = sample;
       this.#audioWrite = (this.#audioWrite + 1) % this.#audioRing.length;
       this.#audioCount = Math.min(this.#audioCount + 1, this.#audioRing.length);
     }
+    this.#audioRms = Math.sqrt(squareSum / Math.max(newSamples, 1));
     const dt = Math.max(frame.dt, 1 / 240);
     const nyquist = (this.#ctx?.sampleRate ?? 48000) / 2;
 

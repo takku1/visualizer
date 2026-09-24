@@ -103,7 +103,11 @@ async function main(): Promise<void> {
         : analysis.unavailable
           ? 'analysis  unavailable (beat grid estimated)'
           : 'analysis  loading',
-      app.loopback.capturing ? 'capture   ok' : 'capture   off (no spectrum)',
+      !app.loopback.capturing
+        ? 'capture   off (no spectrum)'
+        : app.loopback.hasAudioSignal
+          ? `capture   ok (${app.loopback.audioRms.toFixed(3)} rms)`
+          : 'capture   silent (re-share with audio)',
     ],
   });
 
