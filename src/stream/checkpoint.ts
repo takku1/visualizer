@@ -55,6 +55,12 @@ export interface StreamObservation {
 }
 
 export interface SchedulerOptions {
+  /** Keep the current latent alive; scene revisions become rare retargets. */
+  continuousLatentMode?: boolean;
+  /** Sustained scene novelty required before a retarget may commit. */
+  noveltyHoldSec?: number;
+  /** Quiet period after a retarget before another one may land. */
+  retargetCooldownSec?: number;
   /** Re-seed the current scene with a new seed after this many bars. Drift bound. */
   barsPerReseed?: number;
   /** Allow periodic/stagnation re-seeds. False keeps one continuous animation state. */
@@ -82,6 +88,9 @@ export interface SchedulerOptions {
  * `reseed: true` when evaluating long-run drift bounds.
  */
 export class CheckpointScheduler {
+  readonly continuousLatentMode: boolean;
+  readonly noveltyHoldSec: number;
+  readonly retargetCooldownSec: number;
   readonly barsPerReseed: number;
   readonly reseed: boolean;
   readonly stagnantSec: number;
@@ -99,9 +108,14 @@ export class CheckpointScheduler {
   #lastAt = -Infinity;
   #stagnantFor = 0;
   #waitingSince = -1;
+  #sceneCandidateAt = -1;
+  #cooldownUntil = -Infinity;
   #forced = false;
 
   constructor(opts: SchedulerOptions = {}) {
+    this.continuousLatentMode = opts.continuousLatentMode ?? true;
+    this.noveltyHoldSec = opts.noveltyHoldSec ?? 0.9;
+    this.retargetCooldownSec = opts.retargetCooldownSec ?? 8;
     this.barsPerReseed = opts.barsPerReseed ?? 16;
     this.reseed = opts.reseed ?? true;
     this.stagnantSec = opts.stagnantSec ?? 8;
@@ -137,6 +151,8 @@ export class CheckpointScheduler {
     this.#lastAt = -Infinity;
     this.#stagnantFor = 0;
     this.#waitingSince = -1;
+    this.#sceneCandidateAt = -1;
+    this.#cooldownUntil = -Infinity;
     this.#forced = false;
   }
 
@@ -145,6 +161,8 @@ export class CheckpointScheduler {
     // Compared against what is on screen, so a pending change survives the
     // director repeating itself before the downbeat arrives.
     this.#sceneChanged = !sameSceneMeaning(this.#current, scene);
+    if (!this.#sceneChanged) this.#sceneCandidateAt = -1;
+    else if (this.#sceneCandidateAt < 0 && this.#lastAt > -Infinity) this.#sceneCandidateAt = this.#lastAt;
     this.#scene = scene;
   }
 
@@ -169,6 +187,12 @@ export class CheckpointScheduler {
     if (!this.#current) return this.#emit('initial', f, s, { ...this.#scene, continuity: 0 }, 0, false);
 
     if (!this.keyframes && !this.#forced) return null;
+
+    if (this.#sceneChanged && this.continuousLatentMode && !this.#forced) {
+      if (this.#sceneCandidateAt < 0) this.#sceneCandidateAt = f.t;
+      if (f.t - this.#sceneCandidateAt < this.noveltyHoldSec) return null;
+      if (f.t < this.#cooldownUntil) return null;
+    }
 
     this.#stagnantFor = s.phase === 'idle' && s.change < this.stagnantBelow ? this.#stagnantFor + f.dt : 0;
     if (s.phase !== 'idle' || f.t - this.#lastAt < this.minGapSec) return null;
@@ -219,6 +243,9 @@ export class CheckpointScheduler {
     this.#stagnantFor = 0;
     this.#waitingSince = -1;
     this.#lastAt = f.t;
+    if (reason === 'scene' && this.continuousLatentMode) {
+      this.#cooldownUntil = f.t + this.retargetCooldownSec;
+    }
     const secondsPerBar = (60 / Math.max(f.tempo, 40)) * 4;
     const fps = s.fps > 0 ? s.fps : 10;
     const trustedStructure = f.hasStructure;

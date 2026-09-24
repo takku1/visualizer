@@ -100,6 +100,7 @@ async function main(): Promise<void> {
     allowUnknownLyrics: params.get('lyrics-rights') === 'community',
     paint: Number(params.get('paint') ?? storedPaint() ?? 0.6),
     keyframes: params.get('keyframes') !== 'off',
+    continuousLatentMode: params.get('continuous') !== 'off',
     direction: params.get('direction') === 'knobs' ? 'knobs' : 'splice',
     context: trackContext,
     status: (): string[] => ['', app.loopback.capturing ? 'capture   ok' : 'capture   off (no spectrum)'],

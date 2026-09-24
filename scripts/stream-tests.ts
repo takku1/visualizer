@@ -1032,6 +1032,20 @@ test('a gliding director scene lands on a downbeat, spliced over two bars', () =
   assert.equal(r[0]!.spliceFrames, 48); // two 2 s bars at 12 fps
 });
 
+test('continuous latent mode holds a retarget candidate and enforces cooldown', () => {
+  const s = new CheckpointScheduler({ minGapSec: 0, retargetCooldownSec: 8 });
+  const first = sceneFromPlan(initialPlan(), {}, 0);
+  s.setScene(first);
+  assert.equal(drive(s, 1, live)[0]?.reason, 'initial');
+  const changed = { ...first, fingerprint: { ...first.fingerprint, action: 123 } };
+  s.setScene(changed);
+  assert.equal(s.update(frame({ t: 1.5, barPhase: 0.75, hasStructure: true }), live), null);
+  const landed = s.update(frame({ t: 2, barPhase: 0, hasStructure: true, beatIndex: 4 }), live);
+  assert.equal(landed?.reason, 'scene');
+  s.setScene({ ...changed, fingerprint: { ...changed.fingerprint, action: 124 } });
+  assert.equal(s.update(frame({ t: 4, barPhase: 0, hasStructure: true, beatIndex: 8 }), live), null);
+});
+
 test('an explicit hard cut still lands immediately', () => {
   const s = new CheckpointScheduler({ minGapSec: 0 });
   s.setScene(sceneFromPlan(initialPlan(), {}, 0));

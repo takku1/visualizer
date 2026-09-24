@@ -48,6 +48,8 @@ export interface AppConfig {
   paint?: number;
   /** false: splice only the initial keyframe (see CheckpointScheduler). Default true. */
   keyframes?: boolean;
+  /** Keep one SD-Turbo latent alive; scene revisions become controlled retargets. */
+  continuousLatentMode?: boolean;
   /** Periodic/stagnation re-seeds. Default false: the diffusion state animates continuously. */
   reseed?: boolean;
   /** Optional local ASR worker, e.g. ws://127.0.0.1:8772. */
@@ -189,6 +191,7 @@ export class VisualizerApp {
     const knobs = config.direction === 'knobs';
     this.#knobs = knobs ? new KnobDirector() : null;
     this.#scheduler = new CheckpointScheduler({
+      continuousLatentMode: config.continuousLatentMode ?? true,
       keyframes: knobs ? false : config.keyframes ?? true,
       reseed: config.reseed ?? false,
     });
@@ -620,6 +623,9 @@ export class VisualizerApp {
         shotGraph: this.#shotGraphTelemetry(),
         realization: {
           mode: 'continuous-song',
+          continuousLatentMode: this.#scheduler.continuousLatentMode,
+          retargetNoveltyHoldSec: this.#scheduler.noveltyHoldSec,
+          retargetCooldownSec: this.#scheduler.retargetCooldownSec,
           trackId: this.#realizationTrackId,
           trackTransitions: this.#trackTransitions,
           reseedEnabled: this.#scheduler.reseed,
@@ -656,6 +662,9 @@ export class VisualizerApp {
         shotGraph: this.#shotGraphTelemetry(),
         realization: {
           mode: 'continuous-song',
+          continuousLatentMode: this.#scheduler.continuousLatentMode,
+          retargetNoveltyHoldSec: this.#scheduler.noveltyHoldSec,
+          retargetCooldownSec: this.#scheduler.retargetCooldownSec,
           trackId: this.#realizationTrackId,
           trackTransitions: this.#trackTransitions,
           reseedEnabled: this.#scheduler.reseed,
