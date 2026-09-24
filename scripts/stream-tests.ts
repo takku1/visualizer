@@ -371,6 +371,22 @@ test('emergent observations preserve anonymous handles through occlusion and fad
   assert.equal(state.hypotheses.length, 0);
 });
 
+test('semantic checkpoint changes preserve emergent form memory until a newer observation arrives', () => {
+  const first = sceneFromPlan(initialPlan(), {}, 0);
+  const observed = applyEmergentObservations(first.world.emergent, [{
+    handle: 'form-1', descriptors: ['upright', 'fibrous'], confidence: 0.9, visible: true,
+  }], 7);
+  const next = sceneFromPlan(initialPlan(), {}, 1);
+  const proposed = { ...next.world, emergent: observed };
+  const firstDiff = diffWorldState(first.world, proposed);
+  const changed = applySceneDiff(first.world, firstDiff);
+  const later = sceneFromPlan(initialPlan(), {}, 2);
+  const laterDiff = diffWorldState(changed, later.world);
+  const preserved = applySceneDiff(changed, laterDiff);
+  assert.equal(preserved.emergent.hypotheses[0]?.handle, 'form-1');
+  assert.equal(preserved.emergent.revision, 7);
+});
+
 test('world diff reducer preserves identity and reconstructs the proposed state', () => {
   const first = sceneFromPlan(initialPlan(), {}, 0);
   const prior = {

@@ -71,6 +71,10 @@ export function worldStateFromScene(scene: Scene, section: number, positionSec =
 
 export function diffWorldState(previous: WorldState | null, next: WorldState): SceneDiff {
   const prior = previous ?? emptyWorld();
+  // A freshly compiled director scene has no visual observation yet. Do not
+  // erase an anonymous form memory at that semantic checkpoint; only a newer
+  // backend observation revision may replace it.
+  const emergent = next.emergent.revision > prior.emergent.revision ? next.emergent : prior.emergent;
   const oldById = new Map(prior.entities.map((entity) => [entity.id, entity]));
   const newById = new Map(next.entities.map((entity) => [entity.id, entity]));
   const keep = next.entities.filter((entity) => oldById.has(entity.id));
@@ -86,7 +90,7 @@ export function diffWorldState(previous: WorldState | null, next: WorldState): S
     state: {
       relation: next.relation,
       intent: cloneIntent(next.intent),
-      emergent: cloneEmergent(next.emergent),
+      emergent: cloneEmergent(emergent),
       visualIdentity: cloneVisualIdentity(next.visualIdentity),
       time: { ...next.time },
       provenance: { ...next.provenance },
