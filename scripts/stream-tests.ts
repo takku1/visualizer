@@ -299,6 +299,28 @@ test('committed Japanese live audio extracts only evidenced world handles', () =
   assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
 });
 
+test('committed English live audio extracts person, place, force, and action', () => {
+  const meaning = meaningFromLive({
+    trackId: 'track-en', provisional: [], committed: [{
+      ...liveHypothesis,
+      id: 'en-1', text: 'the woman walks through the rainy station', language: 'en', status: 'committed',
+    }],
+  }, 3, 0);
+  assert.deepEqual(meaning?.motifs.map((motif) => motif.kind).sort(), ['force', 'person', 'place']);
+  assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
+});
+
+test('unknown committed live wording remains a symbol instead of inventing a world', () => {
+  const meaning = meaningFromLive({
+    trackId: 'track-unknown', provisional: [], committed: [{
+      ...liveHypothesis,
+      id: 'unknown-1', text: 'la la la', language: 'und', status: 'committed',
+    }],
+  }, 4, 0);
+  assert.deepEqual(meaning?.motifs.map((motif) => motif.kind), ['symbol']);
+  assert.equal(meaning?.sections[0]?.action, 'the vocal motif moves through the frame');
+});
+
 test('semantic resonance modulates existing handles without inventing content', () => {
   const scene = sceneFromPlan(initialPlan(), {}, 0);
   const world = scene.world;
