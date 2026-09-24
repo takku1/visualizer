@@ -16,6 +16,10 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Persistent `ColorState` and `LightingState` now live with world visual identity and compile deterministically to the existing `Look`; knob blending updates both representations.
 - `Shot` and `RealizationRequest` now separate presentation/backend compilation from authoritative world state; the current sidecar remains a legacy-compatible adapter.
 - Continuous audio is now mapped into bounded renderer-neutral forces and transported separately from semantic content; ShotGraph nodes carry world/shot diffs instead of only prompt candidates.
+- `WorldResonance` now travels with the rate-limited fast control path, not
+  only checkpoint requests. The sidecar applies small bounded pressure to
+  existing weather, camera, light, and entity-motion handles while preserving
+  the audio control as the primary driver; missing resonance is a no-op.
 - The current sidecar compiles structured `WorldState`/`Shot`/`SceneDiff` into a backend-specific conditioning prompt (`structured-world-v1`), while preserving the legacy fields and reporting the diff summary, conditioned field set, and prompt hash in stream telemetry. This makes the current text bridge auditable without pretending SD-Turbo has object-level reference conditioning.
 - The structured prompt bridge now carries the complete transition intent:
   preserved entities, additions, removals, relation, action transition, and

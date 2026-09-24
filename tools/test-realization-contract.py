@@ -49,4 +49,13 @@ assert summary["entityCount"] == 1
 assert len(summary["promptSha256"]) == 16
 assert module.normalize_realization_request({"realization": {**base, "legacy": {"look": {}}}}) is None
 assert module.normalize_realization_request({}) is None
+control = module.Control.parse({
+    "flow": 0.03, "zoom": 0.01, "glass": 0.1,
+    "resonance": {"weatherIntensity": 1, "cameraImpulse": 1, "lightPulse": 1, "entityMotion": {"woman": 1}},
+})
+before = (control.flow, control.zoom, control.glass)
+resonant = module.apply_resonance(control)
+assert resonant.flow > before[0] and resonant.zoom > before[1] and resonant.glass > before[2]
+assert resonant.flow <= 0.1 and resonant.glass <= 0.9
+assert (control.flow, control.zoom, control.glass) == before
 print("realization contract ok")

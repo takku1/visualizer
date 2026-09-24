@@ -42,7 +42,7 @@ import hashlib
 import struct
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import cv2
@@ -76,6 +76,26 @@ DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
 
 def _clamp(v: float, lo: float, hi: float) -> float:
     return lo if v < lo else hi if v > hi else v
+
+
+def apply_resonance(c: "Control") -> "Control":
+    """Apply bounded pressure to handles already present in the world."""
+    resonance = c.resonance
+    if not isinstance(resonance, dict):
+        return c
+    weather = _clamp(float(resonance.get("weatherIntensity") or 0.0), 0.0, 1.0)
+    camera = _clamp(float(resonance.get("cameraImpulse") or 0.0), 0.0, 1.0)
+    light = _clamp(float(resonance.get("lightPulse") or 0.0), 0.0, 1.0)
+    entity_motion = resonance.get("entityMotion")
+    entity = max((float(value) for value in entity_motion.values()), default=0.0) if isinstance(entity_motion, dict) else 0.0
+    entity = _clamp(entity, 0.0, 1.0)
+    # Audio remains primary; semantic state only gates existing channels.
+    return replace(
+        c,
+        flow=_clamp(c.flow + 0.018 * weather + 0.012 * entity, 0.0, 0.1),
+        zoom=_clamp(c.zoom + 0.025 * camera, -1.0, 1.0),
+        glass=_clamp(c.glass + 0.04 * light, 0.0, 0.9),
+    )
 
 
 def normalize_realization_request(msg: dict) -> dict | None:
@@ -245,6 +265,9 @@ class Control:
     hsLight: float = 0.0
     hsOrganic: float = 0.0
     seq: int = 0
+    # Structured semantic resonance; never creates content, only modulates
+    # existing world handles in the fast realization loop.
+    resonance: dict | None = None
 
     @staticmethod
     def parse(msg: dict) -> "Control":
@@ -273,6 +296,8 @@ class Control:
         c.hsLight = _clamp(float(msg.get("hsLight", c.hsLight)), -1.5, 1.5)
         c.hsOrganic = _clamp(float(msg.get("hsOrganic", c.hsOrganic)), -1.5, 1.5)
         c.seq = int(msg.get("seq", 0))
+        raw_resonance = msg.get("resonance")
+        c.resonance = raw_resonance if isinstance(raw_resonance, dict) else None
         return c
 
 
@@ -823,6 +848,7 @@ class Engine:
     @torch.inference_mode()
     def step(self, c: Control, dt: float) -> tuple[np.ndarray | None, dict]:
         t0 = time.perf_counter()
+        c = apply_resonance(c)
         self.control = c
         if self.pending is not None and (self.job is None or self.job.phase == "splicing"):
             if self.job is not None:  # a newer request pre-empts an unfinished splice: land it now
@@ -951,6 +977,7 @@ class Engine:
             "drift": round(drift, 4),
             "genMs": round((time.perf_counter() - t0) * 1000, 1),
             "controlSeq": c.seq,
+            "resonance": c.resonance,
         }
         return img, meta
 

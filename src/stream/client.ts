@@ -3,6 +3,7 @@ import { realizationRequestFromCheckpoint, type CheckpointRequest, type StreamOb
 import type { SongMeaning } from '../director/semantic';
 import { isLiveLyricUpdate, type LiveLyricUpdate } from '../director/live';
 import type { ContinuousForces } from '../realization/backend';
+import type { WorldResonance } from '../world/resonance';
 
 /** Per-frame header the sidecar prepends to each JPEG. */
 export interface StreamMeta {
@@ -185,10 +186,10 @@ export class StreamClient {
   }
 
   /** Send the latest sampler control; rate-limited, never queued. */
-  sendControl(c: SamplerControl, now: number): void {
+  sendControl(c: SamplerControl, now: number, resonance: WorldResonance | null = null): void {
     if (!this.connected || now - this.#lastControlAt < this.#controlInterval) return;
     this.#lastControlAt = now;
-    this.#ws!.send(JSON.stringify({ type: 'control', seq: ++this.#seq, ...c }));
+    this.#ws!.send(JSON.stringify({ type: 'control', seq: ++this.#seq, ...c, resonance: resonance ?? undefined }));
   }
 
   /**

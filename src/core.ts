@@ -25,6 +25,7 @@ import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-acc
 import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
+import { resonanceFrom } from './world/resonance';
 import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime, type ShotSelectionDiagnostic } from './stream/shot-graph';
 
 export interface AppConfig {
@@ -509,6 +510,8 @@ export class VisualizerApp {
       drift: this.#stream.meta.drift,
     } : null, frame.dt);
     this.#control = control;
+    const continuousForces = continuousForcesFrom(frame, control);
+    const resonance = this.#scheduler.world ? resonanceFrom(this.#scheduler.world, continuousForces) : null;
     const scene = this.#scene.update(frame, mapped, this.#mapper.push, this.#mapper.energy);
     this.#sceneUniforms = scene;
 
@@ -528,7 +531,7 @@ export class VisualizerApp {
           this.#shotGraphSelectedIds.push(candidate.id);
         }
       }
-      stream.sendControl(control, now);
+      stream.sendControl(control, now, resonance);
       // A slow GPU readback/encode can starve the display WebGL context. Once
       // it crosses the interactive budget, pause camera uploads temporarily;
       // the sidecar continues from its keyframe and the procedural display
@@ -542,7 +545,7 @@ export class VisualizerApp {
         // A knob-mode session's first blend may have gone out before the
         // socket was up; re-send the current targets with each keyframe.
         if (this.#targets) stream.sendBlend(this.#targets.prompts, this.#targets.weights, this.#targets.tauSec);
-        stream.requestCheckpoint(request, continuousForcesFrom(frame, control));
+        stream.requestCheckpoint(request, continuousForces);
         this.#checkpoints++;
         console.log(`[checkpoint] ${request.id} ${request.reason} splice=${request.spliceFrames}f continuity=${request.continuity}`);
           this.#config.log?.(checkpointLine(frame.t, request));
