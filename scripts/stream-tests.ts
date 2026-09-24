@@ -580,6 +580,33 @@ test('timed lyric import preserves evidence and rejects untimed results', () => 
   assert.equal(meaningFromLyrics({ provider: 'x', match: 'metadata', timing: 'none', rights: 'unknown', confidence: 0.4, lines }), null);
 });
 
+test('timed lyric meaning shares bounded English/Japanese grounding with live ASR', () => {
+  const english = meaningFromLyrics({
+    provider: 'import', match: 'import', timing: 'line', rights: 'verified', confidence: 0.9,
+    language: 'en', lines: [{ startSec: 1, endSec: 3, text: 'the woman walks through the rain' }],
+  });
+  assert.equal(english?.abstained, false);
+  assert.ok(english?.motifs.some((motif) => motif.kind === 'person'));
+  assert.ok(english?.motifs.some((motif) => motif.kind === 'force'));
+  assert.equal(english?.sections[0]?.action, 'walks through the environment');
+
+  const japanese = meaningFromLyrics({
+    provider: 'import', match: 'import', timing: 'line', rights: 'verified', confidence: 0.9,
+    language: 'ja', lines: [{ startSec: 1, endSec: 3, text: '雨の駅を歩いて' }],
+  });
+  assert.equal(japanese?.abstained, false);
+  assert.ok(japanese?.motifs.some((motif) => motif.kind === 'force'));
+  assert.ok(japanese?.motifs.some((motif) => motif.kind === 'place'));
+  assert.equal(japanese?.sections[0]?.action, 'walks through the environment');
+
+  const unknown = meaningFromLyrics({
+    provider: 'import', match: 'import', timing: 'line', rights: 'verified', confidence: 0.9,
+    language: 'ja', lines: [{ startSec: 1, endSec: 3, text: 'ほしのうた' }],
+  });
+  assert.equal(unknown?.abstained, true);
+  assert.ok(unknown?.motifs.every((motif) => motif.kind === 'symbol'));
+});
+
 test('world identity follows motif ids across semantic section changes', () => {
   const meaning: SongMeaning = {
     revision: 1, thesis: 'a figure crosses a field', abstained: false,

@@ -1,4 +1,5 @@
 import type { SongMeaning } from './semantic';
+import { groundMotifs, groundedAction } from './grounding';
 
 export interface LyricLine {
   startSec: number;
@@ -49,30 +50,30 @@ export function parseLrc(input: string): LyricLine[] {
 export function meaningFromLyrics(result: LyricsResult, revision = 1): SongMeaning | null {
   if (result.rights === 'rejected' || result.timing === 'none' || result.lines.length === 0) return null;
   const lines = result.lines.filter((line) => line.text.trim());
-  const motifs = lines.slice(0, 8).map((line, index) => ({
-    id: `lyric-line-${index}-${stable(line.text)}`,
-    kind: 'symbol' as const,
-    label: line.text,
-    attributes: [],
-    confidence: result.confidence,
-    source: 'lyrics' as const,
+  const groundedLines = lines.map((line, index) => ({
+    ...line,
+    index,
+    motifs: groundMotifs(line.text, result.language ?? 'und', result.confidence, `lyric-line-${index}`, 'lyrics'),
+    action: groundedAction(line.text),
   }));
+  const motifs = groundedLines.slice(0, 8).flatMap((line) => line.motifs);
   if (!motifs.length) return null;
+  const grounded = motifs.some((motif) => motif.kind !== 'symbol');
   return {
     revision,
     thesis: 'meaning imported from timed lyric evidence',
     language: result.language,
     motifs,
     relations: [],
-    sections: [{
-      index: 0,
-      startSec: lines[0]!.startSec,
-      endSec: lines.at(-1)?.endSec,
-      action: 'lyric evidence unfolds through the frame',
-      activeMotifs: motifs.map((motif) => motif.id),
+    sections: groundedLines.map((line) => ({
+      index: line.index,
+      startSec: line.startSec,
+      endSec: line.endSec,
+      action: line.action ?? 'lyric evidence unfolds through the frame',
+      activeMotifs: line.motifs.map((motif) => motif.id),
       affect: [],
       confidence: result.confidence,
-    }],
+    })),
     evidence: lines.map((line) => ({
       source: 'lyrics' as const,
       text: line.text,
@@ -80,12 +81,6 @@ export function meaningFromLyrics(result: LyricsResult, revision = 1): SongMeani
       startSec: line.startSec,
       endSec: line.endSec,
     })),
-    abstained: false,
+    abstained: !grounded,
   };
-}
-
-function stable(value: string): string {
-  let hash = 2166136261;
-  for (const char of value) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  return (hash >>> 0).toString(16);
 }
