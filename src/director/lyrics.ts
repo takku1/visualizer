@@ -34,6 +34,28 @@ export interface LyricsProvider {
   lookup(query: LyricsLookup): Promise<LyricsResult | null>;
 }
 
+/** Ordered acquisition cascade; providers are tried only until one has evidence. */
+export class LyricsProviderChain implements LyricsProvider {
+  readonly id = 'lyrics-chain';
+  #providers: readonly LyricsProvider[];
+
+  constructor(providers: readonly LyricsProvider[]) {
+    this.#providers = [...providers];
+  }
+
+  async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
+    for (const provider of this.#providers) {
+      try {
+        const result = await provider.lookup(query);
+        if (result) return result;
+      } catch {
+        // A failed source is a miss; the next source may still be available.
+      }
+    }
+    return null;
+  }
+}
+
 export interface LyricsCache {
   get(key: string): LyricsResult | null;
   set(key: string, value: LyricsResult): void;

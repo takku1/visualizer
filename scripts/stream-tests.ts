@@ -14,7 +14,7 @@ import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
-import { CachedLyricsProvider, LocalTimedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache, StorageLyricsCache, lyricsCacheKey, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
+import { CachedLyricsProvider, LocalTimedLyricsProvider, LrclibLyricsProvider, LyricsProviderChain, MemoryLyricsCache, StorageLyricsCache, lyricsCacheKey, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
@@ -698,6 +698,18 @@ test('cached providers keep distinct stable namespaces', async () => {
   assert.ok(await wrapped.lookup(query));
   assert.equal(cache.get(lyricsCacheKey('local-timed', query))?.provider, 'local-timed');
   assert.equal(cache.get(lyricsCacheKey('lrclib', query)), null);
+});
+
+test('lyrics provider chain falls through failed sources and preserves the winning source', async () => {
+  const calls: string[] = [];
+  const chain = new LyricsProviderChain([
+    { id: 'missing-local', async lookup() { calls.push('missing-local'); return null; } },
+    { id: 'verified-source', async lookup() { calls.push('verified-source'); return { provider: 'verified-source', match: 'provider-id', timing: 'line', rights: 'verified', confidence: 0.95, lines: [{ startSec: 1, text: 'rain' }] }; } },
+    { id: 'should-not-run', async lookup() { calls.push('should-not-run'); return null; } },
+  ]);
+  const result = await chain.lookup({ trackId: 'chain', title: 'Rain', artist: 'Band' });
+  assert.equal(result?.provider, 'verified-source');
+  assert.deepEqual(calls, ['missing-local', 'verified-source']);
 });
 
 test('persistent lyric cache survives provider recreation and expires safely', () => {

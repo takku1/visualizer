@@ -39,8 +39,8 @@ LRCLIB documents `GET /api/get` with `track_name`, `artist_name`, optional
 - returns `null` on network, shape, status, or match failure.
 
 The current implementation lives in `src/director/lyrics.ts` as
-`LocalTimedLyricsProvider`, `LrclibLyricsProvider`, `CachedLyricsProvider`,
-and the browser-safe `StorageLyricsCache`. The local adapter accepts a host
+`LocalTimedLyricsProvider`, `LrclibLyricsProvider`, `LyricsProviderChain`,
+`CachedLyricsProvider`, and the browser-safe `StorageLyricsCache`. The local adapter accepts a host
 resolver for embedded tags or a neighboring `.lrc` file; it performs no file
 I/O itself. It is deliberately not
 silently promoted to licensed production evidence. A caller must explicitly
@@ -106,7 +106,8 @@ for broad sound concepts, not proof of sung words or narrative events
 ## Implementation order
 
 1. Keep exact-track cache and local imports authoritative when present.
-2. Add local audio-tag/sidecar discovery without blocking playback; the
+2. Compose local, licensed, and development adapters with the ordered provider
+   chain; add local audio-tag/sidecar discovery without blocking playback; the
    resolver seam is now present, but host-specific file/tag discovery remains
    outside the renderer.
 3. Enable LRCLIB only as an explicit development/community provider and measure
