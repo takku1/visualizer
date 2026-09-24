@@ -129,7 +129,7 @@ export class StreamClient {
             console.log(`[stream] local song meaning revision ${msg.meaning.revision}`);
           } else {
             this.meaning = null;
-            console.log('[stream] no local song meaning; story direction abstains and title concepts are withheld');
+            console.log('[stream] sidecar has no local meaning manifest; renderer lyric evidence may still provide direction');
           }
           return;
         }
