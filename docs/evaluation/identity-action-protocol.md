@@ -36,6 +36,12 @@ whether enough multi-frame identity evidence exists. These are evidence for
 comparison between conditions, not proof of object identity, correspondence,
 or narrative truth.
 
+For an abstaining or emergent run where no persistent subject can be honestly
+annotated, use `sequenceGroup` without `identity`, `identityGroup`, or `action`.
+The evaluator will report unlabeled adjacent-frame temporal consistency while
+leaving identity/action evidence unavailable. This is the correct way to record
+continuity without laundering “same stream” into “same entity.”
+
 For a meaningful experiment, compare at least:
 
 - continuous realization with the same-song checkpoint policy;

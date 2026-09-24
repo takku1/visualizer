@@ -1,12 +1,14 @@
 """Opt-in frame-level identity/action evaluator.
 
 Manifest format: {"frames": [{"file": "frame.jpg", "identity": "...",
-"identityGroup": "alice", "action": "..."}],
+"identityGroup": "alice", "sequenceGroup": "live-track", "action": "..."}],
 "references": {"alice": "alice-reference.jpg"}}. It measures annotated
 captures and never feeds scores back into the real-time loop. `identityGroup`
 groups frames that are expected to show the same persistent entity; if omitted,
-the identity text is used as the group key. Reference images are optional but
-provide a stronger identity diagnostic than text-only CLIP similarity.
+the identity text is used as the group key. `sequenceGroup` enables an
+unlabeled adjacent-frame diagnostic when no identity claim is justified.
+Reference images are optional but provide a stronger identity diagnostic than
+text-only CLIP similarity.
 """
 from __future__ import annotations
 
@@ -21,7 +23,18 @@ from transformers import CLIPModel, CLIPProcessor
 
 
 def unit(value: torch.Tensor) -> torch.Tensor:
-    return value / value.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+  return value / value.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+
+
+def embeddings(value: object) -> torch.Tensor:
+    """Normalize old and new Transformers CLIP feature return shapes."""
+    if isinstance(value, torch.Tensor):
+        return value
+    for name in ("image_embeds", "text_embeds", "pooler_output"):
+        candidate = getattr(value, name, None)
+        if isinstance(candidate, torch.Tensor):
+            return candidate
+    raise TypeError(f"unsupported CLIP feature output: {type(value).__name__}")
 
 
 def main() -> None:
@@ -39,16 +52,20 @@ def main() -> None:
     missing_frames = [str(row["file"]) for row in rows if not (args.manifest.parent / row["file"]).is_file()]
     missing_references = [str(path) for path in references_manifest.values() if not (args.manifest.parent / path).is_file()]
     groups: dict[str, list[int]] = {}
+    sequences: dict[str, list[int]] = {}
     for index, row in enumerate(rows):
         if row.get("identity"):
             group = str(row.get("identityGroup") or row["identity"])
             groups.setdefault(group, []).append(index)
+        if row.get("sequenceGroup"):
+            sequences.setdefault(str(row["sequenceGroup"]), []).append(index)
     validation = {
-        "ready": not missing_frames and not missing_references and bool(groups),
+        "ready": not missing_frames and not missing_references and (bool(groups) or any(len(indices) >= 2 for indices in sequences.values())),
         "frames": len(rows),
         "missingFrames": missing_frames,
         "missingReferences": missing_references,
         "identityGroups": {group: len(indices) for group, indices in groups.items()},
+        "sequenceGroups": {group: len(indices) for group, indices in sequences.items()},
         "multiFrameIdentityGroups": sum(len(indices) >= 2 for indices in groups.values()),
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
     }
@@ -68,16 +85,16 @@ def main() -> None:
     texts = sorted({row[key] for row in rows for key in ("identity", "action") if row.get(key)})
     with torch.inference_mode():
         all_images = images + list(references.values())
-        all_features = unit(model.get_image_features(**processor(images=all_images, return_tensors="pt")))
-        text_features = unit(model.get_text_features(**processor(text=texts, return_tensors="pt", padding=True, truncation=True)))
+        all_features = unit(embeddings(model.get_image_features(**processor(images=all_images, return_tensors="pt"))))
+        text_features = unit(embeddings(model.get_text_features(**processor(text=texts, return_tensors="pt", padding=True, truncation=True)))) if texts else None
     image_features = all_features[:len(images)]
     reference_features = all_features[len(images):]
     reference_index = {group: index for index, group in enumerate(references)}
-    scores = image_features @ text_features.T
+    scores = image_features @ text_features.T if text_features is not None else None
     text_index = {text: index for index, text in enumerate(texts)}
     report: dict[str, object] = {"frames": len(rows), "threshold": args.threshold}
     for kind in ("identity", "action"):
-        values = [float(score_row[text_index[row[kind]]]) for row, score_row in zip(rows, scores) if row.get(kind)]
+        values = [float(score_row[text_index[row[kind]]]) for row, score_row in zip(rows, scores) if row.get(kind)] if scores is not None else []
         report[kind] = {
             "frames": len(values),
             "mean": float(np.mean(values)) if values else None,
@@ -109,6 +126,20 @@ def main() -> None:
         "groups": consistency,
         "note": "Pairwise image embedding similarity is a diagnostic, not proof of identity.",
     }
+    sequence_consistency: dict[str, object] = {}
+    for group, indices in sequences.items():
+        adjacent = [float(image_features[a] @ image_features[b]) for a, b in zip(indices, indices[1:])]
+        sequence_consistency[group] = {
+            "frames": len(indices),
+            "adjacentPairs": len(adjacent),
+            "meanAdjacentImageCosine": float(np.mean(adjacent)) if adjacent else None,
+            "minAdjacentImageCosine": float(np.min(adjacent)) if adjacent else None,
+            "temporalEvidence": len(adjacent) > 0,
+        }
+    report["temporalConsistency"] = {
+        "sequences": sequence_consistency,
+        "note": "Unlabeled adjacent-frame similarity measures visual continuity only; it does not establish identity or action.",
+    }
     reference_report: dict[str, object] = {}
     for group, reference_index_value in reference_index.items():
         indices = groups.get(group, [])
@@ -133,6 +164,7 @@ def main() -> None:
         "multiFrameIdentityGroups": sum(len(indices) >= 2 for indices in groups.values()),
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
         "temporalIdentityEvidenceAvailable": any(len(indices) >= 2 for indices in groups.values()),
+        "temporalSequenceEvidenceAvailable": any(len(indices) >= 2 for indices in sequences.values()),
         "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group.",
     }
     print(json.dumps(report, indent=2))
