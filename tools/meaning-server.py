@@ -51,6 +51,17 @@ class Probe:
         tokenizer = getattr(self.pipe, "tokenizer", None)
         if tokenizer is not None and hasattr(tokenizer, "clean_up_tokenization_spaces"):
             tokenizer.clean_up_tokenization_spaces = False
+        self._sanitize_generation_params()
+
+    def _sanitize_generation_params(self) -> None:
+        """Keep tokenizer post-processing kwargs out of Whisper.generate()."""
+        params = getattr(self.pipe, "_forward_params", None)
+        if not isinstance(params, dict):
+            return
+        params.pop("clean_up_tokenization_spaces", None)
+        nested = params.get("generate_kwargs")
+        if isinstance(nested, dict):
+            nested.pop("clean_up_tokenization_spaces", None)
 
     def transcribe(self, samples: np.ndarray, sample_rate: int, offset_sec: float) -> list[dict]:
         if self.pipe is None:
@@ -63,11 +74,11 @@ class Probe:
         rms = float(np.sqrt(np.mean(np.square(samples, dtype=np.float64)))) if samples.size else 0.0
         if rms < min_rms:
             return []
-        # Whisper's pipeline adds these processors itself. Passing the config
-        # values through generate() as well makes Transformers 5.x construct a
-        # second copy and emit duplicate-processor warnings on every window.
-        # None leaves the pipeline-owned processors authoritative.
-        generate_kwargs = {"task": "transcribe", "suppress_tokens": None, "begin_suppress_tokens": None}
+        self._sanitize_generation_params()
+        # Whisper's pipeline and generation config own suppression processors.
+        # Passing them again creates duplicate logits processors on newer
+        # Transformers versions, so only provide task/language here.
+        generate_kwargs = {"task": "transcribe"}
         if self.language and self.language.lower() not in {"auto", "und"}:
             generate_kwargs["language"] = self.language
         result = self.pipe(

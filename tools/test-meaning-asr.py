@@ -18,13 +18,19 @@ spec.loader.exec_module(module)
 
 class WholeWindow:
     def __call__(self, *_args, **_kwargs):
-        assert _kwargs["generate_kwargs"]["suppress_tokens"] is None
-        assert _kwargs["generate_kwargs"]["begin_suppress_tokens"] is None
+        assert "suppress_tokens" not in _kwargs["generate_kwargs"]
+        assert "begin_suppress_tokens" not in _kwargs["generate_kwargs"]
         assert "clean_up_tokenization_spaces" not in _kwargs
         return {"text": "雨の駅", "language": "ja", "chunks": []}
 
 
 probe = module.Probe("fake", "cpu", "ja", WholeWindow())
+probe.pipe._forward_params = {
+    "clean_up_tokenization_spaces": True,
+    "generate_kwargs": {"clean_up_tokenization_spaces": True},
+}
+probe._sanitize_generation_params()
+assert probe.pipe._forward_params == {"generate_kwargs": {}}
 hypotheses = probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 12.0)
 assert hypotheses[0]["language"] == "ja"
 assert hypotheses[0]["startSec"] == 12.0

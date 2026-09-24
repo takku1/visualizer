@@ -115,7 +115,9 @@ export function compileSemanticScene(meaning: SongMeaning, sectionIndex: number,
   if (!section) return null;
   const active = new Set(section.activeMotifs);
   const motifs = meaning.motifs.filter((motif) => active.size === 0 || active.has(motif.id));
-  const subjects = motifs.filter((motif) => motif.kind === 'person' || motif.kind === 'object' || motif.kind === 'symbol').slice(0, 3);
+  // A symbol is retained as evidence, but it is not an observed entity.
+  // Otherwise an ASR hallucination can become a persistent world object.
+  const subjects = motifs.filter((motif) => motif.kind === 'person' || motif.kind === 'object').slice(0, 3);
   const environment = motifs.filter((motif) => motif.kind === 'place' || motif.kind === 'texture' || motif.kind === 'force').slice(0, 3);
   const relation = (meaning.relations.find((candidate) => subjects.some((subject) => subject.id === candidate.subject)) ?? null);
   const relationText = relation ? `${relation.subject} ${relation.verb} ${relation.object}` : null;

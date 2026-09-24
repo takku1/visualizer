@@ -202,7 +202,8 @@ export class VisualizerApp {
           // image/keyframe splice.
           if (!scene.semantic) this.#scene.setLook(scene.look, 0.8);
         }
-        console.log(`[director] ${scene.source} ${plan.origin} → ${scene.prompt}` +
+        const directionKind = scene.semantic ? 'semantic-direction' : 'continuous-direction';
+        console.log(`[director] [${directionKind}] ${scene.source} ${plan.origin} → ${scene.prompt}` +
           (scene.source === 'semantic-manifest' ? '' : '  [semantic abstained: no meaning manifest; perceptual direction active]') +
           (plan.motion.top !== baseline.motion.top || plan.palette.top !== baseline.palette.top
             ? `  [baseline would say: ${baseline.motion.top}/${baseline.palette.top}]`

@@ -363,6 +363,19 @@ test('unknown committed live wording remains a symbol instead of inventing a wor
   assert.equal(meaning?.sections[0]?.action, 'the vocal motif moves through the frame');
 });
 
+test('unknown live symbols never become persistent world entities', () => {
+  const meaning = meaningFromLive({
+    trackId: 'track-symbol', provisional: [], committed: [{
+      ...liveHypothesis, id: 'symbol-1', text: 'Thank you very much for watching!', status: 'committed',
+    }], candidateCount: 1, maxCandidateObservations: 3,
+  }, 1, 0);
+  assert.ok(meaning);
+  const scene = sceneFromPlan(initialPlan(), { trackId: 'track-symbol', meaning }, 0);
+  assert.deepEqual(scene.world.entities, []);
+  assert.match(scene.prompt, /central motif/);
+  assert.doesNotMatch(scene.prompt, /Thank you very much/);
+});
+
 test('provisional live action becomes a perceptual cue without creating entities', () => {
   const cue = perceptualCueFromLive({
     trackId: 'provisional', provisional: [{ ...liveHypothesis, text: '雨の中を歩いている', language: 'ja', status: 'provisional' }],
