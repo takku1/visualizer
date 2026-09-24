@@ -45,6 +45,19 @@ assert hypotheses[0]["startSec"] == 12.0
 assert hypotheses[0]["endSec"] == 13.0
 
 
+class EnglishWholeWindow:
+    def __call__(self, *_args, **_kwargs):
+        return {"text": "the woman walks in the rain", "language": "en", "chunks": []}
+
+
+english_probe = module.Probe("fake", "cpu", "en", EnglishWholeWindow())
+english = english_probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 4.0)
+assert english[0]["language"] == "en"
+assert english[0]["text"] == "the woman walks in the rain"
+assert english[0]["startSec"] == 4.0
+assert english[0]["endSec"] == 5.0
+
+
 class OpenChunk:
     def __call__(self, *_args, **_kwargs):
         return {"language": "ja", "chunks": [{"text": "雨", "timestamp": (0.2, None)}]}
