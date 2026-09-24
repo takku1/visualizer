@@ -20,6 +20,14 @@ try {
   assert.ok(manifest.motifs.some((motif) => motif.kind === 'symbol' && motif.label === 'la la la'));
   assert.ok(manifest.sections[2].activeMotifs.includes('lyric-line-2-symbol'));
 
+  const actionLrc = path.join(root, 'actions.lrc');
+  const actionOutput = path.join(root, 'actions.json');
+  fs.writeFileSync(actionLrc, '[00:01.00]彼女は窓を見つめる\n[00:04.00]we gather and cross\n');
+  execFileSync(process.execPath, ['scripts/meaning-import.mjs', '--lrc', actionLrc, '--track', 'fixture-track', '--out', actionOutput, '--language', 'ja'], { stdio: 'pipe' });
+  const actions = JSON.parse(fs.readFileSync(actionOutput, 'utf8'));
+  assert.equal(actions.sections[0].action, 'looks toward the scene');
+  assert.equal(actions.sections[1].action, 'converges with another form');
+
   const symbolsOutput = path.join(root, 'symbols.json');
   execFileSync(process.execPath, ['scripts/meaning-import.mjs', '--lrc', lrc, '--track', 'fixture-track', '--out', symbolsOutput, '--symbols-only'], { stdio: 'pipe' });
   const symbols = JSON.parse(fs.readFileSync(symbolsOutput, 'utf8'));

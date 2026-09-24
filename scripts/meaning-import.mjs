@@ -75,6 +75,11 @@ function boundedAction(value) {
   if (/\b(come|approach|arrive|enter)\b/iu.test(value) || /近づく|近づいて|来る|来て|入る|入って|向かう/u.test(value)) return 'approaches a nearby place';
   if (/\b(leave|depart|return)\b/iu.test(value) || /去る|去って|帰る|帰って|戻る|戻って|離れる/u.test(value)) return 'leaves or returns';
   if (/\b(dance|dancing|dances)\b/iu.test(value) || /踊る|踊って|踊り/u.test(value)) return 'moves rhythmically';
+  if (/\b(look|see|watch|gaze)\b/iu.test(value) || /見る|見て|見える|眺める|見つめる/u.test(value)) return 'looks toward the scene';
+  if (/\b(cry|crying|laugh|laughing)\b/iu.test(value) || /泣く|泣いて|笑う|笑って|叫ぶ|叫んで/u.test(value)) return 'expresses an emotional change';
+  if (/\b(fall|falling|rise|rising)\b/iu.test(value) || /落ちる|落ちて|昇る|上がる/u.test(value)) return 'changes vertical position';
+  if (/\b(gather|gathering|gathers|meet|meeting|meets|converge|converging|cross|crossing|crosses)\b/iu.test(value)
+    || /集まる|集まって|出会う|出会って|交差する|交差して|重なる|重なって|寄り添う/u.test(value)) return 'converges with another form';
   if (/\b(sway|swaying|sways|flow|flowing|flows|drift|drifting|drifts|float|floating)\b/iu.test(value) || /揺れる|揺れて|揺らぐ|揺らいで|流れる|流れて|漂う|漂って|浮かぶ|浮かんで/u.test(value)) return 'moves with a flowing motion';
   if (/\b(open|opening|opens|close|closing|closes|unfold|unfolding)\b/iu.test(value) || /開く|開いて|閉じる|閉じて|ほどける|ほどけて|ひらく|ひらいて|解ける|解けて/u.test(value)) return 'reveals or conceals space';
   return null;
