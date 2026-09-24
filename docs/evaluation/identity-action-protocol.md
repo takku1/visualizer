@@ -8,9 +8,7 @@ It is deliberately outside the real-time loop.
    path:
 
    ```powershell
-   $env:STREAM_EVAL_DIR = "output/eval-capture"
-   $env:STREAM_EVAL_EVERY = "30"
-   npm run app
+   npm run app -- --eval-dir output/eval-capture --eval-every 30
    ```
 
    Package the resulting frames for annotation:

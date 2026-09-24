@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import net from 'node:net';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -16,6 +16,12 @@ const withStream = !process.argv.includes('--no-stream');
 // Meaning is part of the normal product path. Use --no-meaning only for performance isolation.
 const withMeaning = !process.argv.includes('--no-meaning');
 const restartSidecars = process.argv.includes('--restart-sidecars');
+const evalDirIndex = process.argv.indexOf('--eval-dir');
+const evalDir = evalDirIndex >= 0 ? process.argv[evalDirIndex + 1] : null;
+const evalEveryIndex = process.argv.indexOf('--eval-every');
+const evalEvery = evalEveryIndex >= 0 ? process.argv[evalEveryIndex + 1] : null;
+if (evalDir && !evalDir.startsWith('--')) process.env.STREAM_EVAL_DIR = resolve(projectRoot, evalDir);
+if (evalEvery && !evalEvery.startsWith('--')) process.env.STREAM_EVAL_EVERY = evalEvery;
 const meaningLanguageIndex = process.argv.indexOf('--meaning-language');
 const meaningLanguage = meaningLanguageIndex >= 0 ? process.argv[meaningLanguageIndex + 1] : null;
 if (meaningLanguage && !meaningLanguage.startsWith('--')) process.env.MEANING_ASR_LANGUAGE = meaningLanguage;
