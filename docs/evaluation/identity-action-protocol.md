@@ -18,9 +18,13 @@ python tools/evaluate-world.py docs/evaluation/identity-action-manifest.example.
   --model models/clip-vit-b32
 ```
 
-The report contains text/action similarity, pairwise temporal consistency, and
-optional reference-image similarity. These are evidence for comparison between
-conditions, not proof of object identity, correspondence, or narrative truth.
+The report contains text/action similarity, all-pairs and adjacent-frame
+temporal consistency, and optional reference-image similarity. Adjacent-frame
+scores are the more relevant continuity diagnostic; all-pairs scores are useful
+for detecting broad identity drift across a section. The report also states
+whether enough multi-frame identity evidence exists. These are evidence for
+comparison between conditions, not proof of object identity, correspondence,
+or narrative truth.
 
 For a meaningful experiment, compare at least:
 

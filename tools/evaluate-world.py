@@ -73,11 +73,19 @@ def main() -> None:
             for offset, a in enumerate(indices)
             for b in indices[offset + 1:]
         ]
+        adjacent = [
+            float(image_features[a] @ image_features[b])
+            for a, b in zip(indices, indices[1:])
+        ]
         consistency[group] = {
             "frames": len(indices),
             "pairs": len(pairwise),
             "meanPairwiseImageCosine": float(np.mean(pairwise)) if pairwise else None,
             "minPairwiseImageCosine": float(np.min(pairwise)) if pairwise else None,
+            "adjacentPairs": len(adjacent),
+            "meanAdjacentImageCosine": float(np.mean(adjacent)) if adjacent else None,
+            "minAdjacentImageCosine": float(np.min(adjacent)) if adjacent else None,
+            "temporalEvidence": len(adjacent) > 0,
         }
     report["identityConsistency"] = {
         "groups": consistency,
@@ -101,6 +109,13 @@ def main() -> None:
     report["referenceIdentity"] = {
         "groups": reference_report,
         "note": "Reference-image cosine is a diagnostic for appearance similarity, not proof of temporal correspondence or identity.",
+    }
+    report["evidenceCoverage"] = {
+        "identityGroups": len(groups),
+        "multiFrameIdentityGroups": sum(len(indices) >= 2 for indices in groups.values()),
+        "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
+        "temporalIdentityEvidenceAvailable": any(len(indices) >= 2 for indices in groups.values()),
+        "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group.",
     }
     print(json.dumps(report, indent=2))
 
