@@ -10,6 +10,40 @@ export interface ProvisionalPerceptualCue {
   confidence: number;
 }
 
+export interface LiveEvidenceSummary {
+  committed: number;
+  groundedMotifs: number;
+  actionOnly: number;
+  symbolsOnly: number;
+  abstained: boolean;
+}
+
+/**
+ * Classify committed ASR without exposing transcript text. This is telemetry,
+ * not a second promotion path: only the existing bounded vocabulary can make
+ * a phrase grounded.
+ */
+export function liveEvidenceSummary(state: LiveMeaningState): LiveEvidenceSummary {
+  const committed = state.committed.filter((item) => item.status === 'committed');
+  let groundedMotifs = 0;
+  let actionOnly = 0;
+  let symbolsOnly = 0;
+  for (const item of committed) {
+    const grounded = extractMotifs(item.text, item.language, item.confidence, 0, item.id)
+      .some((motif) => motif.kind !== 'symbol');
+    if (grounded) groundedMotifs++;
+    else if (actionFor(item.text, item.language)) actionOnly++;
+    else symbolsOnly++;
+  }
+  return {
+    committed: committed.length,
+    groundedMotifs,
+    actionOnly,
+    symbolsOnly,
+    abstained: committed.length > 0 && groundedMotifs === 0,
+  };
+}
+
 export function perceptualCueFromLive(state: LiveMeaningState): ProvisionalPerceptualCue | null {
   const candidates = state.provisional
     .filter((item) => item.status === 'provisional' && item.confidence >= 0.6)

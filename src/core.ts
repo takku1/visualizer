@@ -22,7 +22,7 @@ import { MotifLedger } from './director/semantic';
 import { LiveMeaningClient } from './director/live-client';
 import type { LiveLyricUpdate } from './director/live';
 import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-accumulator';
-import { meaningFromLive, perceptualCueFromLive } from './director/live-meaning';
+import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
 import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime } from './stream/shot-graph';
@@ -122,12 +122,14 @@ export class VisualizerApp {
   #meaningTelemetry(): object | null {
     if (!this.#liveMeaning) return null;
     const cue = this.#liveMeaningState ? perceptualCueFromLive(this.#liveMeaningState) : null;
+    const evidence = this.#liveMeaningState ? liveEvidenceSummary(this.#liveMeaningState) : null;
     return {
       ...this.#liveMeaning.telemetry(),
       provisional: this.#liveMeaningState?.provisional.length ?? 0,
       committed: this.#liveMeaningState?.committed.length ?? 0,
       candidateCount: this.#liveMeaningState?.candidateCount ?? 0,
       maxCandidateObservations: this.#liveMeaningState?.maxCandidateObservations ?? 0,
+      evidence,
       provisionalCue: cue ? {
         active: true,
         confidence: cue.confidence,

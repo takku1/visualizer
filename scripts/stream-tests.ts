@@ -11,7 +11,7 @@ import { CheckpointScheduler, realizationRequestFromCheckpoint, type StreamObser
 import { addShotCandidate, compileShotGraph, nextShots, shotGraphBoundary, ShotGraphRuntime } from '../src/stream/shot-graph';
 import { isLiveLyricHypothesis, isLiveLyricUpdate, type LiveLyricHypothesis } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
-import { meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
+import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
@@ -380,6 +380,21 @@ test('committed English live audio extracts person, place, force, and action', (
   }, 3, 0);
   assert.deepEqual(meaning?.motifs.map((motif) => motif.kind).sort(), ['force', 'person', 'place']);
   assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
+});
+
+test('live evidence telemetry distinguishes grounded, action-only, and symbol-only commits', () => {
+  const summary = liveEvidenceSummary({
+    trackId: 'evidence-classes',
+    provisional: [],
+    committed: [
+      { ...liveHypothesis, id: 'grounded', text: '雨の駅', language: 'ja', status: 'committed' },
+      { ...liveHypothesis, id: 'action', text: '歩いている', language: 'ja', status: 'committed' },
+      { ...liveHypothesis, id: 'symbol', text: 'la la la', language: 'und', status: 'committed' },
+    ],
+  });
+  assert.deepEqual(summary, {
+    committed: 3, groundedMotifs: 1, actionOnly: 1, symbolsOnly: 1, abstained: false,
+  });
 });
 
 test('live action extraction recognizes bounded environmental motion in English and Japanese', () => {
