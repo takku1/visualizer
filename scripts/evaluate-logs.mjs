@@ -62,6 +62,17 @@ const continuousPerTrack = trackIds.length > 0 && trackIds.every((trackId) => (
   initialCheckpointsByTrack[trackId] === 1
   && (trackSessionTelemetry[trackId]?.modes ?? []).includes('continuous-song')
 ));
+const continuityStatusByTrack = Object.fromEntries(trackIds.map((trackId) => {
+  const initial = initialCheckpointsByTrack[trackId] ?? 0;
+  const checkpointsForTrack = checkpointsByTrack[trackId] ?? 0;
+  const hasContinuousMode = (trackSessionTelemetry[trackId]?.modes ?? []).includes('continuous-song');
+  const status = initial === 1 && hasContinuousMode
+    ? 'pass'
+    : checkpointsForTrack === 0
+      ? 'unverified-too-short'
+      : 'violation';
+  return [trackId, { status, checkpoints: checkpointsForTrack, initialCheckpoints: initial, continuousMode: hasContinuousMode }];
+}));
 const liveMeaningByTrack = Object.fromEntries(trackIds.map((trackId) => {
   const samples = stateRows
     .filter((row) => row.track?.id === trackId)
@@ -106,6 +117,7 @@ const summary = {
     nonInitialCheckpointsByTrack,
     trackSessionTelemetry,
     continuousPerTrack,
+    continuityStatusByTrack,
     invariant: trackIds.length > 0
       ? 'Each observed track should have one initial realization checkpoint; later director decisions are control-plane updates.'
       : 'No track identity was observed; continuous-per-song behavior is not verifiable from this log.',
@@ -188,7 +200,7 @@ const summary = {
 console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) : [
   `Session: ${file}`,
   `Checkpoints: ${summary.checkpoints}; decisions: ${summary.decisions}`,
-  `Realization sessions: ${summary.realizationSessions.trackIds.length}; track transitions: ${summary.realizationSessions.trackTransitions}; checkpoints by track: ${JSON.stringify(summary.realizationSessions.checkpointsByTrack)}; initial per track: ${JSON.stringify(summary.realizationSessions.initialCheckpointsByTrack)}; continuous invariant: ${summary.realizationSessions.continuousPerTrack}`,
+  `Realization sessions: ${summary.realizationSessions.trackIds.length}; track transitions: ${summary.realizationSessions.trackTransitions}; checkpoints by track: ${JSON.stringify(summary.realizationSessions.checkpointsByTrack)}; initial per track: ${JSON.stringify(summary.realizationSessions.initialCheckpointsByTrack)}; continuous invariant: ${summary.realizationSessions.continuousPerTrack}; per-track status: ${JSON.stringify(summary.realizationSessions.continuityStatusByTrack)}`,
   `Scene sources: ${JSON.stringify(summary.sceneSources)}`,
   `Fingerprint changes: ${JSON.stringify(summary.fingerprintChanges)}`,
   `Timing receipts: ${summary.timing.receipts}; fallback rate: ${summary.timing.fallbackRate == null ? 'n/a' : `${(summary.timing.fallbackRate * 100).toFixed(1)}%`}`,
