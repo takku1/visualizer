@@ -715,6 +715,10 @@ export class VisualizerApp {
       if (meaning) {
         this.#lyricsMeaning = meaning;
         console.info(`[lyrics] ${result.provider} supplied ${result.timing}-timed evidence for ${ctx.title}`);
+        // Lyrics arrive asynchronously after the track-start abstention. Ask
+        // the director to re-plan immediately so evidence does not remain
+        // visually stale until the next section/checkpoint boundary.
+        void this.#director.refresh(this.bus.frame, this.#config.context?.() ?? {});
       } else {
         console.info(`[lyrics] ${result.provider} result retained as evidence but not committed (${result.rights}/${result.timing})`);
       }
