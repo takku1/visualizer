@@ -59,8 +59,14 @@ def main() -> None:
             groups.setdefault(group, []).append(index)
         if row.get("sequenceGroup"):
             sequences.setdefault(str(row["sequenceGroup"]), []).append(index)
+    temporal_ready = not missing_frames and any(len(indices) >= 2 for indices in sequences.values())
+    identity_ready = not missing_frames and not missing_references and any(len(indices) >= 2 for indices in groups.values())
+    action_ready = identity_ready and any(bool(row.get("action")) for row in rows)
     validation = {
-        "ready": not missing_frames and not missing_references and (bool(groups) or any(len(indices) >= 2 for indices in sequences.values())),
+        "ready": temporal_ready or identity_ready,
+        "temporalReady": temporal_ready,
+        "identityReady": identity_ready,
+        "actionReady": action_ready,
         "frames": len(rows),
         "missingFrames": missing_frames,
         "missingReferences": missing_references,
@@ -165,6 +171,9 @@ def main() -> None:
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
         "temporalIdentityEvidenceAvailable": any(len(indices) >= 2 for indices in groups.values()),
         "temporalSequenceEvidenceAvailable": any(len(indices) >= 2 for indices in sequences.values()),
+        "temporalReady": any(len(indices) >= 2 for indices in sequences.values()),
+        "identityReady": any(len(indices) >= 2 for indices in groups.values()) and not missing_references,
+        "actionReady": any(len(indices) >= 2 for indices in groups.values()) and not missing_references and any(bool(row.get("action")) for row in rows),
         "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group.",
     }
     print(json.dumps(report, indent=2))

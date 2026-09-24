@@ -40,7 +40,9 @@ For an abstaining or emergent run where no persistent subject can be honestly
 annotated, use `sequenceGroup` without `identity`, `identityGroup`, or `action`.
 The evaluator will report unlabeled adjacent-frame temporal consistency while
 leaving identity/action evidence unavailable. This is the correct way to record
-continuity without laundering “same stream” into “same entity.”
+continuity without laundering “same stream” into “same entity.” Preflight
+reports `temporalReady`, `identityReady`, and `actionReady` separately; a green
+temporal result does not satisfy either identity/action gate.
 
 For a meaningful experiment, compare at least:
 
