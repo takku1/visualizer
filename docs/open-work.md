@@ -7,6 +7,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Typed scene continuity contracts accompany the legacy scalar `continuity` field.
 - Checkpoint timing receipts record source, confidence, requested beat, commit time, phase error, and timeout fallback.
 - A deterministic shot-graph seam supports candidate shots, weighted transitions, and prefetch intent.
+- Scenes carry persistent `WorldState`; checkpoints expose renderer-independent `SceneDiff` data for future stateful backends.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
 - `npm run app` starts the local ASR worker by default; use `npm run app -- --no-meaning` only for performance isolation. Committed live hypotheses promote into `SongMeaning` without blocking procedural rendering.
 

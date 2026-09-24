@@ -1,6 +1,7 @@
 import type { VisualPlan, MotionId, PaletteId, TextureId, GeometryId, SymmetryId } from '../types';
 import type { TrackContext } from '../director/director';
 import { compileSemanticScene, type MotifLedger, type SemanticScene } from '../director/semantic';
+import { worldStateFromScene, type WorldState } from '../world/state';
 
 export type Rgb = [number, number, number];
 
@@ -32,6 +33,8 @@ export interface Scene {
   semantic?: SemanticScene;
   /** Stable change classes used by the scheduler; prompt wording is not a contract. */
   fingerprint: SceneFingerprint;
+  /** Renderer-independent persistent world representation. */
+  world: WorldState;
 }
 
 export type SceneSource = 'semantic-manifest' | 'metadata-fallback' | 'abstract-fallback';
@@ -202,7 +205,7 @@ export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number
         transition: hardCut ? 'cut' : 'glide', evidence: subject ? 'metadata' : 'abstention',
         confidence: subject ? 0.35 : 0,
       };
-  return {
+  const scene = {
     prompt: parts.join(', '),
     source,
     seed,
@@ -217,7 +220,9 @@ export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number
       look: hash(semantic ? `${plan.palette.top}|${plan.texture.top}|${plan.motion.top}|${plan.symmetry.top}` : 'abstaining'),
       camera: hash(semanticParts.camera),
     },
-  };
+  } as Scene;
+  scene.world = worldStateFromScene(scene, ctx.sectionIndex ?? 0, ctx.position ?? 0);
+  return scene;
 }
 
 /** FNV-1a, so the same track and checkpoint index always get the same seed. */

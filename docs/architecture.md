@@ -166,6 +166,12 @@ evolved, replaced, or intentionally abstained, plus the evidence class and
 confidence. This makes continuity inspectable without changing the sidecar
 protocol.
 
+Scenes now also carry a renderer-independent `WorldState`, and checkpoint
+requests include a `SceneDiff` with entities to keep/add/remove, environment
+changes, action/camera changes, and whether a keyframe is required. The current
+SD-Turbo sidecar still consumes the prompt/look wire fields; the diff is an
+intent seam for a stateful renderer backend and is logged for evaluation.
+
 ## Checkpoint realization (browser decides, sidecar renders)
 
 - **What:** the director runs on section boundaries, or at most every 30 s.

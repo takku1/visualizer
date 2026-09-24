@@ -12,6 +12,7 @@ import { addShotCandidate, compileShotGraph, nextShots } from '../src/stream/sho
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive } from '../src/director/live-meaning';
+import { diffWorldState } from '../src/world/state';
 import { ProceduralScene } from '../src/render/procedural';
 
 let passed = 0;
@@ -268,6 +269,16 @@ test('committed live audio promotes to SongMeaning without blocking the renderer
   assert.equal(meaning?.evidence[0]?.source, 'audio');
   assert.equal(meaning?.motifs[0]?.label, liveHypothesis.text);
   assert.equal(meaning?.abstained, false);
+});
+
+test('world diffs preserve stable subjects while changing action', () => {
+  const first = sceneFromPlan(initialPlan(), {}, 0);
+  const next = sceneFromPlan(initialPlan(), {}, 1);
+  const diff = diffWorldState(first.world, { ...next.world, entities: first.world.entities, action: 'enters the field' });
+  assert.equal(diff.keep.length, first.world.entities.length);
+  assert.equal(diff.add.length, 0);
+  assert.equal(diff.remove.length, 0);
+  assert.equal(diff.action.to, 'enters the field');
 });
 
 /** Drive a scheduler through `seconds` of a 120 bpm 4/4 grid (2 s bars); returns requests with their times. */

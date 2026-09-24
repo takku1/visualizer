@@ -1,6 +1,7 @@
 import type { FeatureFrame } from '../types';
 import type { Scene } from './scenes';
 import { hash } from './scenes';
+import { diffWorldState, type SceneDiff } from '../world/state';
 
 export type CheckpointReason = 'initial' | 'scene' | 'reseed' | 'stagnant';
 
@@ -10,6 +11,7 @@ export interface CheckpointRequest extends Scene {
   /** Fast-loop frames the latent crossfade lasts. */
   spliceFrames: number;
   timing: TimingReceipt;
+  worldDiff: SceneDiff;
 }
 
 export interface TimingReceipt {
@@ -177,6 +179,7 @@ export class CheckpointScheduler {
         phaseError: phase == null ? null : Math.min(phase, 1 - phase),
         fallbackUsed,
       },
+      worldDiff: diffWorldState(this.#current?.world ?? null, scene.world),
     };
   }
 }
