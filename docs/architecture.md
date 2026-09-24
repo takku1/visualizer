@@ -276,6 +276,10 @@ keyframe commit in runtime telemetry.
   scheduling; `checkpoints` and `_checkpoint` records are the actual realization
   commits. The normal invariant is one initial realization per track, plus only
   justified scene transitions.
+- **Clock resilience:** visible Electron windows use RAF for the display clock.
+  A low-rate watchdog advances the same frame function if Chromium suspends RAF
+  while the window is hidden/backgrounded. This preserves sidecar/audio
+  telemetry and capture without replacing the normal 60 Hz path.
 - **How:** the sidecar denoises the 4-step keyframe (timesteps 999, 749, 499,
   249) one step per fast frame, batched with the live frame in a single
   batch-2 UNet call. The keyframe is never bent. With a procedural frame

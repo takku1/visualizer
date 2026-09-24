@@ -123,6 +123,9 @@ export class VisualizerApp {
   #lastCheckpointReason: string | null = null;
   #realizationTrackId: string | null = null;
   #trackTransitions = 0;
+  #lastLoopErrorAt = -Infinity;
+  #lastLoopAt = -Infinity;
+  #loopWatchdog: number | null = null;
 
   #meaningTelemetry(): object | null {
     if (!this.#liveMeaning) return null;
@@ -320,6 +323,14 @@ export class VisualizerApp {
     // section clock, so the sidecar has something to render on connect.
     void this.#director.refresh(this.bus.frame, this.#config.context?.() ?? {});
     this.#loop();
+    // Chromium may suspend RAF for a hidden/background Electron window. Keep
+    // the same frame function alive at a low rate in that case; visible RAF
+    // remains the normal display clock and the watchdog is dormant.
+    this.#loopWatchdog = window.setInterval(() => {
+      if (this.#running && performance.now() - this.#lastLoopAt > 500) {
+        this.#runFrame();
+      }
+    }, 250);
 
     // Capture is requested after rendering is live, and deliberately not
     // awaited. The permission prompt can sit unanswered indefinitely, and
@@ -339,6 +350,10 @@ export class VisualizerApp {
   stop(): void {
     this.#running = false;
     cancelAnimationFrame(this.#raf);
+    if (this.#loopWatchdog !== null) {
+      window.clearInterval(this.#loopWatchdog);
+      this.#loopWatchdog = null;
+    }
     this.#stream?.close();
     this.#liveMeaning?.close();
     this.overlay.hide();
@@ -362,7 +377,29 @@ export class VisualizerApp {
   #loop = (): void => {
     if (!this.#running) return;
     this.#raf = requestAnimationFrame(this.#loop);
+    this.#runFrame();
+  };
 
+  #runFrame = (): void => {
+    if (!this.#running) return;
+    this.#lastLoopAt = performance.now();
+    try {
+      this.#loopFrame();
+    } catch (error) {
+      // A display-rate exception must not silently terminate the RAF chain.
+      // Keep the browser/procedural path alive and rate-limit the diagnostic;
+      // the next frame can recover from transient sidecar/canvas failures.
+      const now = performance.now();
+      if (now - this.#lastLoopErrorAt >= 1000) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.#lastLoopErrorAt = now;
+        this.#errors = [`! frame loop: ${message.slice(0, 96)}`];
+        console.error(`[renderer] frame loop: ${message}`);
+      }
+    }
+  };
+
+  #loopFrame = (): void => {
     const now = performance.now();
     const frame = this.bus.update(now);
     const baseCtx = this.#config.context?.() ?? {};
