@@ -9,15 +9,20 @@ Profile: `448×256`, `torch.float16`, same local SD-Turbo/TAESD backend,
 
 | Measure | Prior same-profile baseline | Current run |
 | --- | ---: | ---: |
-| Median frame time | 53.298 ms | **51.012 ms** |
-| P90 frame time | 70.298 ms | **52.273 ms** |
-| Median throughput | 18.762 FPS | **19.603 FPS** |
+| Median frame time | 53.298 ms | **49.249 ms** |
+| P90 frame time | 70.298 ms | **49.775 ms** |
+| P95 frame time | not recorded | **50.575 ms** |
+| Median throughput | 18.762 FPS | **20.305 FPS** |
 | Peak VRAM | 2434.3 MB | **2434.3 MB** |
 | JPEG/browser included | no | no |
 
-The current run is approximately 4.5% faster at the median and has a much
-tighter P90 than the prior same-profile report. This is an engine-only result;
-it does not claim the same rate for the Electron compositor or network path.
+The current run is approximately 7.6% faster at the median than the prior
+same-profile report and has a much tighter tail. The first report in this
+document used a profiler that synchronized the GPU after every measured stage;
+the current report records CUDA events and synchronizes once per frame. The
+improvement is therefore primarily a corrected measurement of the existing
+runtime, not a claimed model speedup. This remains an engine-only result; it
+does not claim the same rate for the Electron compositor or network path.
 
 Current stage medians:
 
@@ -26,6 +31,11 @@ Current stage medians:
 | VAE encode | 5.707 ms | 145 |
 | UNet | 35.502 ms | 145 |
 | VAE decode | 6.246 ms | 146 |
+
+The corrected run made three text-encoder calls (initial blank conditioning,
+checkpoint A, and checkpoint B) and zero cache hits. This is expected for the
+benchmark's two distinct prompts; stable playback should keep ordinary frames
+at zero text-encoder calls.
 
 The UNet remains the dominant measured stage. Peak memory is unchanged, so
 the current optimization has not bought speed by consuming the A3000's headroom.

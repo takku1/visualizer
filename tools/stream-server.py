@@ -587,6 +587,8 @@ class Engine:
         self.last_realization: dict = {"structured": False}
         self.semantic_hspace = {"energy": 0.0, "light": 0.0, "organic": 0.0}
         self._emb_cache: dict[str, torch.Tensor] = {}
+        self.embed_calls = 0
+        self.embed_cache_hits = 0
         self.control = Control()
         self.source_np: np.ndarray | None = None  # latest procedural frame (RGB uint8), set by the socket thread
         self.source_at = 0.0
@@ -669,7 +671,9 @@ class Engine:
     @torch.inference_mode()
     def embed(self, prompt: str) -> torch.Tensor:
         if prompt in self._emb_cache:
+            self.embed_cache_hits += 1
             return self._emb_cache[prompt]
+        self.embed_calls += 1
         ids = self.tokenizer(prompt, padding="max_length", max_length=self.tokenizer.model_max_length, truncation=True, return_tensors="pt").input_ids
         emb = self.text_encoder(ids.to(DEVICE))[0].to(DTYPE)
         if len(self._emb_cache) > 32:
@@ -1240,6 +1244,7 @@ def bench(frames: int, report_path: str | None = None) -> None:
     engine.request_checkpoint({"id": "a", "prompt": "bioluminescent coral cathedral, deep ocean, volumetric light", "seed": 1, "spliceFrames": 16})
     times: list[float] = []
     stage_ms: dict[str, list[float]] = {"encode": [], "unet": [], "decode": []}
+    stage_events: list[tuple[str, torch.cuda.Event, torch.cuda.Event]] = []
     if DEVICE == "cuda":
         # Diagnose-only timers around each accelerated stage, so the next
         # optimization targets the measured bottleneck. Engine numerics are
@@ -1250,13 +1255,11 @@ def bench(frames: int, report_path: str | None = None) -> None:
 
         def _timed(name: str, fn):  # type: ignore[no-untyped-def]
             def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
-                start, end = torch.cuda.Event(True), torch.cuda.Event(True)
+                start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
                 start.record()
                 out = fn(*args, **kwargs)
                 end.record()
-                torch.cuda.synchronize()
-                if len(times) >= 5:
-                    stage_ms[name].append(start.elapsed_time(end))
+                stage_events.append((name, start, end))
                 return out
 
             return wrapper
@@ -1276,6 +1279,11 @@ def bench(frames: int, report_path: str | None = None) -> None:
         if DEVICE == "cuda":
             torch.cuda.synchronize()
         times.append(time.perf_counter() - t0)
+        if DEVICE == "cuda":
+            for name, start, end in stage_events:
+                if len(times) > 5:
+                    stage_ms[name].append(start.elapsed_time(end))
+            stage_events.clear()
         if img is not None and i % max(1, frames // 10) == 0:
             cv2.imwrite(str(out / f"frame-{i:04d}.jpg"), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         if i < 3 or meta.get("phase") != "idle" and i % 5 == 0:
@@ -1283,6 +1291,7 @@ def bench(frames: int, report_path: str | None = None) -> None:
     warm = sorted(times[5:])
     median_ms = warm[len(warm) // 2] * 1000
     p90_ms = warm[min(len(warm) - 1, int(len(warm) * 0.9))] * 1000
+    p95_ms = warm[min(len(warm) - 1, int(len(warm) * 0.95))] * 1000
     report = {
         "frames": len(times),
         "warmupFrames": min(5, len(times)),
@@ -1292,12 +1301,15 @@ def bench(frames: int, report_path: str | None = None) -> None:
         "dtype": str(DTYPE),
         "medianMs": round(median_ms, 3),
         "p90Ms": round(p90_ms, 3),
+        "p95Ms": round(p95_ms, 3),
         "fps": round(1000 / median_ms, 3) if median_ms else 0,
         "includesJpeg": False,
         "stageMedianMs": {},
         "stageCalls": {},
+        "textEncoderCalls": engine.embed_calls,
+        "textEncoderCacheHits": engine.embed_cache_hits,
     }
-    print(f"frames {len(times)}  median {median_ms:.1f} ms  p90 {p90_ms:.1f} ms"
+    print(f"frames {len(times)}  median {median_ms:.1f} ms  p90 {p90_ms:.1f} ms  p95 {p95_ms:.1f} ms"
           f"  -> {report['fps']:.1f} fps (engine only, excl. JPEG)")
     for name, samples in stage_ms.items():
         if not samples:
