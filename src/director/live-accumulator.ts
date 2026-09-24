@@ -34,7 +34,7 @@ export class LiveLyricAccumulator {
     const seen = new Set<string>();
     for (const hypothesis of hypotheses) {
       if (hypothesis.source !== 'live-asr' || hypothesis.status === 'expired') continue;
-      const key = normalize(hypothesis.text);
+      const key = this.matchKey(hypothesis);
       if (!key) continue;
       seen.add(key);
       const prior = this.#candidates.get(key);
@@ -60,6 +60,20 @@ export class LiveLyricAccumulator {
     return this.state();
   }
 
+  private matchKey(hypothesis: LiveLyricHypothesis): string {
+    const normalized = normalize(hypothesis.text);
+    if (!normalized) return '';
+    if (this.#candidates.has(normalized)) return normalized;
+    let best: { key: string; score: number } | null = null;
+    for (const [key, candidate] of this.#candidates) {
+      const prior = candidate.hypothesis;
+      if (prior.language !== hypothesis.language || !overlaps(prior, hypothesis)) continue;
+      const score = textSimilarity(key, normalized);
+      if (score >= 0.62 && (!best || score > best.score)) best = { key, score };
+    }
+    return best?.key ?? normalized;
+  }
+
   state(): LiveMeaningState {
     return {
       trackId: this.#trackId,
@@ -71,4 +85,41 @@ export class LiveLyricAccumulator {
 
 function normalize(text: string): string {
   return text.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+function overlaps(a: LiveLyricHypothesis, b: LiveLyricHypothesis): boolean {
+  return Math.min(a.endSec, b.endSec) - Math.max(a.startSec, b.startSec) >= -0.25;
+}
+
+/** Conservative character n-gram similarity tolerates ASR revisions without
+ * merging unrelated phrases that merely occur in the same six-second window. */
+function textSimilarity(a: string, b: string): number {
+  if (a === b) return 1;
+  if (Math.min(a.length, b.length) < 4) return 0;
+  if (a.includes(b) || b.includes(a)) return Math.min(a.length, b.length) / Math.max(a.length, b.length);
+  const left = new Set(ngrams(a));
+  const right = new Set(ngrams(b));
+  const intersection = [...left].filter((gram) => right.has(gram)).length;
+  const jaccard = intersection / Math.max(1, new Set([...left, ...right]).size);
+  return Math.max(jaccard, 1 - editDistance(a, b) / Math.max(a.length, b.length));
+}
+
+function ngrams(value: string): string[] {
+  return [...value].map((_, index) => value.slice(index, index + 2)).filter((gram) => gram.length === 2);
+}
+
+function editDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j++) {
+      current[j] = Math.min(
+        previous[j]! + 1,
+        current[j - 1]! + 1,
+        previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length]!;
 }

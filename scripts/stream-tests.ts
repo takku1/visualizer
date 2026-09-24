@@ -253,6 +253,21 @@ test('live meaning commits only after repeated stable evidence', () => {
   assert.equal(make(3).committed[0]?.status, 'committed');
 });
 
+test('live meaning tolerates bounded Japanese ASR wording revisions', () => {
+  const accumulator = new LiveLyricAccumulator();
+  const make = (revision: number, text: string): LiveLyricUpdate => ({
+    type: 'live-lyrics', trackId: 'ja-overlap', playheadSec: revision * 1.5, revision,
+    model: 'whisper-small', hypotheses: [{
+      ...liveHypothesis, id: `ja-${revision}`, text, language: 'ja',
+      startSec: 2.1, endSec: 6.0, confidence: 0.8,
+    }],
+  });
+  accumulator.update('ja-overlap', 1, make(1, '雨の駅で彼女が歩く').hypotheses);
+  accumulator.update('ja-overlap', 2, make(2, '雨の駅で彼女が歩いている').hypotheses);
+  const state = accumulator.update('ja-overlap', 3, make(3, '雨の駅で彼女が歩く').hypotheses);
+  assert.equal(state.committed.length, 1);
+});
+
 test('a new track and stale revision cannot inherit committed live meaning', () => {
   const accumulator = new LiveLyricAccumulator();
   accumulator.update('track-a', 1, [{ ...liveHypothesis, confidence: 0.9, stability: 0.9 }]);

@@ -21,6 +21,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Live ASR now enforces one in-flight audio window, preventing slow transcription from queueing behind itself.
 - `npm run app` starts the local ASR worker by default; use `npm run app -- --no-meaning` only for performance isolation. Committed live hypotheses promote into `SongMeaning` without blocking procedural rendering.
 - Multilingual ASR now supports `MEANING_ASR_LANGUAGE=ja` (or another Whisper language code), preserves detected language, and retains timestamp-bounded whole-window evidence when Whisper provides no chunk timestamps. Reproduce the contract check with `python tools/test-meaning-asr.py`.
+- Rolling live ASR stabilization now tolerates conservative same-language, time-overlapping wording revisions instead of requiring exact repeated strings; telemetry reports provisional and committed hypothesis counts.
 - The diffusion control hot path reuses CPU staging buffers instead of allocating tensors per frame. A controlled 40-frame CUDA comparison at 576×320 measured 62.4 ms median / 63.9 ms p90 after the change versus 63.2 ms / 65.1 ms before it, with peak VRAM unchanged at about 2.48 GB. Reproduce with `npm run stream:bench -- --bench-json output/stream-bench/current.json`.
 
 ## Still deliberately deferred
