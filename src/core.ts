@@ -116,12 +116,21 @@ export class VisualizerApp {
 
   #meaningTelemetry(): object | null {
     if (!this.#liveMeaning) return null;
+    const cue = this.#liveMeaningState ? perceptualCueFromLive(this.#liveMeaningState) : null;
     return {
       ...this.#liveMeaning.telemetry(),
       provisional: this.#liveMeaningState?.provisional.length ?? 0,
       committed: this.#liveMeaningState?.committed.length ?? 0,
       candidateCount: this.#liveMeaningState?.candidateCount ?? 0,
       maxCandidateObservations: this.#liveMeaningState?.maxCandidateObservations ?? 0,
+      provisionalCue: cue ? {
+        active: true,
+        confidence: cue.confidence,
+        behavior: cue.behavior,
+        materiality: cue.materiality,
+        motion: cue.motion,
+        lighting: cue.lighting,
+      } : { active: false },
     };
   }
 
