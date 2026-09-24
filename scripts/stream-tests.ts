@@ -14,7 +14,7 @@ import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
-import { CachedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache, StorageLyricsCache, lyricsCacheKey, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
+import { CachedLyricsProvider, LocalTimedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache, StorageLyricsCache, lyricsCacheKey, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
@@ -691,6 +691,20 @@ test('persistent lyric cache survives provider recreation and expires safely', (
   assert.deepEqual(new StorageLyricsCache(storage).get('lrclib\u0000persistent'), result);
   assert.equal(new StorageLyricsCache(storage, 's1:short:', 0).get('lrclib\u0000persistent'), null);
   assert.equal(lyricsCacheKey('lrclib', query).includes('persistent'), true);
+});
+
+test('local timed lyric adapter preserves source and timing without filesystem work', async () => {
+  const provider = new LocalTimedLyricsProvider(async (query) => ({
+    source: `tag://${query.trackId}`,
+    language: 'ja',
+    text: '[00:01.00]雨の駅を歩いて',
+  }));
+  const result = await provider.lookup({ trackId: 'local-ja', title: 'Rain', artist: 'Band' });
+  assert.equal(result?.provider, 'local-timed');
+  assert.equal(result?.providerUrl, 'tag://local-ja');
+  assert.equal(result?.rights, 'unknown');
+  assert.equal(result?.lines[0]?.startSec, 1);
+  assert.equal(result?.language, 'ja');
 });
 
 test('timed lyric meaning shares bounded English/Japanese grounding with live ASR', () => {

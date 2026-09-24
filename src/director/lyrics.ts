@@ -96,6 +96,44 @@ interface LyricsHttpResponse {
 
 export type LyricsFetcher = (url: string, init?: RequestInit) => Promise<LyricsHttpResponse>;
 
+export interface LocalLyricsText {
+  text: string;
+  source: string;
+  language?: string;
+}
+
+export type LocalLyricsResolver = (query: LyricsLookup) => LocalLyricsText | null | Promise<LocalLyricsText | null>;
+
+/** Host-neutral adapter for a local .lrc file or embedded synced-lyrics tag. */
+export class LocalTimedLyricsProvider implements LyricsProvider {
+  readonly id = 'local-timed';
+  #resolve: LocalLyricsResolver;
+
+  constructor(resolve: LocalLyricsResolver) {
+    this.#resolve = resolve;
+  }
+
+  async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
+    let local: LocalLyricsText | null;
+    try { local = await this.#resolve(query); } catch { return null; }
+    if (!local?.text.trim()) return null;
+    const lines = parseLrc(local.text);
+    if (!lines.length) return null;
+    return {
+      provider: this.id,
+      providerUrl: local.source,
+      retrievedAt: new Date().toISOString(),
+      match: 'import',
+      language: local.language,
+      timing: 'line',
+      // Local ownership/source does not prove redistribution rights.
+      rights: 'unknown',
+      confidence: 1,
+      lines,
+    };
+  }
+}
+
 /** Development/community provider. It never claims licensed rights. */
 export class LrclibLyricsProvider implements LyricsProvider {
   readonly id = 'lrclib';
