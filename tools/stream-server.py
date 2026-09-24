@@ -1047,12 +1047,21 @@ class Stream:
     def _publish(self, meta: dict, jpg: bytes) -> None:
         head = json.dumps(meta).encode()
         self.latest = struct.pack("<I", len(head)) + head + jpg
-        if self.loop and self.new_frame:
-            self.loop.call_soon_threadsafe(self.new_frame.set)
+        loop = self.loop
+        event = self.new_frame
+        if loop and event and not loop.is_closed():
+            try:
+                loop.call_soon_threadsafe(event.set)
+            except RuntimeError:
+                # The engine thread can finish one frame after Ctrl+C closes
+                # the websocket loop. This is normal shutdown, not a render
+                # failure, and must not create a traceback.
+                pass
 
 
 async def serve(stream: Stream) -> None:
     from websockets.asyncio.server import serve as ws_serve
+    from websockets.exceptions import ConnectionClosed
 
     stream.loop = asyncio.get_running_loop()
     stream.new_frame = asyncio.Event()
@@ -1119,8 +1128,17 @@ async def serve(stream: Stream) -> None:
                         "trackId": msg.get("trackId"),
                         "meaning": meaning,
                     }))
+        except (ConnectionClosed, ConnectionResetError, OSError):
+            # Browser/Electron shutdown closes the socket while the sidecar
+            # may still be producing its last frame. Treat that as a normal
+            # owner handoff so restart logs retain only actionable failures.
+            pass
         finally:
             task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, ConnectionClosed, ConnectionResetError, OSError):
+                pass
             stream.clients -= 1
             if stream.owner is ws:
                 stream.owner = None
