@@ -116,6 +116,12 @@ An adapter must declare its language support and emit the same `GroundedCue`
 ontology, so the director and renderer remain independent of the source
 language. This makes broader coverage an evaluated plug-in decision rather than
 an ever-growing multilingual regex table.
+
+The bounded lexical adapter and timed importer now consume the same versioned
+`src/director/grounding-contract.json` artifact. This keeps live ASR and
+licensed/timed lyric evidence behavior aligned while leaving language-specific
+adapters replaceable. The JSON vocabulary is intentionally a contract artifact,
+not a claim that its finite patterns understand a language broadly.
 Automatic translation is still intentionally absent from `sceneFromPlan`:
 translation would move uncertain, expensive work into the director/render path
 and violate the project's timescale separation.

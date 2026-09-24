@@ -1,4 +1,5 @@
 import type { MeaningSource, Motif, MotifKind } from './semantic';
+import contract from './grounding-contract.json';
 
 type GroundableKind = Exclude<MotifKind, 'symbol'>;
 
@@ -23,48 +24,16 @@ export interface GroundingResult {
     cues: GroundedCue[];
 }
 
-const VOCAB: Record<GroundableKind, readonly [RegExp, string][]> = {
-  // First/second-person pronouns are common lyric language but weak evidence
-  // for a persistent visual entity. Keep concrete person nouns here; a future
-  // discourse-aware adapter can resolve pronouns without polluting the world.
-  person: [[/\b(woman|girl|man|boy|person|child|mother|father|lover)\b/iu, 'person'], [/彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人/u, 'person']],
-  place: [[/\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|field|night)\b/iu, 'place'], [/駅|駅前|ホーム|街|町|通り|道|路地|部屋|家|森|庭|川|海|海辺|山|橋|学校|野原|夜|夜空|世界|場所/u, 'place']],
-  object: [[/\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\b/iu, 'object'], [/電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|とり|犬|猫|夢|心|声|歌|手紙|身体|体/u, 'object']],
-  force: [[/\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn|love|tears|time)\b/iu, 'force'], [/雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時/u, 'force']],
-  texture: [[/\b(fog|smoke|mist|water|ice|dust|glass|stone|shadow|sky|world)\b/iu, 'texture'], [/霧|煙|水|氷|埃|ほこり|ガラス|石|影|空|世界|赤|青|白|色/u, 'texture']],
-};
+const VOCAB: Record<GroundableKind, readonly [RegExp, string][]> = Object.fromEntries(
+  contract.motifs.map((entry) => [entry.kind, [
+    [new RegExp(entry.english, 'iu'), entry.kind],
+    [new RegExp(entry.japanese, 'u'), entry.kind],
+  ]]),
+) as unknown as Record<GroundableKind, readonly [RegExp, string][]>;
 
-const ACTIONS: readonly [RegExp, string][] = [
-  [/\b(walk|walking|walks)\b/iu, 'walks through the environment'],
-  [/\b(run|running|runs)\b/iu, 'runs through the environment'],
-  [/\b(stand|standing|stands|wait|waiting)\b/iu, 'waits in place'],
-  [/\b(come|approach|arrive|enter)\b/iu, 'approaches a nearby place'],
-  [/\b(leave|depart|return)\b/iu, 'leaves or returns'],
-  [/\b(dance|dancing|dances)\b/iu, 'moves rhythmically'],
-  [/\b(look|see|watch|gaze)\b/iu, 'looks toward the scene'],
-  [/\b(cry|crying|laugh|laughing)\b/iu, 'expresses an emotional change'],
-  [/\b(fall|falling|rise|rising)\b/iu, 'changes vertical position'],
-  [/\b(sway|swaying|sways|flow|flowing|flows|drift|drifting|drifts|float|floating)\b/iu, 'moves with a flowing motion'],
-  [/\b(gather|gathering|gathers|meet|meeting|meets|converge|converging|cross|crossing|crosses)\b/iu, 'converges with another form'],
-  [/\b(open|opening|opens|close|closing|closes|unfold|unfolding)\b/iu, 'reveals or conceals space'],
-  [/\b(call|calling|calls|summon|summoning)\b/iu, 'calls or summons another form'],
-];
-
-const JAPANESE_ACTIONS: readonly [RegExp, string][] = [
-  [/歩く|歩いて|歩き|歩み|歩いてる|歩き出す|進む|進んで|進んでいく/u, 'walks through the environment'],
-  [/走る|走って|走り|走ってる|走り出す|駆ける|駆けて/u, 'runs through the environment'],
-  [/待つ|待って|待ってる|立つ|立って|佇む|佇んで|待ち続ける/u, 'waits in place'],
-  [/近づく|近づいて|近づいてくる|来る|来て|入る|入って|向かう|辿り着く/u, 'approaches a nearby place'],
-  [/去る|去って|去っていく|帰る|帰って|戻る|戻って|離れる|消える/u, 'leaves or returns'],
-  [/踊る|踊って|踊ってる|踊り|舞う|舞って/u, 'moves rhythmically'],
-  [/見る|見て|見ている|見える|眺める|見つめる|見つめている|見上げる/u, 'looks toward the scene'],
-  [/泣く|泣いて|泣いている|笑う|笑って|微笑む|叫ぶ|叫んで/u, 'expresses an emotional change'],
-  [/落ちる|落ちて|沈む|昇る|上がる|舞い上がる/u, 'changes vertical position'],
-  [/揺れる|揺れて|揺らぐ|揺らいで|揺らめく|流れる|流れて|流れていく|漂う|漂って|浮かぶ|浮かんで|たゆたう/u, 'moves with a flowing motion'],
-  [/集まる|集まって|集う|出会う|出会って|交差する|交差して|重なる|重なって|寄り添う|繋がる|つながる/u, 'converges with another form'],
-  [/開く|開いて|閉じる|閉じて|ほどける|ほどけて|ひらく|ひらいて|解ける|解けて/u, 'reveals or conceals space'],
-  [/呼ぶ|呼んで|呼んでいる|呼びかける|呼びかけて|叫ぶ|叫んで/u, 'calls or summons another form'],
-];
+const ACTIONS: readonly [RegExp, string][] = contract.actions.map((entry) => [new RegExp(entry.english, 'iu'), entry.canonical]);
+const JAPANESE_ACTIONS: readonly [RegExp, string][] = contract.actions.map((entry) => [new RegExp(entry.japanese, 'u'), entry.canonical]);
+const boundedLanguages = new Set<string>(contract.languages);
 
 function normalizedLanguage(language: string): string {
   return language.trim().toLowerCase().split(/[-_]/, 1)[0] || 'und';
@@ -103,7 +72,7 @@ function actionFromText(text: string): string | null {
 
 const lexicalAdapter: GroundingAdapter = {
   id: 'bounded-lexical-en-ja-v1',
-  supports: (language) => ['en', 'ja', 'und', 'auto'].includes(normalizedLanguage(language)),
+  supports: (language) => boundedLanguages.has(normalizedLanguage(language)),
   ground: (text, language, confidence, idPrefix, source) => isScriptCompatible(language, text)
     ? lexicalResult(text, language, confidence, idPrefix, source)
     : symbolResult(text, language, confidence, idPrefix, source),

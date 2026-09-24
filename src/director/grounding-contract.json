@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "languages": ["en", "ja", "und", "auto"],
+  "motifs": [
+    { "kind": "person", "english": "\\b(woman|girl|man|boy|person|child|mother|father|lover)\\b", "japanese": "彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人" },
+    { "kind": "place", "english": "\\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|field|night)\\b", "japanese": "駅|駅前|ホーム|街|町|通り|道|路地|部屋|家|森|庭|川|海|海辺|山|橋|学校|野原|夜|夜空|世界|場所" },
+    { "kind": "object", "english": "\\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\\b", "japanese": "電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|とり|犬|猫|夢|心|声|歌|手紙|身体|体" },
+    { "kind": "force", "english": "\\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn|love|tears|time)\\b", "japanese": "雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時" },
+    { "kind": "texture", "english": "\\b(fog|smoke|mist|water|ice|dust|glass|stone|shadow|sky|world)\\b", "japanese": "霧|煙|水|氷|埃|ほこり|ガラス|石|影|空|世界|赤|青|白|色" }
+  ],
+  "actions": [
+    { "english": "\\b(walk|walking|walks)\\b", "japanese": "歩く|歩いて|歩き|歩み|歩いてる|歩き出す|進む|進んで|進んでいく", "canonical": "walks through the environment" },
+    { "english": "\\b(run|running|runs)\\b", "japanese": "走る|走って|走り|走ってる|走り出す|駆ける|駆けて", "canonical": "runs through the environment" },
+    { "english": "\\b(stand|standing|stands|wait|waiting)\\b", "japanese": "待つ|待って|待ってる|立つ|立って|佇む|佇んで|待ち続ける", "canonical": "waits in place" },
+    { "english": "\\b(come|approach|arrive|enter)\\b", "japanese": "近づく|近づいて|近づいてくる|来る|来て|入る|入って|向かう|辿り着く", "canonical": "approaches a nearby place" },
+    { "english": "\\b(leave|depart|return)\\b", "japanese": "去る|去って|去っていく|帰る|帰って|戻る|戻って|離れる|消える", "canonical": "leaves or returns" },
+    { "english": "\\b(dance|dancing|dances)\\b", "japanese": "踊る|踊って|踊ってる|踊り|舞う|舞って", "canonical": "moves rhythmically" },
+    { "english": "\\b(look|see|watch|gaze)\\b", "japanese": "見る|見て|見ている|見える|眺める|見つめる|見つめている|見上げる", "canonical": "looks toward the scene" },
+    { "english": "\\b(cry|crying|laugh|laughing)\\b", "japanese": "泣く|泣いて|泣いている|笑う|笑って|微笑む|叫ぶ|叫んで", "canonical": "expresses an emotional change" },
+    { "english": "\\b(fall|falling|rise|rising)\\b", "japanese": "落ちる|落ちて|沈む|昇る|上がる|舞い上がる", "canonical": "changes vertical position" },
+    { "english": "\\b(sway|swaying|sways|flow|flowing|flows|drift|drifting|drifts|float|floating)\\b", "japanese": "揺れる|揺れて|揺らぐ|揺らいで|揺らめく|流れる|流れて|流れていく|漂う|漂って|浮かぶ|浮かんで|たゆたう", "canonical": "moves with a flowing motion" },
+    { "english": "\\b(gather|gathering|gathers|meet|meeting|meets|converge|converging|cross|crossing|crosses)\\b", "japanese": "集まる|集まって|集う|出会う|出会って|交差する|交差して|重なる|重なって|寄り添う|繋がる|つながる", "canonical": "converges with another form" },
+    { "english": "\\b(open|opening|opens|close|closing|closes|unfold|unfolding)\\b", "japanese": "開く|開いて|閉じる|閉じて|ほどける|ほどけて|ひらく|ひらいて|解ける|解けて", "canonical": "reveals or conceals space" },
+    { "english": "\\b(call|calling|calls|summon|summoning)\\b", "japanese": "呼ぶ|呼んで|呼んでいる|呼びかける|呼びかけて|叫ぶ|叫んで", "canonical": "calls or summons another form" }
+  ]
+}
