@@ -363,6 +363,14 @@ test('unknown committed live wording remains a symbol instead of inventing a wor
   assert.equal(meaning?.sections[0]?.action, 'the vocal motif moves through the frame');
 });
 
+test('abstaining fallback compiles perceptual constraints before legacy geometry', () => {
+  const scene = sceneFromPlan(initialPlan(), { trackId: 'perceptual-fallback' }, 0);
+  assert.equal(scene.source, 'abstract-fallback');
+  assert.ok(scene.prompt.includes('perceptual constraints'));
+  assert.ok(scene.prompt.includes('Preserve the dominant visual form'));
+  assert.equal(scene.prompt.includes('kaleidoscopic symmetry'), false);
+});
+
 test('semantic resonance modulates existing handles without inventing content', () => {
   const scene = sceneFromPlan(initialPlan(), {}, 0);
   const world = scene.world;
@@ -781,20 +789,20 @@ test('scene generation keeps semantic manifests separate from legacy world prose
   const metadataMeaning: SongMeaning = { ...meaning, evidence: [{ source: 'metadata', text: 'title only', confidence: 0.9 }] };
   const metadataOnlyManifest = sceneFromPlan(initialPlan(), { trackId: 'metadata-manifest-track', meaning: metadataMeaning }, 0);
   assert.equal(metadataOnlyManifest.source, 'abstract-fallback');
-  assert.ok(metadataOnlyManifest.prompt.includes('story abstained'));
+  assert.ok(metadataOnlyManifest.prompt.includes('no literal subject'));
 
   const metadata = sceneFromPlan(initialPlan(), { trackId: 'metadata-track', concepts: ['miku'] }, 0);
   assert.equal(metadata.source, 'metadata-fallback');
-  assert.ok(metadata.prompt.startsWith('Music-video shot:'));
-  assert.ok(metadata.prompt.includes('story abstained'));
-  assert.ok(metadata.prompt.includes('Camera:'));
+  assert.ok(metadata.prompt.startsWith('Music-video realization under uncertainty:'));
+  assert.ok(metadata.prompt.includes('no literal subject'));
+  assert.ok(metadata.prompt.includes('perceptual constraints'));
   assert.equal(metadata.prompt.includes('abstract generative visual field'), false);
   assert.equal(metadata.prompt.includes('miku'), false);
   assert.equal(metadata.prompt.includes('within enormous flowers blooming open'), false);
 
   const abstract = sceneFromPlan(initialPlan(), { trackId: 'abstract-track' }, 0);
   assert.equal(abstract.source, 'abstract-fallback');
-  assert.ok(abstract.prompt.startsWith('Music-video shot:'));
+  assert.ok(abstract.prompt.startsWith('Music-video realization under uncertainty:'));
   assert.equal(abstract.prompt.includes('abstract generative visual field'), false);
   assert.equal(abstract.prompt.includes('miku'), false);
   assert.equal(abstract.prompt.includes('within enormous flowers blooming open'), false);

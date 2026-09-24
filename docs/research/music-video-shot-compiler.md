@@ -27,13 +27,16 @@ diffusion checkpoint, not a second source of scene state.
 ## Current fallback grammar
 
 ```text
-Music-video shot: story abstained; no evidence-backed song event is asserted.
-Action: <story-neutral motion phrase>.
-Camera: <shot movement>.
-Visual treatment: <style parameters>.
+Music-video realization under uncertainty:
+  no literal subject, event, or location is asserted.
+  perceptual constraints: form / behavior / space / material / motion / tension
+  preserve the dominant visual form across frames;
+  audio modulates existing motion, light, and atmosphere.
+  visual treatment: <palette and lighting parameters>.
 ```
 
-This is intentionally not a full narrative generator. A full music video requires
-lyrics or another evidence source, section-level story state, and identity
-continuity. Those remain separate upstream work rather than being smuggled into
-the fallback through increasingly decorative adjectives.
+This is intentionally not a full narrative generator. A full literal music video
+requires lyrics or another evidence source, section-level story state, and
+identity continuity. Perceptual constraints give the current backend a bounded
+possibility space and allow imagery to emerge without smuggling unsupported nouns
+into the fallback through increasingly decorative adjectives.

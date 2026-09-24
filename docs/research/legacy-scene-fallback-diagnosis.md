@@ -80,7 +80,9 @@ meaning_revision: number | null
 1. Start the local sidecar and Electron app.
 2. Observe `[stream] no local song meaning; semantic direction abstains`.
 3. Observe the next `[director]` line labeled `metadata-fallback` or
-   `abstract-fallback`; it should not contain `within <WORLD>`.
+   `abstract-fallback`; it should not contain `within <WORLD>` or an
+   evidence-free literal subject. The current compiler emits perceptual
+   constraints rather than the older story-neutral shot sentence.
 4. Add a correctly hashed JSON manifest under `meaning/` for the active track.
 5. Restart/reconnect the stream and confirm `[stream] local song meaning
    revision N`.
@@ -89,7 +91,8 @@ meaning_revision: number | null
 
 The scene-generation regression test now proves semantic, metadata, and abstract
 outputs are distinct and that the full prompt has no legacy `within`/`made of`
-leakage. Metadata-only output also asserts `story abstained` and excludes title
-tokens. `npm run typecheck`, `npm test` (35 tests), and the production build pass.
+leakage. Metadata-only output excludes title tokens and emits perceptual
+constraints while preserving abstention. `npm run typecheck`, `npm test`, and
+the production build are the current validation commands.
 The initial restricted-shell failure was an environment access issue, not a
 product or test failure.

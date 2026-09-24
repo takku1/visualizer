@@ -142,42 +142,39 @@ function mood(intensity: number): string {
   return 'explosive, ecstatic, overwhelming energy';
 }
 
-function shotForMotion(motion: MotionId): string {
-  return ({
-    drift: 'a slow establishing reveal',
-    orbit: 'an orbiting reveal around the central motif',
-    pulse: 'a rhythmic push-in and pull-back',
-    shear: 'a lateral tracking move',
-    turbulent: 'an unstable chase movement',
-    collapse: 'a rapid pull toward the vanishing point',
-    bloom: 'a reveal that opens outward on the beat',
-    lattice: 'a precise tracking move through repeating forms',
-  } satisfies Record<MotionId, string>)[motion];
+function visualTreatment(plan: VisualPlan, includeProceduralVocabulary = true): string {
+  const geometry = includeProceduralVocabulary ? (GEOMETRY[plan.geometry.top] || 'clean spatial composition') : 'spatially coherent, non-repetitive composition';
+  const symmetry = includeProceduralVocabulary ? (SYMMETRY[plan.symmetry.top] || 'asymmetric framing') : 'asymmetric framing with a persistent dominant form';
+  return `Visual treatment: ${PALETTE[plan.palette.top]}; ${TEXTURE[plan.texture.top]}; ${geometry}; ${symmetry}; ${mood(plan.intensity)}. Cinematic music-video frame, rich texture, detailed lighting.`;
 }
 
-function motifAction(motion: MotionId): string {
-  return ({
-    drift: 'motifs enter and leave the frame like a memory',
-    orbit: 'motifs circle one another without changing identity',
-    pulse: 'motifs appear and recede in rhythmic cuts',
-    shear: 'motifs cross the frame in opposing directions',
-    turbulent: 'motifs collide in a restless chase',
-    collapse: 'motifs are drawn together toward a vanishing point',
-    bloom: 'motifs reveal one another as the frame opens',
-    lattice: 'motifs move through a repeating visual corridor',
-  } satisfies Record<MotionId, string>)[motion];
-}
-
-function visualTreatment(plan: VisualPlan): string {
-  return `Visual treatment: ${PALETTE[plan.palette.top]}; ${TEXTURE[plan.texture.top]}; ${GEOMETRY[plan.geometry.top] || 'clean spatial composition'}; ${SYMMETRY[plan.symmetry.top] || 'asymmetric framing'}; ${mood(plan.intensity)}. Cinematic music-video frame, rich texture, detailed lighting.`;
+/**
+ * No-meaning direction is still a realization request, not permission to
+ * invent a literal story. Put the perceptual affordances first so the current
+ * diffusion adapter can discover a stable visual ontology while the procedural
+ * renderer remains the continuous motion substrate.
+ */
+function perceptualFallback(plan: VisualPlan): string {
+  const organic = ORGANIC[plan.texture.top] >= 0.55;
+  const form = organic ? 'organic, soft-bodied, asymmetric' : 'structured, layered, articulated';
+  const behavior = ({
+    drift: 'drifting and revealing', orbit: 'circling and gathering', pulse: 'appearing and receding rhythmically',
+    shear: 'crossing laterally', turbulent: 'colliding and accelerating', collapse: 'folding toward a shared center',
+    bloom: 'opening and releasing', lattice: 'traveling through repeating depth',
+  } satisfies Record<MotionId, string>)[plan.motion.top];
+  const space = plan.motion.top === 'collapse' ? 'deep, compressed, vanishing-point space' : 'open, sparse, directional space';
+  const material = organic ? 'fibrous, translucent material' : 'mineral, laminated material';
+  const motion = plan.intensity >= 3 ? 'accelerating and volatile' : plan.intensity >= 1.5 ? 'flowing with rising pressure' : 'slow, suspended, and continuous';
+  const tension = plan.hardCut > 0.5 ? 'restrained becoming expansive' : 'continuous and evolving';
+  return `Music-video realization under uncertainty: no literal subject, event, or location is asserted. Discover an emergent world from these perceptual constraints: form ${form}; behavior ${behavior}; space ${space}; material ${material}; motion ${motion}; tension ${tension}. Preserve the dominant visual form and its identity across frames; let music modulate existing motion, light, and atmosphere without inventing a new story, text, logo, or object. ${visualTreatment(plan, false)}`;
 }
 
 export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number, ledger?: MotifLedger): Scene {
   const semantic = ctx.meaning ? compileSemanticScene(ctx.meaning, ctx.sectionIndex ?? 0, PALETTE[plan.palette.top], ledger) : null;
   const subject = ctx.concepts?.length ? ctx.concepts.join(' and ') : '';
   const source: SceneSource = semantic ? 'semantic-manifest' : subject ? 'metadata-fallback' : 'abstract-fallback';
-  const narrative = semantic?.prompt ?? `Music-video shot: story abstained; no evidence-backed song event is asserted. Action: ${motifAction(plan.motion.top)}. Camera: ${shotForMotion(plan.motion.top)}.`;
-  const parts = [narrative, visualTreatment(plan)];
+  const narrative = semantic?.prompt ?? perceptualFallback(plan);
+  const parts = semantic ? [narrative, visualTreatment(plan)] : [narrative];
   const seed = hash(`${ctx.trackId ?? ctx.title ?? 'session'}#${index}`);
   const semanticParts = semantic ? {
     identity: semantic.subjects.join('|'),

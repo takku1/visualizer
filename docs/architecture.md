@@ -135,16 +135,20 @@ Scene compilation is explicitly source-gated: `semantic-manifest` uses only the
 evidence-backed subject/action/environment; `metadata-fallback` records that
 metadata concepts were available but withholds them from the narrative prompt;
 `abstract-fallback` has no metadata concepts. Both no-meaning paths use
-non-narrative abstract motion. The old content-specific world phrases are not used by fallback,
-so missing meaning cannot silently invent a cathedral, flowers, or another story.
+non-narrative perceptual direction. The fallback compiler puts form, behavior,
+spatiality, materiality, motion, and tension ahead of legacy geometry vocabulary,
+so the backend can discover an emergent visual ontology without silently
+inventing a cathedral, flowers, or another story. Procedural geometry remains an
+internal motion substrate.
 `SongMeaning.language` is an optional BCP 47 tag propagated to telemetry; language
 identification and translation remain upstream research seams.
 
 The prompt realization is now shot-oriented rather than a comma-joined visualizer
-tag list. It names a music-video shot, action, camera, and visual treatment. In a
-metadata fallback, title words are explicitly withheld and receive only a
-story-neutral action; a manifest can replace that action with evidence-backed
-relations and section events.
+tag list. Evidence-backed scenes name a music-video shot, action, camera, and
+visual treatment. In a metadata or abstract fallback, title words are explicitly
+withheld and the compiler emits perceptual constraints instead: form, behavior,
+space, material, motion, and tension. A manifest can replace those constraints
+with evidence-backed relations and section events.
 
 The resulting `Scene` carries a typed fingerprint:
 
