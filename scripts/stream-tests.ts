@@ -604,6 +604,18 @@ test('world diff reducer preserves identity and reconstructs the proposed state'
   assert.equal(prior.entities[0]?.attributes.includes('runtime mutation'), false);
 });
 
+test('world diff reconciles rolling evidence ids by stable entity kind and label', () => {
+  const first = sceneFromPlan(initialPlan(), {}, 0).world;
+  const prior = { ...first, entities: [{ id: 'asr-window-a', label: 'person', kind: 'subject', attributes: [], confidence: 0.8 }] };
+  const proposed = { ...prior, entities: [{ id: 'asr-window-b', label: 'person', kind: 'subject', attributes: ['revised evidence'], confidence: 0.9 }] };
+  const diff = diffWorldState(prior, proposed);
+  assert.equal(diff.identityBreak, false);
+  assert.equal(diff.add.length, 0);
+  assert.equal(diff.remove.length, 0);
+  assert.equal(diff.keep[0]?.id, 'asr-window-a');
+  assert.equal(applySceneDiff(prior, diff).entities[0]?.attributes[0], 'revised evidence');
+});
+
 test('timed lyric import preserves evidence and rejects untimed results', () => {
   const lines = parseLrc('[00:01.00]first line\n[00:03.50]second line');
   assert.equal(lines[0]!.startSec, 1);

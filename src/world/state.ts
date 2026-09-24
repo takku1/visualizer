@@ -76,10 +76,28 @@ export function diffWorldState(previous: WorldState | null, next: WorldState): S
   // backend observation revision may replace it.
   const emergent = next.emergent.revision > prior.emergent.revision ? next.emergent : prior.emergent;
   const oldById = new Map(prior.entities.map((entity) => [entity.id, entity]));
-  const newById = new Map(next.entities.map((entity) => [entity.id, entity]));
-  const keep = next.entities.filter((entity) => oldById.has(entity.id));
-  const add = next.entities.filter((entity) => !oldById.has(entity.id));
-  const remove = prior.entities.filter((entity) => !newById.has(entity.id));
+  const matchedPriorIds = new Set<string>();
+  const keep: WorldEntity[] = [];
+  const add: WorldEntity[] = [];
+  for (const entity of next.entities) {
+    if (oldById.has(entity.id)) {
+      matchedPriorIds.add(entity.id);
+      keep.push(entity);
+      continue;
+    }
+    // Rolling ASR and semantic revisions can mint a new evidence id for the
+    // same bounded cue. Preserve the existing world identity when kind/label
+    // agree; an opaque evidence id must not turn a revision into a replacement.
+    const priorMatch = prior.entities.find((candidate) =>
+      !matchedPriorIds.has(candidate.id) && canonicalEntityKey(candidate) === canonicalEntityKey(entity));
+    if (priorMatch) {
+      matchedPriorIds.add(priorMatch.id);
+      keep.push({ ...entity, id: priorMatch.id });
+    } else {
+      add.push(entity);
+    }
+  }
+  const remove = prior.entities.filter((entity) => !matchedPriorIds.has(entity.id));
   const environmentAdded = next.environment.filter((item) => !prior.environment.includes(item));
   const environmentRemoved = prior.environment.filter((item) => !next.environment.includes(item));
   const identityBreak = add.length > 0 && remove.length > 0;
@@ -182,4 +200,8 @@ function stable(value: string): string {
   let hash = 2166136261;
   for (const char of value) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
   return (hash >>> 0).toString(16);
+}
+
+function canonicalEntityKey(entity: Pick<WorldEntity, 'kind' | 'label'>): string {
+  return `${entity.kind}:${entity.label.trim().toLocaleLowerCase().replace(/\s+/gu, ' ')}`;
 }
