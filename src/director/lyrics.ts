@@ -30,6 +30,7 @@ export interface LyricsResult {
 }
 
 export interface LyricsProvider {
+  readonly id?: string;
   lookup(query: LyricsLookup): Promise<LyricsResult | null>;
 }
 
@@ -200,7 +201,7 @@ export class CachedLyricsProvider implements LyricsProvider {
   }
 
   async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
-    const key = lyricsCacheKey(this.#provider instanceof LrclibLyricsProvider ? this.#provider.id : 'provider', query);
+    const key = lyricsCacheKey(this.#provider.id ?? 'provider', query);
     const cached = this.#cache.get(key);
     if (cached) return cached;
     const result = await this.#provider.lookup(query);

@@ -690,6 +690,16 @@ test('cached lyric lookup avoids repeated provider requests', async () => {
   assert.equal(calls, 1);
 });
 
+test('cached providers keep distinct stable namespaces', async () => {
+  const cache = new MemoryLyricsCache();
+  const query = { trackId: 'same', title: 'Rain', artist: 'Band' };
+  const local = new LocalTimedLyricsProvider(() => ({ source: 'local://same', text: '[00:01.00]rain' }));
+  const wrapped = new CachedLyricsProvider(local, cache);
+  assert.ok(await wrapped.lookup(query));
+  assert.equal(cache.get(lyricsCacheKey('local-timed', query))?.provider, 'local-timed');
+  assert.equal(cache.get(lyricsCacheKey('lrclib', query)), null);
+});
+
 test('persistent lyric cache survives provider recreation and expires safely', () => {
   const values = new Map<string, string>();
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
