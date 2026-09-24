@@ -2,6 +2,14 @@
 
 Status: plan and export seam; production backend unchanged.
 
+Phase 1 result: the fixed-shape candidate built and benchmarked successfully
+on the RTX A3000. TensorRT measured 18.37 ms median and 19.13 ms P95 for the
+UNet alone, versus approximately 35.30 ms for the current PyTorch UNet stage.
+A deterministic neutral-input comparison measured mean absolute output error
+0.00719 with output RMS approximately 0.918. This is a promising candidate,
+but it is not production-integrated because the exported graph does not include
+the live Bender activation edits.
+
 ## Evidence first
 
 The current 448x256 SD-Turbo benchmark on the RTX A3000 Laptop is:
@@ -30,6 +38,16 @@ optimization order is:
    or failure rate.
 
 The current backend remains the default throughout this work.
+
+Artifacts and commands used for the result:
+
+```powershell
+& <sidecar-python> tools/export-unet-onnx.py
+& '.\.venv-tensorrt\Scripts\python.exe' tools/build-tensorrt-engine.py
+& '.\.venv-tensorrt\Scripts\python.exe' tools/benchmark-tensorrt-engine.py
+& <sidecar-python> tools/make-unet-reference.py
+& '.\.venv-tensorrt\Scripts\python.exe' tools/validate-tensorrt-unet.py
+```
 
 ## Why fixed shape first
 
@@ -60,6 +78,12 @@ first engine candidate must therefore be benchmarked in two modes:
 If preserving Bender requires custom TensorRT plugins or an alternate control
 injection point, that is a separate experiment. It must not silently remove
 semantic/audio control from production.
+
+The current result is therefore an engine-only win, not yet an application
+speedup. The next implementation decision is whether the controls can be
+compiled into ordinary tensor inputs without changing the visual contract. If
+not, the engine remains a measured research backend and PyTorch remains the
+runtime backend.
 
 ## Acceptance gates
 
