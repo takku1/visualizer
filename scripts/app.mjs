@@ -62,11 +62,17 @@ function listeningPids(port) {
   }))];
 }
 
-function restartSidecar(port, label) {
+async function restartSidecar(port, label) {
   for (const pid of listeningPids(port)) {
     if (pid === process.pid) continue;
     console.warn(`[app] restarting ${label} listener on ${port} (pid ${pid})`);
     try { execFileSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' }); } catch { /* already gone */ }
+  }
+  // Windows can keep the listener visible briefly after taskkill returns.
+  // Do not race the subsequent port check or a restart can falsely “reuse”
+  // a dying sidecar and never start its replacement.
+  for (let attempt = 0; attempt < 40 && await portIsListening(port); attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 
@@ -101,7 +107,7 @@ try {
     process.env.S1_BUILD_HASH = 'unknown';
   }
   if (withStream) {
-    if (restartSidecars) restartSidecar(STREAM_PORT, 'stream sidecar');
+    if (restartSidecars) await restartSidecar(STREAM_PORT, 'stream sidecar');
     if (existsSync(join(projectRoot, 'models/sd-turbo/unet')) && existsSync(join(projectRoot, 'models/taesd'))) {
       if (await portIsListening(STREAM_PORT)) {
         console.warn(`[app] stream sidecar already listening on ${STREAM_PORT}; reusing it`);
@@ -114,7 +120,7 @@ try {
   }
   if (withMeaning) {
     process.env.S1_MEANING_URL = 'ws://127.0.0.1:8772';
-    if (restartSidecars) restartSidecar(MEANING_PORT, 'meaning worker');
+    if (restartSidecars) await restartSidecar(MEANING_PORT, 'meaning worker');
     if (await portIsListening(MEANING_PORT)) {
       console.warn(`[app] meaning worker already listening on ${MEANING_PORT}; reusing it`);
     } else {
