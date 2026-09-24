@@ -80,8 +80,12 @@ scene compiler → prompt + typed fingerprint
 The current implementation slice supports manifests authored in any language,
 local Whisper ASR windows, explicit language forcing (including `ja`), bounded
 timestamps, script-based Japanese recovery when Whisper reports `und`, and
-conservative English/Japanese motif/action extraction. It preserves source
-evidence and keeps provisional hypotheses separate from committed meaning.
+conservative English/Japanese motif/action extraction. The Japanese extractor
+includes a deliberately bounded set of common entity, environmental,
+abstract-form, and action cues (for example `夢`, `心`, `雨`, `駅`, `進む`, and
+`揺れる`); it does not translate or infer arbitrary lyric meaning. It
+preserves source evidence and keeps provisional hypotheses separate from
+committed meaning.
 Automatic translation is still intentionally absent from `sceneFromPlan`:
 translation would move uncertain, expensive work into the director/render path
 and violate the project's timescale separation.

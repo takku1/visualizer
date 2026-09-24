@@ -371,6 +371,22 @@ test('Japanese live extraction recognizes non-literal form anchors and actions c
   assert.equal(meaning?.sections[0]?.action, 'moves rhythmically');
 });
 
+test('Japanese live extraction grounds bounded lyric motifs beyond the initial travel vocabulary', () => {
+  const state = {
+    trackId: 'ja-rich-vocabulary',
+    provisional: [],
+    committed: [
+    { ...liveHypothesis, id: 'dream', text: '夢と心', language: 'ja', status: 'committed' },
+    { ...liveHypothesis, id: 'motion', text: '進んでいる', language: 'ja', status: 'committed' },
+    ],
+  };
+  const meaning = meaningFromLive(state, 4, 0);
+  assert.ok(meaning);
+  assert.equal(meaning?.abstained, false);
+  assert.ok(meaning?.motifs.some((motif) => motif.label === 'object'));
+  assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
+});
+
 test('committed English live audio extracts person, place, force, and action', () => {
   const meaning = meaningFromLive({
     trackId: 'track-en', provisional: [], committed: [{
