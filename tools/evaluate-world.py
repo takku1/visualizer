@@ -16,18 +16,15 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
-import torch
-from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
 
-
-def unit(value: torch.Tensor) -> torch.Tensor:
+def unit(value):
+  import torch
   return value / value.norm(dim=-1, keepdim=True).clamp_min(1e-8)
 
 
-def embeddings(value: object) -> torch.Tensor:
+def embeddings(value):
     """Normalize old and new Transformers CLIP feature return shapes."""
+    import torch
     if isinstance(value, torch.Tensor):
         return value
     for name in ("image_embeds", "text_embeds", "pooler_output"):
@@ -123,6 +120,14 @@ def main() -> None:
         if not validation["ready"]:
             raise SystemExit(2)
         return
+    # The preflight above intentionally has no ML dependency. Loading these
+    # modules only for a real scoring run keeps annotation checks fast and
+    # usable on capture/CI machines without CUDA or the vision model stack.
+    import numpy as np
+    import torch
+    from PIL import Image
+    from transformers import CLIPModel, CLIPProcessor
+
     model = CLIPModel.from_pretrained(args.model).eval()
     processor = CLIPProcessor.from_pretrained(args.model)
     images = [Image.open(args.manifest.parent / row["file"]).convert("RGB") for row in rows]
