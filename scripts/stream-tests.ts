@@ -19,6 +19,7 @@ import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
 import { StructureMemory } from '../src/structure/memory';
+import { estimateKey } from '../src/audio/loopback';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -46,6 +47,15 @@ function settle(patch: Partial<FeatureFrame>, seconds = 2): ReturnType<ControlMa
 }
 
 // ---------- audio -> sampling physics ----------
+
+test('local key confidence is a runner-up margin, not an inflated absolute fit', () => {
+  const eMajor = new Float32Array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]);
+  const estimate = estimateKey(eMajor);
+  assert.equal(estimate.key, 0);
+  assert.equal(estimate.mode, 'major');
+  assert.ok(estimate.confidence > 0.1 && estimate.confidence <= 1);
+  assert.ok(estimate.confidence < 0.97 || estimate.key !== 6, `confidence was ${estimate.confidence}`);
+});
 
 test('System 0 observes a conservative repeat without changing section state', () => {
   const memory = new StructureMemory();

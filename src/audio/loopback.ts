@@ -36,6 +36,8 @@ export class LoopbackSource implements AudioSource {
   #audioCount = 0;
   #audioRms = 0;
   #chroma = new Float32Array(12);
+  /** Slower evidence accumulator; instantaneous chroma is chord-level, not song-key-level. */
+  #keyChroma = new Float32Array(12);
 
   // Each band gets its own gain, tracking its own history. A single shared
   // peak (the earlier approach) is wrong for anything but the spectrum
@@ -154,6 +156,7 @@ export class LoopbackSource implements AudioSource {
     this.#audioCount = 0;
     this.#audioRms = 0;
     this.#audioRing.fill(0);
+    this.#keyChroma.fill(0);
     this.#ready = true;
   }
 
@@ -168,6 +171,7 @@ export class LoopbackSource implements AudioSource {
     this.#audioWrite = 0;
     this.#audioCount = 0;
     this.#ready = false;
+    this.#keyChroma.fill(0);
   }
 
   sample(frame: FeatureFrame, _now: number): void {
@@ -274,7 +278,10 @@ export class LoopbackSource implements AudioSource {
       const pc = (((Math.round(midi) % 12) + 12) % 12);
       chroma[pc] = (chroma[pc] ?? 0) + (this.#raw[i] ?? 0);
     }
-    const { key, mode, confidence } = estimateKey(chroma);
+    for (let i = 0; i < 12; i++) {
+      this.#keyChroma[i] = smooth(this.#keyChroma[i] ?? 0, chroma[i] ?? 0, dt, 4);
+    }
+    const { key, mode, confidence } = estimateKey(this.#keyChroma);
 
     // Stereo width from the L/R time-domain correlation: identical channels
     // (mono content, or a mono source) correlate near 1 and read as width 0;
@@ -353,36 +360,49 @@ const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.6
 const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
 
 /**
- * Correlates a chromagram against all 24 rotated major/minor key profiles
+ * Correlates a temporally accumulated chromagram against all 24 rotated major/minor key profiles
  * and returns the best match. This is a well-known, well-worn technique
  * (Krumhansl-Schmuckler) chosen deliberately over anything fancier: it is
  * cheap, has no training step, and its failure modes are well understood.
- * Treat the result as a rough lean, not a transcription - short windows and
- * heavily produced music both degrade it.
+ * Treat the result as a rough lean, not a transcription. Confidence is the
+ * margin over the runner-up, not the absolute profile score: a good fit to
+ * several keys is ambiguous even when every score is numerically high.
  */
-function estimateKey(chroma: Float32Array): { key: number; mode: 'major' | 'minor'; confidence: number } {
-  let bestScore = -Infinity;
-  let bestKey = 0;
-  let bestMode: 'major' | 'minor' = 'major';
+export function estimateKey(chroma: Float32Array): { key: number; mode: 'major' | 'minor'; confidence: number } {
+  const candidates: { key: number; mode: 'major' | 'minor'; score: number }[] = [];
 
   for (let root = 0; root < 12; root++) {
     for (const [profile, mode] of [[MAJOR_PROFILE, 'major'], [MINOR_PROFILE, 'minor']] as const) {
-      let dot = 0, cNorm = 0, pNorm = 0;
-      for (let i = 0; i < 12; i++) {
-        const c = chroma[i] ?? 0;
-        const p = profile[(i - root + 12) % 12] ?? 0;
-        dot += c * p;
-        cNorm += c * c;
-        pNorm += p * p;
-      }
-      const score = cNorm > 0 && pNorm > 0 ? dot / Math.sqrt(cNorm * pNorm) : 0;
-      if (score > bestScore) {
-        bestScore = score;
-        bestKey = root;
-        bestMode = mode;
-      }
+      candidates.push({ key: root, mode, score: pearson(chroma, profile, root) });
     }
   }
 
-  return { key: bestKey, mode: bestMode, confidence: Math.min(Math.max(bestScore, 0), 1) };
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  const second = candidates[1];
+  if (!best || !second || !Number.isFinite(best.score) || best.score <= 0) return { key: 0, mode: 'major', confidence: 0 };
+  const margin = Math.max(0, best.score - second.score);
+  return { key: best.key, mode: best.mode, confidence: Math.min(margin * 4, 1) };
+}
+
+function pearson(chroma: Float32Array, profile: readonly number[], root: number): number {
+  let cMean = 0;
+  let pMean = 0;
+  for (let i = 0; i < 12; i++) {
+    cMean += chroma[i] ?? 0;
+    pMean += profile[(i - root + 12) % 12] ?? 0;
+  }
+  cMean /= 12;
+  pMean /= 12;
+  let dot = 0;
+  let cNorm = 0;
+  let pNorm = 0;
+  for (let i = 0; i < 12; i++) {
+    const c = (chroma[i] ?? 0) - cMean;
+    const p = (profile[(i - root + 12) % 12] ?? 0) - pMean;
+    dot += c * p;
+    cNorm += c * c;
+    pNorm += p * p;
+  }
+  return cNorm > 1e-9 && pNorm > 1e-9 ? dot / Math.sqrt(cNorm * pNorm) : 0;
 }
