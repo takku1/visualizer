@@ -245,6 +245,12 @@ still performs the world diff and realization commit. This keeps shot choice
 separate from rendering and avoids speculative GPU work; prefetch remains an
 available graph annotation, not an unconditional allocation.
 
+An unchanged scene fingerprint is not staged again. This matters especially in
+abstaining mode: perceptual direction may refresh the procedural look and
+continuous forces, while the persistent world and diffusion stream remain the
+same. A control-plane refresh therefore cannot masquerade as a new shot or
+keyframe commit in runtime telemetry.
+
 ## Checkpoint realization (browser decides, sidecar renders)
 
 - **What:** the director runs on section boundaries, or at most every 30 s.

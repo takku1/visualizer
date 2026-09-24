@@ -13,7 +13,7 @@ import { Overlay } from './ui/overlay';
 import { checkpointLine, recordLine, stateLine, telemetryLine, type LogSink } from './eval/recorder';
 import { ControlMapper, type SamplerControl } from './stream/control';
 import { CheckpointScheduler } from './stream/checkpoint';
-import { sceneFromPlan } from './stream/scenes';
+import { sceneFromPlan, type Scene } from './stream/scenes';
 import { KnobDirector, type KnobTargets } from './stream/knobs';
 import { smooth } from './audio/source';
 import { StreamClient } from './stream/client';
@@ -191,7 +191,7 @@ export class VisualizerApp {
           const current = this.#scheduler.scene;
           if (!current) {
             this.#scheduler.setScene(scene);
-          } else {
+          } else if (!sameSceneFingerprint(current, scene)) {
             const graph = addShotCandidate(
               compileShotGraph(current),
               `candidate-${this.#sceneIndex}`,
@@ -587,6 +587,11 @@ export class VisualizerApp {
         : [scene ? `scene     ${scene.prompt.slice(0, 72)}` : '']),
     ];
   }
+}
+
+function sameSceneFingerprint(a: Scene, b: Scene): boolean {
+  return (Object.keys(a.fingerprint) as (keyof Scene['fingerprint'])[])
+    .every((key) => a.fingerprint[key] === b.fingerprint[key]);
 }
 
 export type { AudioSource, TrackContext };
