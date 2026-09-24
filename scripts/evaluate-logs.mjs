@@ -15,6 +15,23 @@ const decisions = rows.filter((row) => row.scene && row.system1);
 const receipts = checkpoints.map((row) => row.timing).filter(Boolean);
 const diffs = checkpoints.map((row) => row.worldDiff).filter(Boolean);
 const telemetry = rows.filter((row) => row._telemetry);
+const decisionsWithTrack = decisions.filter((row) => row.track?.id);
+const trackIds = [...new Set(decisionsWithTrack.map((row) => row.track.id))];
+const trackTransitions = decisionsWithTrack.reduce((count, row, index) => {
+  return index > 0 && row.track.id !== decisionsWithTrack[index - 1].track.id ? count + 1 : count;
+}, 0);
+const trackAt = (time) => {
+  let trackId = null;
+  for (const row of decisionsWithTrack) {
+    if (typeof row.t !== 'number' || row.t > time) break;
+    trackId = row.track.id;
+  }
+  return trackId;
+};
+const checkpointsByTrack = Object.fromEntries(trackIds.map((trackId) => [
+  trackId,
+  checkpoints.filter((row) => trackAt(row.t) === trackId).length,
+]));
 const changes = { identity: 0, action: 0, environment: 0, look: 0, camera: 0 };
 let previous = null;
 for (const row of checkpoints) {
@@ -28,6 +45,14 @@ const summary = {
   file,
   checkpoints: checkpoints.length,
   decisions: decisions.length,
+  realizationSessions: {
+    trackIds,
+    trackTransitions,
+    checkpointsByTrack,
+    invariant: trackIds.length > 0
+      ? 'Each observed track should have one initial realization checkpoint; later director decisions are control-plane updates.'
+      : 'No track identity was observed; continuous-per-song behavior is not verifiable from this log.',
+  },
   sceneSources: Object.fromEntries([...new Set(decisions.map((row) => row.scene.source))].map((source) => [source, decisions.filter((row) => row.scene.source === source).length])),
   fingerprintChanges: changes,
   timing: {
@@ -73,6 +98,7 @@ const summary = {
 console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) : [
   `Session: ${file}`,
   `Checkpoints: ${summary.checkpoints}; decisions: ${summary.decisions}`,
+  `Realization sessions: ${summary.realizationSessions.trackIds.length}; track transitions: ${summary.realizationSessions.trackTransitions}; checkpoints by track: ${JSON.stringify(summary.realizationSessions.checkpointsByTrack)}`,
   `Scene sources: ${JSON.stringify(summary.sceneSources)}`,
   `Fingerprint changes: ${JSON.stringify(summary.fingerprintChanges)}`,
   `Timing receipts: ${summary.timing.receipts}; fallback rate: ${summary.timing.fallbackRate == null ? 'n/a' : `${(summary.timing.fallbackRate * 100).toFixed(1)}%`}`,

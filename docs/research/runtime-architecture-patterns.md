@@ -62,6 +62,14 @@ as a `SceneDiff`; they do not automatically reset the latent/raster state.
 Reseeding remains an explicit drift remedy, not the default meaning of a new
 director sentence.
 
+The log evaluator now reports this invariant directly. In the English/auto
+session `session-2026-09-24T15-26-08-622Z-1e621a2f.jsonl`, it found three track
+sessions, two track transitions, and one realization checkpoint for each
+track, despite thirteen director decisions. This is evidence that the
+director is operating as a control plane rather than creating one independent
+image per decision. It does not establish visual identity or action
+correctness; those still require captured, annotated frames.
+
 ## Pattern: ASR evidence has three separate states
 
 The Japanese session demonstrates why these states must remain visible:
