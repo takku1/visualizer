@@ -121,6 +121,8 @@ export class VisualizerApp {
   #shotGraphSelectedIds: string[] = [];
   #directionDecisions = 0;
   #lastCheckpointReason: string | null = null;
+  #realizationTrackId: string | null = null;
+  #trackTransitions = 0;
 
   #meaningTelemetry(): object | null {
     if (!this.#liveMeaning) return null;
@@ -366,8 +368,26 @@ export class VisualizerApp {
     const baseCtx = this.#config.context?.() ?? {};
     const trackKey = baseCtx.trackId ?? null;
     if (trackKey !== this.#barTrackId) {
+      const previousTrack = this.#barTrackId;
       this.#barTrackId = trackKey;
       this.#lastBarPhase = frame.barPhase;
+      // A song boundary starts a new realization session. Within the same
+      // track, director revisions remain control-plane updates over the
+      // continuous latent/raster state.
+      if (previousTrack !== null || trackKey !== null) {
+        this.#scheduler.resetTrack();
+        this.#shotRuntime = null;
+        this.#realizationTrackId = trackKey;
+        if (previousTrack !== null && trackKey !== null) this.#trackTransitions++;
+        this.#checkpoints = 0;
+        this.#shotGraphStaged = 0;
+        this.#shotGraphPrefetched = 0;
+        this.#shotGraphSelected = 0;
+        this.#shotGraphStagedIds = [];
+        this.#shotGraphPrefetchedIds = [];
+        this.#shotGraphSelectedIds = [];
+        this.#lastCheckpointReason = null;
+      }
     }
     const graphClock = shotGraphBoundary(frame.barPhase, this.#lastBarPhase, frame.onBeat, frame.hasStructure, frame.rhythmConfidence);
     this.#lastBarPhase = frame.barPhase;
@@ -500,6 +520,10 @@ export class VisualizerApp {
         shotGraph: this.#shotGraphTelemetry(),
         realization: {
           mode: 'continuous-song',
+          trackId: this.#realizationTrackId,
+          trackTransitions: this.#trackTransitions,
+          reseedEnabled: this.#scheduler.reseed,
+          keyframesEnabled: this.#scheduler.keyframes,
           directionDecisions: this.#directionDecisions,
           checkpoints: this.#checkpoints,
           lastCheckpointReason: this.#lastCheckpointReason,
@@ -530,6 +554,10 @@ export class VisualizerApp {
         shotGraph: this.#shotGraphTelemetry(),
         realization: {
           mode: 'continuous-song',
+          trackId: this.#realizationTrackId,
+          trackTransitions: this.#trackTransitions,
+          reseedEnabled: this.#scheduler.reseed,
+          keyframesEnabled: this.#scheduler.keyframes,
           directionDecisions: this.#directionDecisions,
           checkpoints: this.#checkpoints,
           lastCheckpointReason: this.#lastCheckpointReason,

@@ -118,6 +118,27 @@ export class CheckpointScheduler {
     return this.#world;
   }
 
+  /**
+   * Start a fresh realization session for a new track.
+   *
+   * Director intent is allowed to change frequently within a track, but a
+   * track boundary is different: the next request must be an initial
+   * checkpoint, not a scene splice that inherits the previous song's world.
+   */
+  resetTrack(): void {
+    this.#scene = null;
+    this.#current = null;
+    this.#world = null;
+    this.#sceneChanged = false;
+    this.#count = 0;
+    this.#bars = 0;
+    this.#lastBarPhase = 0;
+    this.#lastAt = -Infinity;
+    this.#stagnantFor = 0;
+    this.#waitingSince = -1;
+    this.#forced = false;
+  }
+
   /** The director's latest scene. A different prompt schedules a splice on the next downbeat. */
   setScene(scene: Scene): void {
     // Compared against what is on screen, so a pending change survives the

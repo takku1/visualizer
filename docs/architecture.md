@@ -246,6 +246,13 @@ still performs the world diff and realization commit. This keeps shot choice
 separate from rendering and avoids speculative GPU work; prefetch remains an
 available graph annotation, not an unconditional allocation.
 
+A track boundary is an explicit realization boundary: the scheduler clears the
+previous committed world and the next connected request is `initial`. Within a
+track, fallback/direction revisions remain control-plane updates over the
+continuous latent/raster state. Telemetry exposes the track id, transition
+count, reseed policy, and keyframe policy so one-session-per-song behavior is
+auditable rather than inferred from prompt text.
+
 An unchanged scene fingerprint is not staged again. This matters especially in
 abstaining mode: perceptual direction may refresh the procedural look and
 continuous forces, while the persistent world and diffusion stream remain the

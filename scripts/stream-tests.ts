@@ -819,6 +819,23 @@ test('knobs: more intensity raises the bend gains', () => {
   assert.ok(loud.swell > calm.swell && loud.lurch > calm.lurch && loud.hue > calm.hue);
 });
 
+test('resetTrack starts a new continuous realization session', () => {
+  const s = new CheckpointScheduler({ reseed: false, minGapSec: 0 });
+  const scene = sceneFromPlan(initialPlan(), { trackId: 'track-a' }, 0);
+  s.setScene(scene);
+  const first = s.update(frame({ t: 0, hasStructure: true, beatIndex: 0 }), live);
+  assert.equal(first?.id, 'k1');
+  assert.equal(s.world !== null, true);
+
+  s.resetTrack();
+  assert.equal(s.scene, null);
+  assert.equal(s.world, null);
+  s.setScene(sceneFromPlan(initialPlan(), { trackId: 'track-b' }, 0));
+  const next = s.update(frame({ t: 1, hasStructure: true, beatIndex: 2 }), live);
+  assert.equal(next?.id, 'k1');
+  assert.equal(next?.reason, 'initial');
+});
+
 test('continuous mode keeps one animation state until the scene meaning changes', () => {
   const s = new CheckpointScheduler({ reseed: false, barsPerReseed: 1, stagnantSec: 1, minGapSec: 0 });
   s.setScene(sceneFromPlan(initialPlan(), {}, 0));
