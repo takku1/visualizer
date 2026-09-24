@@ -80,6 +80,11 @@ export class VisualizerApp {
   readonly bus = new FeatureBus();
   readonly loopback = new LoopbackSource();
 
+  /** True while loopback capture is waiting for the first renderer gesture. */
+  get captureWaitingForGesture(): boolean {
+    return this.#captureGestureListener !== null;
+  }
+
   #analysis: AnalysisSource | null = null;
   #renderer: Renderer | null = null;
   #director: Director;

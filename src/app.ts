@@ -104,7 +104,9 @@ async function main(): Promise<void> {
           ? 'analysis  unavailable (beat grid estimated)'
           : 'analysis  loading',
       !app.loopback.capturing
-        ? 'capture   off (no spectrum)'
+        ? app.captureWaitingForGesture
+          ? 'capture   click or press a key to enable system audio'
+          : 'capture   off (no spectrum)'
         : app.loopback.hasAudioSignal
           ? `capture   ok (${app.loopback.audioRms.toFixed(3)} rms)`
           : 'capture   silent (re-share with audio)',
