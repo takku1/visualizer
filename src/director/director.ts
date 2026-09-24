@@ -92,6 +92,7 @@ export class Director {
   #plan: VisualPlan;
   #history: string[] = [];
   #window = new FeatureWindow();
+  #lastMeaningRevision: number | null = null;
 
   constructor(opts: DirectorOptions) {
     this.#engine = opts.engine;
@@ -121,7 +122,9 @@ export class Director {
     const since = now - this.#lastAskAt;
     if (this.#inFlight || since < this.#minInterval) return;
 
-    const due = f.onSection || since >= this.#maxInterval;
+    const meaningRevision = ctx.meaning?.revision ?? null;
+    const meaningChanged = meaningRevision !== this.#lastMeaningRevision;
+    const due = f.onSection || since >= this.#maxInterval || meaningChanged;
     if (!due) return;
 
     // Back off hard after repeated failures rather than hammering a dead key.
@@ -131,6 +134,7 @@ export class Director {
     }
 
     this.#lastAskAt = now;
+    this.#lastMeaningRevision = meaningRevision;
     void this.#decide(f, ctx);
   }
 

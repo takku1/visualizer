@@ -210,7 +210,9 @@ function createWindow() {
     console.error(`[electron] renderer process gone: ${details.reason}`);
   });
 
-  win.loadFile(path.join(__dirname, '..', 'dist', 'dev', 'index.html'));
+  win.loadFile(path.join(__dirname, '..', 'dist', 'dev', 'index.html'), {
+    query: process.env.S1_MEANING_URL ? { meaning: process.env.S1_MEANING_URL } : undefined,
+  });
   startMediaSession(win);
   return win;
 }

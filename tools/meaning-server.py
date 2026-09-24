@@ -53,6 +53,7 @@ class Probe:
             generate_kwargs={"task": "transcribe"},
         )
         hypotheses: list[dict] = []
+        detected_language = str(result.get("language", "und"))
         for index, chunk in enumerate(result.get("chunks", [])):
             text = str(chunk.get("text", "")).strip()
             timestamps = chunk.get("timestamp") or (None, None)
@@ -62,13 +63,13 @@ class Probe:
             hypotheses.append({
                 "id": f"asr-{int((offset_sec + start) * 1000)}-{index}",
                 "text": text,
-                # The default Whisper pipeline does not expose a stable
-                # language tag in every transformers version. `und` is honest
-                # until a language-aware backend supplies one.
-                "language": "und",
+                "language": detected_language,
                 "startSec": round(offset_sec + float(start), 3),
                 "endSec": round(offset_sec + float(end), 3),
-                "confidence": 0.5,
+                # Transformers does not expose a calibrated chunk confidence
+                # consistently. Keep this as a provisional calibrated floor;
+                # repeated-window stability is enforced in the browser.
+                "confidence": float(chunk.get("confidence", result.get("confidence", 0.7))),
                 "stability": 0.0,
                 "status": "provisional",
                 "source": "live-asr",

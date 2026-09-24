@@ -1,6 +1,7 @@
 # First-listen mode without external lyric APIs
 
-Status: architecture plan; local lyric/ASR worker not implemented yet.
+Status: local ASR transport and promotion path implemented; model quality and
+language coverage remain evaluation work.
 
 ## The honest constraint
 

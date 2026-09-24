@@ -79,6 +79,7 @@ async function main(): Promise<void> {
     // The stream sidecar is the product path; `?stream=off` runs the fallback
     // field alone, `?stream=ws://host:port` points elsewhere.
     streamUrl: params.get('stream') === 'off' ? undefined : params.get('stream') ?? 'ws://127.0.0.1:8771',
+    meaningUrl: params.get('meaning') ?? undefined,
     paint: Number(params.get('paint') ?? storedPaint() ?? 0.85),
     keyframes: params.get('keyframes') !== 'off',
     direction: params.get('direction') === 'knobs' ? 'knobs' : 'splice',

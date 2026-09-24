@@ -11,6 +11,7 @@ import { CheckpointScheduler, type StreamObservation } from '../src/stream/check
 import { addShotCandidate, compileShotGraph, nextShots } from '../src/stream/shot-graph';
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
+import { meaningFromLive } from '../src/director/live-meaning';
 import { ProceduralScene } from '../src/render/procedural';
 
 let passed = 0;
@@ -256,6 +257,17 @@ test('a new track and stale revision cannot inherit committed live meaning', () 
   accumulator.update('track-a', 3, [{ ...liveHypothesis, confidence: 0.9, stability: 0.9 }]);
   assert.equal(accumulator.update('track-a', 2, []).committed.length, 1);
   assert.equal(accumulator.update('track-b', 1, []).committed.length, 0);
+});
+
+test('committed live audio promotes to SongMeaning without blocking the renderer', () => {
+  const accumulator = new LiveLyricAccumulator();
+  let state = accumulator.update('track-a', 1, [{ ...liveHypothesis, confidence: 0.8, stability: 0 }]);
+  state = accumulator.update('track-a', 2, [{ ...liveHypothesis, confidence: 0.8, stability: 0 }]);
+  state = accumulator.update('track-a', 3, [{ ...liveHypothesis, confidence: 0.8, stability: 0 }]);
+  const meaning = meaningFromLive(state, 1, 0);
+  assert.equal(meaning?.evidence[0]?.source, 'audio');
+  assert.equal(meaning?.motifs[0]?.label, liveHypothesis.text);
+  assert.equal(meaning?.abstained, false);
 });
 
 /** Drive a scheduler through `seconds` of a 120 bpm 4/4 grid (2 s bars); returns requests with their times. */

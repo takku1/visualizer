@@ -10,6 +10,7 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 // sidecar on its own, so Electron does not wait for the model to load.
 const python = process.env.PYTHON ?? 'python';
 const withStream = !process.argv.includes('--no-stream');
+const withMeaning = process.argv.includes('--meaning');
 const children = new Set();
 let shuttingDown = false;
 
@@ -50,6 +51,10 @@ try {
     } else {
       console.warn('[app] models missing - run `npm run models` first. Starting without the stream.');
     }
+  }
+  if (withMeaning) {
+    process.env.S1_MEANING_URL = 'ws://127.0.0.1:8772';
+    start(python, [join(projectRoot, 'tools/meaning-server.py')]).once('error', (err) => console.error(`[app] meaning worker: ${err.message}`));
   }
   await run(process.execPath, [join(projectRoot, 'node_modules/electron/cli.js'), join(projectRoot, 'electron/main.cjs')]);
   shutdown(0);

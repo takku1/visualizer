@@ -38,9 +38,14 @@ export class LiveLyricAccumulator {
       if (!key) continue;
       seen.add(key);
       const prior = this.#candidates.get(key);
+      const observations = (prior?.observations ?? 0) + 1;
       const candidate: Candidate = {
-        hypothesis: { ...hypothesis, status: 'provisional' },
-        observations: (prior?.observations ?? 0) + 1,
+        hypothesis: {
+          ...hypothesis,
+          status: 'provisional',
+          stability: Math.max(hypothesis.stability, Math.min(1, observations / 3)),
+        },
+        observations,
         lastRevision: revision,
       };
       this.#candidates.set(key, candidate);

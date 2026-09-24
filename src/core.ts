@@ -21,6 +21,8 @@ import { CouplingController } from './stream/coupling';
 import { MotifLedger } from './director/semantic';
 import { LiveMeaningClient } from './director/live-client';
 import type { LiveLyricUpdate } from './director/live';
+import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-accumulator';
+import { meaningFromLive } from './director/live-meaning';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -102,6 +104,10 @@ export class VisualizerApp {
   #motifLedger = new MotifLedger();
   #liveMeaning: LiveMeaningClient | null = null;
   #liveLyrics: LiveLyricUpdate | null = null;
+  #liveMeaningState: LiveMeaningState | null = null;
+  #liveMeaningRevision = 0;
+  #liveCommittedSignature = '';
+  #liveAccumulator = new LiveLyricAccumulator();
   #lastMeaningSendAt = -Infinity;
 
   constructor(config: AppConfig = {}) {
@@ -164,6 +170,12 @@ export class VisualizerApp {
       this.#liveMeaning = new LiveMeaningClient(config.meaningUrl, (update) => {
         if (!this.#liveLyrics || update.trackId !== this.#liveLyrics.trackId || update.revision >= this.#liveLyrics.revision) {
           this.#liveLyrics = update;
+          this.#liveMeaningState = this.#liveAccumulator.update(update.trackId, update.revision, update.hypotheses);
+          const signature = this.#liveMeaningState.committed.map((item) => `${item.id}:${item.text}`).join('|');
+          if (signature && signature !== this.#liveCommittedSignature) {
+            this.#liveCommittedSignature = signature;
+            this.#liveMeaningRevision++;
+          }
         }
       });
     }
@@ -283,7 +295,11 @@ export class VisualizerApp {
     }
     if (!stream0?.connected) this.#conceptsRequestedFor = null;
     const concepts = stream0?.concepts?.trackId === baseCtx.trackId ? stream0?.concepts?.words : undefined;
-    const meaning = stream0?.meaning?.trackId === baseCtx.trackId ? stream0?.meaning?.manifest : undefined;
+    const liveState = this.#liveMeaningState;
+    const localMeaning = liveState && liveState.trackId === baseCtx.trackId
+      ? meaningFromLive(liveState, this.#liveMeaningRevision, frame.sectionIndex)
+      : undefined;
+    const meaning = stream0?.meaning?.trackId === baseCtx.trackId ? stream0?.meaning?.manifest : localMeaning;
     const ctx = concepts?.length || meaning ? { ...baseCtx, ...(concepts?.length ? { concepts } : {}), ...(meaning ? { meaning } : {}) } : baseCtx;
     this.#director.tick(frame, ctx);
 
