@@ -161,6 +161,45 @@ def compile_structured_prompt(realization: dict) -> str:
     return ", ".join(part for part in parts if part)
 
 
+def structured_conditioning_summary(realization: dict, compiled_prompt: str) -> dict:
+    """Expose exactly which structured state reached this legacy backend.
+
+    The current SD-Turbo adapter still consumes text, so this is not a claim
+    of object-level model conditioning. It is an auditable bridge: later
+    backends can replace the prompt compiler while retaining the same field
+    coverage and request hash in telemetry.
+    """
+    world = realization.get("world", {})
+    shot = realization.get("shot", {})
+    diff = realization.get("diff", {})
+    fields: list[str] = []
+    if isinstance(world.get("entities"), list) and world["entities"]:
+        fields.append("entities")
+    if isinstance(world.get("environment"), list) and world["environment"]:
+        fields.append("environment")
+    if world.get("relation"):
+        fields.append("relation")
+    if isinstance(world.get("intent"), dict) and world["intent"]:
+        fields.append("intent")
+    if isinstance(world.get("emergent"), dict) and world["emergent"].get("hypotheses"):
+        fields.append("emergent")
+    for key in ("action", "camera", "visualIdentity"):
+        if world.get(key):
+            fields.append(key)
+    if isinstance(shot, dict) and any(shot.get(key) for key in ("id", "grammar", "framing", "camera")):
+        fields.append("shot")
+    if isinstance(diff, dict):
+        fields.append("diff")
+    return {
+        "version": "structured-world-v1",
+        "fields": fields,
+        "promptSha256": hashlib.sha256(compiled_prompt.encode("utf-8")).hexdigest()[:16],
+        "entityCount": len(world.get("entities", [])) if isinstance(world.get("entities"), list) else 0,
+        "emergentHypothesisCount": len(world.get("emergent", {}).get("hypotheses", [])) if isinstance(world.get("emergent"), dict) and isinstance(world.get("emergent", {}).get("hypotheses"), list) else 0,
+        "identityBreak": bool(diff.get("identityBreak")) if isinstance(diff, dict) else False,
+    }
+
+
 @dataclass
 class Control:
     """Sampling physics for one fast frame. Mirrors SamplerControl in src/stream/control.ts."""
@@ -694,6 +733,7 @@ class Engine:
             # metadata. Prompt/look remain compiled compatibility artifacts.
             legacy = realization["legacy"]
             structured_prompt = compile_structured_prompt(realization)
+            conditioning_summary = structured_conditioning_summary(realization, structured_prompt)
             msg = {
                 **msg,
                 "prompt": structured_prompt or legacy.get("prompt", msg.get("prompt", "")),
@@ -711,6 +751,10 @@ class Engine:
                 "continuousForces": realization["continuousForces"],
                 "resonance": realization.get("resonance"),
                 "conditioning": "structured-world-v1",
+                "conditioningFields": conditioning_summary["fields"],
+                "conditioningHash": conditioning_summary["promptSha256"],
+                "conditioningEntities": conditioning_summary["entityCount"],
+                "conditioningEmergentHypotheses": conditioning_summary["emergentHypothesisCount"],
             }
         else:
             self.last_realization = {"structured": False}

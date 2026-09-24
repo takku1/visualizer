@@ -29,6 +29,11 @@ assert "persistent lighting: side" in compiled
 assert "perceptual form: organic" in compiled
 assert "perceptual behavior: reaching" in compiled
 assert "persistent emergent forms: upright, fibrous" in compiled
+summary = module.structured_conditioning_summary(base, compiled)
+assert summary["version"] == "structured-world-v1"
+assert set(("entities", "intent", "emergent", "shot", "visualIdentity", "diff")).issubset(summary["fields"])
+assert summary["entityCount"] == 1
+assert len(summary["promptSha256"]) == 16
 assert module.normalize_realization_request({"realization": {**base, "legacy": {"look": {}}}}) is None
 assert module.normalize_realization_request({}) is None
 print("realization contract ok")
