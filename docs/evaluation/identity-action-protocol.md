@@ -63,6 +63,13 @@ python tools/evaluate-world.py docs/evaluation/identity-action-manifest.example.
   --model models/clip-vit-b32
 ```
 
+For an additional offline motion diagnostic, add `--optical-flow`. It uses
+dense Farneback flow between adjacent labeled frames and reports motion
+magnitude and directional coherence. This is deliberately not an action
+classifier: camera motion, texture, and diffusion artifacts can produce the
+same signal. The method follows Farnebäck, *Two-Frame Motion Estimation Based
+on Polynomial Expansion* (SCIA 2003, [paper record](https://www.ida.liu.se/ext/WITAS-ev/Computer_Vision_Technologies/PaperInfo/farneback03.html)).
+
 The report contains text/action similarity, all-pairs and adjacent-frame
 temporal consistency, and optional reference-image similarity. Adjacent-frame
 scores are the more relevant continuity diagnostic; all-pairs scores are useful

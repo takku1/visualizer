@@ -5,6 +5,9 @@ import importlib.util
 import tempfile
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
+
 spec = importlib.util.spec_from_file_location("evaluate_world", Path(__file__).with_name("evaluate-world.py"))
 assert spec and spec.loader
 module = importlib.util.module_from_spec(spec)
@@ -52,5 +55,19 @@ with tempfile.TemporaryDirectory() as directory:
     one_action = module.validate_manifest({**base, "frames": [base["frames"][0], {**base["frames"][1], "action": None}]}, root)
     assert one_action["identityReady"] is True
     assert one_action["actionReady"] is False
+
+    first = np.zeros((48, 64), dtype=np.uint8)
+    second = np.zeros((48, 64), dtype=np.uint8)
+    first[18:30, 8:20] = 255
+    second[18:30, 14:26] = 255
+    Image.fromarray(first).save(root / "flow-a.png")
+    Image.fromarray(second).save(root / "flow-b.png")
+    flow = module.optical_flow_diagnostics(
+        [{"file": "flow-a.png"}, {"file": "flow-b.png"}],
+        root,
+        {"moving-form": [0, 1]},
+    )
+    assert flow["sequences"]["moving-form"]["adjacentPairs"] == 1
+    assert flow["sequences"]["moving-form"]["meanMagnitude"] > 0
 
 print("world evaluation preflight contract ok")

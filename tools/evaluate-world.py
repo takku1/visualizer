@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 
@@ -110,6 +111,63 @@ def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
     }
 
 
+def optical_flow_diagnostics(rows: list[dict], root: Path, groups: dict[str, list[int]]) -> dict[str, object]:
+    """Measure dense inter-frame motion as an offline action diagnostic.
+
+    This is deliberately not an action classifier. It reports motion magnitude,
+    dominant direction, and directional coherence for human-labeled sequences.
+    Farneback's dense flow is useful for detecting whether an intended action
+    has visible motion, but camera motion, texture, and generated artifacts can
+    all confound it.
+    """
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image
+    except ImportError as exc:
+        raise RuntimeError("--optical-flow requires opencv-python, numpy, and Pillow") from exc
+
+    loaded: dict[int, object] = {}
+    for index, row in enumerate(rows):
+        loaded[index] = np.asarray(Image.open(root / row["file"]).convert("L"))
+    report: dict[str, object] = {}
+    for group, indices in groups.items():
+        pairs: list[dict[str, float]] = []
+        for first, second in zip(indices, indices[1:]):
+            prev = loaded[first]
+            current = loaded[second]
+            flow = cv2.calcOpticalFlowFarneback(
+                prev, current, None, 0.5, 3, 15, 3, 5, 1.2, 0,
+            )
+            magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1], angleInDegrees=True)
+            mean_vector = np.array([flow[..., 0].mean(), flow[..., 1].mean()])
+            mean_magnitude = float(magnitude.mean())
+            pairs.append({
+                "from": first,
+                "to": second,
+                "meanMagnitude": mean_magnitude,
+                "medianMagnitude": float(np.median(magnitude)),
+                "dominantDirectionDegrees": float((math.degrees(math.atan2(mean_vector[1], mean_vector[0])) + 360) % 360)
+                if np.linalg.norm(mean_vector) > 1e-8 else None,
+                "directionalCoherence": float(np.linalg.norm(mean_vector) / max(mean_magnitude, 1e-8)),
+                "meanAngleDegrees": float(np.mean(angle)),
+            })
+        magnitudes = [pair["meanMagnitude"] for pair in pairs]
+        coherences = [pair["directionalCoherence"] for pair in pairs]
+        report[group] = {
+            "frames": len(indices),
+            "adjacentPairs": len(pairs),
+            "meanMagnitude": float(np.mean(magnitudes)) if magnitudes else None,
+            "meanDirectionalCoherence": float(np.mean(coherences)) if coherences else None,
+            "pairs": pairs,
+        }
+    return {
+        "sequences": report,
+        "note": "Dense Farneback flow is motion evidence only; it does not identify subjects, separate camera motion, or verify an action label.",
+        "method": "Farneback-2003 dense optical flow",
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
@@ -117,6 +175,7 @@ def main() -> None:
     parser.add_argument("--threshold", type=float, default=0.2)
     parser.add_argument("--validate-only", action="store_true", help="check capture files and annotation coverage without loading the model")
     parser.add_argument("--out", type=Path, default=None, help="also write the JSON diagnostic report to this path")
+    parser.add_argument("--optical-flow", action="store_true", help="add offline dense-motion diagnostics for sequence/identity groups")
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     validation = validate_manifest(manifest, args.manifest.parent)
@@ -253,6 +312,8 @@ def main() -> None:
         "actionReady": validation["actionReady"],
         "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group. Verification remains false until a correspondence/action evaluator is connected.",
     }
+    if args.optical_flow:
+        report["motionDiagnostics"] = optical_flow_diagnostics(rows, args.manifest.parent, {**sequences, **groups})
     rendered = json.dumps(report, indent=2)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
