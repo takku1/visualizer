@@ -210,6 +210,12 @@ entities or rewrite semantic identity. `ShotGraph` nodes likewise carry their
 structured world, shot, and world diff, with `Scene` retained as a compatibility
 projection.
 
+`WorldResonance` is the next bounded realization artifact derived from those
+forces and the committed world. It can intensify existing weather, camera,
+lighting, and entity motion handles, but has no operation for creating/removing
+entities or changing their IDs. This keeps semantic content and audio-driven
+physics separate while giving future backends a structured control surface.
+
 ## Checkpoint realization (browser decides, sidecar renders)
 
 - **What:** the director runs on section boundaries, or at most every 30 s.

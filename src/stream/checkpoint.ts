@@ -2,7 +2,7 @@ import type { FeatureFrame } from '../types';
 import type { Scene } from './scenes';
 import { hash } from './scenes';
 import { applySceneDiff, diffWorldState, type SceneDiff, type WorldState } from '../world/state';
-import { ZERO_FORCES, type ContinuousForces, type RealizationRequest } from '../realization/backend';
+import { resonanceFrom, ZERO_FORCES, type ContinuousForces, type RealizationRequest } from '../realization/backend';
 
 export type CheckpointReason = 'initial' | 'scene' | 'reseed' | 'stagnant';
 
@@ -22,6 +22,7 @@ export function realizationRequestFromCheckpoint(request: CheckpointRequest, con
     shot: request.shot,
     diff: request.worldDiff,
     continuousForces,
+    resonance: resonanceFrom(request.world, continuousForces),
     legacy: {
       prompt: request.prompt,
       look: request.look,

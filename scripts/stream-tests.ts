@@ -12,6 +12,7 @@ import { addShotCandidate, compileShotGraph, nextShots, ShotGraphRuntime } from 
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive } from '../src/director/live-meaning';
+import { resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
@@ -281,6 +282,22 @@ test('committed Japanese live audio extracts only evidenced world handles', () =
   }, 2, 0);
   assert.deepEqual(meaning?.motifs.map((motif) => motif.kind).sort(), ['force', 'person', 'place']);
   assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
+});
+
+test('semantic resonance modulates existing handles without inventing content', () => {
+  const scene = sceneFromPlan(initialPlan(), {}, 0);
+  const world = scene.world;
+  const resonance = resonanceFrom({
+    ...world,
+    environment: ['rainy station'],
+    action: 'walks through the environment',
+    camera: 'tracking shot',
+    entities: [{ id: 'alice', label: 'woman', kind: 'person', attributes: ['red coat'], confidence: 1 }],
+  }, { ...ZERO_FORCES, energy: 1, beatImpulse: 1, treble: 0.8, flux: 0.6, motionMagnitude: 0.7 });
+  assert.ok((resonance.weatherIntensity ?? 0) > 0);
+  assert.ok(resonance.cameraImpulse > 0);
+  assert.ok(resonance.entityMotion.alice > 0);
+  assert.deepEqual(Object.keys(resonance.entityMotion), ['alice']);
 });
 
 test('world diffs preserve stable subjects while changing action', () => {

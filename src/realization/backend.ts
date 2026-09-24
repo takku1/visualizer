@@ -3,6 +3,7 @@ import type { Shot } from '../world/shot';
 import type { Look } from '../stream/scenes';
 import type { FeatureFrame } from '../types';
 import type { SamplerControl } from '../stream/control';
+import { resonanceFrom, type WorldResonance } from '../world/resonance';
 
 /** Renderer-neutral continuous pressure; semantic identity is intentionally absent. */
 export interface ContinuousForces {
@@ -21,6 +22,7 @@ export interface RealizationRequest {
   shot: Shot;
   diff: SceneDiff;
   continuousForces: ContinuousForces;
+  resonance: WorldResonance;
   legacy: {
     prompt: string;
     look: Look;
@@ -63,6 +65,8 @@ export function continuousForcesFrom(frame: FeatureFrame, control: SamplerContro
     motionMagnitude: clamp((Math.abs(control.zoom) / 2 + Math.abs(control.rotate) / 4 + Math.abs(control.flow)) / 3),
   };
 }
+
+export { resonanceFrom };
 
 export const ZERO_FORCES: ContinuousForces = {
   bass: 0, treble: 0, energy: 0, flux: 0, beatImpulse: 0, huePressure: 0, motionMagnitude: 0,

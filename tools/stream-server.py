@@ -642,6 +642,7 @@ class Engine:
                 "shotId": realization["shot"].get("id"),
                 "grammar": realization["shot"].get("grammar"),
                 "continuousForces": realization["continuousForces"],
+                "resonance": realization.get("resonance"),
             }
         else:
             self.last_realization = {"structured": False}
