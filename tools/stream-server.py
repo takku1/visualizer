@@ -235,14 +235,28 @@ class Bender:
         # hue, swell, glass, lurch, then one strength per h-space axis
         self.params = torch.zeros(4 + len(HSPACE_AXES), device=DEVICE, dtype=torch.float32)
         self.mask = torch.zeros(2, device=DEVICE, dtype=torch.float32)
+        # `set` runs once per live frame. Keep the tiny CPU staging buffers
+        # alive so control updates do not allocate two temporary tensors on
+        # every call before copying into the graph-visible GPU state.
+        self._params_host = torch.empty(4 + len(HSPACE_AXES), dtype=torch.float32)
+        self._mask_host = torch.empty(2, dtype=torch.float32)
         self.directions: torch.Tensor | None = None  # [axes, C, H, W] at the bottleneck
         unet.conv_in.register_forward_hook(self._early)
         unet.mid_block.register_forward_hook(self._mid)
         unet.up_blocks[2].register_forward_hook(self._late)
 
     def set(self, c: "Control", live: list[float]) -> None:
-        self.params.copy_(torch.tensor([c.hue, c.swell, c.glass, c.lurch, c.hsEnergy, c.hsLight, c.hsOrganic]))
-        self.mask[: len(live)].copy_(torch.tensor(live))
+        self._params_host[0] = c.hue
+        self._params_host[1] = c.swell
+        self._params_host[2] = c.glass
+        self._params_host[3] = c.lurch
+        self._params_host[4] = c.hsEnergy
+        self._params_host[5] = c.hsLight
+        self._params_host[6] = c.hsOrganic
+        for index, value in enumerate(live):
+            self._mask_host[index] = value
+        self.params.copy_(self._params_host)
+        self.mask[: len(live)].copy_(self._mask_host[: len(live)])
 
     def _gate(self, h: torch.Tensor, i: int) -> torch.Tensor:
         return (self.params[i] * self.mask[: h.shape[0]]).view(-1, 1, 1, 1).to(h.dtype)
@@ -957,7 +971,7 @@ async def serve(stream: Stream) -> None:
         await asyncio.Future()
 
 
-def bench(frames: int) -> None:
+def bench(frames: int, report_path: str | None = None) -> None:
     engine = Engine()
     print(f"loaded in {engine.load_s:.1f}s on {DEVICE}; vram {torch.cuda.memory_allocated() / 2**20:.0f} MB" if DEVICE == "cuda" else "loaded (cpu)")
     out = ROOT / "output" / "stream-bench"
@@ -981,18 +995,40 @@ def bench(frames: int) -> None:
         if i < 3 or meta.get("phase") != "idle" and i % 5 == 0:
             print(i, meta)
     warm = sorted(times[5:])
-    print(f"frames {len(times)}  median {warm[len(warm) // 2] * 1000:.1f} ms  p90 {warm[int(len(warm) * 0.9)] * 1000:.1f} ms"
-          f"  -> {1 / warm[len(warm) // 2]:.1f} fps (engine only, excl. JPEG)")
+    median_ms = warm[len(warm) // 2] * 1000
+    p90_ms = warm[min(len(warm) - 1, int(len(warm) * 0.9))] * 1000
+    report = {
+        "frames": len(times),
+        "warmupFrames": min(5, len(times)),
+        "width": WIDTH,
+        "height": HEIGHT,
+        "device": DEVICE,
+        "dtype": str(DTYPE),
+        "medianMs": round(median_ms, 3),
+        "p90Ms": round(p90_ms, 3),
+        "fps": round(1000 / median_ms, 3) if median_ms else 0,
+        "includesJpeg": False,
+    }
+    print(f"frames {len(times)}  median {median_ms:.1f} ms  p90 {p90_ms:.1f} ms"
+          f"  -> {report['fps']:.1f} fps (engine only, excl. JPEG)")
     if DEVICE == "cuda":
-        print(f"peak vram {torch.cuda.max_memory_allocated() / 2**20:.0f} MB of {torch.cuda.get_device_properties(0).total_memory / 2**20:.0f} MB")
+        report["peakVramMb"] = round(torch.cuda.max_memory_allocated() / 2**20, 1)
+        report["totalVramMb"] = round(torch.cuda.get_device_properties(0).total_memory / 2**20, 1)
+        print(f"peak vram {report['peakVramMb']:.0f} MB of {report['totalVramMb']:.0f} MB")
+    if report_path:
+        path = Path(report_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        print(f"benchmark report in {path}")
     print(f"sample frames in {out}")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--bench", type=int, default=0, help="run N frames headless and report throughput")
+    ap.add_argument("--bench-json", default=None, help="also write the benchmark report as JSON")
     args = ap.parse_args()
     if args.bench:
-        bench(args.bench)
+        bench(args.bench, args.bench_json)
     else:
         asyncio.run(serve(Stream(Engine())))
