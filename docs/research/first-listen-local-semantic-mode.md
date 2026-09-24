@@ -5,6 +5,15 @@ default Electron launcher; model quality and language coverage remain
 evaluation work. Set `MEANING_ASR_LANGUAGE=ja` when automatic language
 detection is unreliable for Japanese vocals.
 
+Runtime evidence includes the worker's measured inference latency and audio
+window duration. The browser sends one window at a time deliberately: this
+prevents an ASR backlog from competing with rendering, but it also means that
+a six-second window whose inference takes longer than the send interval can
+reduce semantic observations to roughly one result per inference duration.
+These values are reported as `meaning.lastLatencyMs` and
+`meaning.lastWindowSec`; model or window changes should be made only after
+capturing this measurement.
+
 ## The honest constraint
 
 For an unknown streaming song, the future lyric content does not exist at the

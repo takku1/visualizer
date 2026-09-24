@@ -15,6 +15,8 @@ export class LiveMeaningClient {
   configuredLanguage: string | null = null;
   workerBuildHash: string | null = null;
   lastRevision: number | null = null;
+  lastLatencyMs: number | null = null;
+  lastWindowSec: number | null = null;
 
   constructor(url: string, onUpdate: (update: LiveLyricUpdate) => void) {
     this.#url = url;
@@ -47,6 +49,8 @@ export class LiveMeaningClient {
           const detected = value.hypotheses[0]?.language;
           if (detected && detected !== 'und') this.lastLanguage = detected;
           this.lastRevision = value.revision;
+          this.lastLatencyMs = typeof value.latencyMs === 'number' ? value.latencyMs : null;
+          this.lastWindowSec = typeof value.windowSec === 'number' ? value.windowSec : null;
           this.#onUpdate(value);
         }
       } catch {
@@ -58,6 +62,8 @@ export class LiveMeaningClient {
       this.#ws = null;
       this.#inFlight = false;
       this.workerBuildHash = null;
+      this.lastLatencyMs = null;
+      this.lastWindowSec = null;
       if (this.#closed) return;
       setTimeout(() => this.connect(), this.#retryMs);
       this.#retryMs = Math.min(this.#retryMs * 2, 10000);
@@ -65,7 +71,7 @@ export class LiveMeaningClient {
     ws.onerror = () => ws.close();
   }
 
-  telemetry(): { connected: boolean; updates: number; hypotheses: number; language: string | null; configuredLanguage: string | null; workerBuildHash: string | null; revision: number | null } {
+  telemetry(): { connected: boolean; updates: number; hypotheses: number; language: string | null; configuredLanguage: string | null; workerBuildHash: string | null; revision: number | null; lastLatencyMs: number | null; lastWindowSec: number | null } {
     return {
       connected: this.connected,
       updates: this.updatesReceived,
@@ -74,6 +80,8 @@ export class LiveMeaningClient {
       configuredLanguage: this.configuredLanguage,
       workerBuildHash: this.workerBuildHash,
       revision: this.lastRevision,
+      lastLatencyMs: this.lastLatencyMs,
+      lastWindowSec: this.lastWindowSec,
     };
   }
 
@@ -83,6 +91,8 @@ export class LiveMeaningClient {
     this.#ws = null;
     this.#inFlight = false;
     this.workerBuildHash = null;
+    this.lastLatencyMs = null;
+    this.lastWindowSec = null;
   }
 
   sendWindow(trackId: string, playheadSec: number, window: AudioWindow): void {

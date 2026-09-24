@@ -28,6 +28,8 @@ export interface LiveLyricUpdate {
   revision: number;
   model: string;
   hypotheses: LiveLyricHypothesis[];
+  latencyMs?: number;
+  windowSec?: number;
 }
 
 export function isLiveLyricUpdate(value: unknown): value is LiveLyricUpdate {

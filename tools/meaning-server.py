@@ -200,6 +200,7 @@ class Server:
             current = header
             header = None
             error: str | None = None
+            started = time.perf_counter()
             try:
                 hypotheses = await asyncio.to_thread(
                     self.probe.transcribe,
@@ -219,6 +220,8 @@ class Server:
                 "revision": self.revision,
                 "model": self.probe.model_name,
                 "hypotheses": hypotheses,
+                "latencyMs": round((time.perf_counter() - started) * 1000, 1),
+                "windowSec": round(len(samples) / max(int(current.get("sampleRate", 16000)), 1), 3),
             }
             if error:
                 response["error"] = error
