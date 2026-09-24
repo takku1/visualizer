@@ -103,6 +103,10 @@ export class VisualizerApp {
   #capture: ProceduralCapture | null = null;
   #capturing = false;
   #capturePausedUntil = 0;
+  #captureMaxMs = 0;
+  #captureErrors = 0;
+  #capturePauses = 0;
+  #captureLastError: string | null = null;
   #captureGestureListener: (() => void) | null = null;
   #paint: number;
   #knobs: KnobDirector | null;
@@ -643,7 +647,7 @@ export class VisualizerApp {
         t: frame.t,
         fps,
         streamFps,
-        stream: stream ? { buildHash: stream.info?.buildHash ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10 } : null,
+        stream: stream ? { buildHash: stream.info?.buildHash ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureLastError: this.#captureLastError } : null,
         paint: this.#paint,
         meaning: this.#meaningTelemetry(),
         control,
@@ -672,6 +676,12 @@ export class VisualizerApp {
         } : null,
       }));
       this.#streamFramesAtWindow = received;
+      // Windowed capture health resets with each telemetry flush, so the
+      // next window measures only itself; the EMA above stays cumulative.
+      this.#captureMaxMs = 0;
+      this.#captureErrors = 0;
+      this.#capturePauses = 0;
+      this.#captureLastError = null;
       this.#fpsFrames = 0;
       this.#fpsWindowStart = now;
     }
@@ -718,15 +728,19 @@ export class VisualizerApp {
       const jpeg = await this.#capture.capture(scene);
       const elapsed = performance.now() - started;
       stream.captureMs = stream.captureMs * 0.9 + elapsed * 0.1;
+      this.#captureMaxMs = Math.max(this.#captureMaxMs, elapsed);
       if (elapsed > 250) {
         // One bad capture is enough to protect the UI. A later retry is
         // allowed after 30 s so transient GPU pressure can recover.
         this.#capturePausedUntil = performance.now() + 30_000;
+        this.#capturePauses++;
         this.#errors = [`! capture slow (${Math.round(elapsed)}ms); camera upload paused`];
       }
       if (elapsed <= 250) stream.sendSource(jpeg, now);
     } catch (err) {
       this.#errors = [`! capture: ${(err as Error).message.slice(0, 48)}`];
+      this.#captureErrors++;
+      this.#captureLastError = (err as Error).message.slice(0, 160);
     } finally {
       this.#capturing = false;
     }
