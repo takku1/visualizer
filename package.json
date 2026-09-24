@@ -12,6 +12,7 @@
     "app": "node scripts/app.mjs",
     "stream": "python tools/stream-server.py",
     "stream:bench": "python tools/stream-server.py --bench 150",
+    "smoke": "node scripts/stream-smoke.mjs",
     "models": "python tools/fetch-models.py",
     "test": "node scripts/run-stream-tests.mjs",
     "test:meaning-import": "node scripts/test-meaning-import.mjs",
