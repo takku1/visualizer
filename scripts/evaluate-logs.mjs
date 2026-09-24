@@ -84,6 +84,8 @@ const summary = {
       maxCommitted: samples.length ? Math.max(...samples.map((sample) => sample.committed ?? 0)) : 0,
       maxCandidateCount: samples.length ? Math.max(...samples.map((sample) => sample.candidateCount ?? 0)) : 0,
       maxCandidateObservations: samples.length ? Math.max(...samples.map((sample) => sample.maxCandidateObservations ?? 0)) : 0,
+      provisionalCueSamples: samples.filter((sample) => sample.provisionalCue?.active === true).length,
+      maxProvisionalCueConfidence: samples.length ? Math.max(...samples.map((sample) => sample.provisionalCue?.confidence ?? 0)) : 0,
     };
   })(),
   realization: {
