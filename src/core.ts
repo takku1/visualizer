@@ -91,6 +91,7 @@ export class VisualizerApp {
   #capture: ProceduralCapture | null = null;
   #capturing = false;
   #capturePausedUntil = 0;
+  #captureGestureListener: (() => void) | null = null;
   #paint: number;
   #knobs: KnobDirector | null;
   #targets: KnobTargets | null = null;
@@ -337,18 +338,38 @@ export class VisualizerApp {
     // blocking on it would leave the caller's start screen covering a
     // perfectly good visualizer. Denial just means no spectrum.
     if (!this.loopback.capturing) {
-      void this.loopback
-        .start()
-        .then(() => console.log('[audio] loopback capture started'))
-        .catch((err: Error) => {
-          this.#errors = [`! audio capture: ${err.message.slice(0, 48)}`];
-          console.error(`[audio] loopback capture failed: ${err.message}`);
-        });
+      const beginCapture = (): void => {
+        this.#captureGestureListener = null;
+        if (!this.#running || this.loopback.capturing) return;
+        void this.loopback
+          .start()
+          .then(() => console.log('[audio] loopback capture started'))
+          .catch((err: Error) => {
+            this.#errors = [`! audio capture: ${err.message.slice(0, 48)}`];
+            console.error(`[audio] loopback capture failed: ${err.message}`);
+          });
+      };
+      // Chromium requires transient user activation for display capture. The
+      // visualizer remains useful immediately, but requesting audio before a
+      // gesture can yield an active, permanently silent loopback track.
+      if (navigator.userActivation?.hasBeenActive) {
+        beginCapture();
+      } else {
+        this.#captureGestureListener = beginCapture;
+        window.addEventListener('pointerdown', beginCapture, { once: true });
+        window.addEventListener('keydown', beginCapture, { once: true });
+        console.log('[audio] waiting for user gesture before loopback capture');
+      }
     }
   }
 
   stop(): void {
     this.#running = false;
+    if (this.#captureGestureListener) {
+      window.removeEventListener('pointerdown', this.#captureGestureListener);
+      window.removeEventListener('keydown', this.#captureGestureListener);
+      this.#captureGestureListener = null;
+    }
     cancelAnimationFrame(this.#raf);
     if (this.#loopWatchdog !== null) {
       window.clearInterval(this.#loopWatchdog);
