@@ -59,9 +59,17 @@ export function compileShotGraph(scene: Scene, durationSec = 8): ShotGraph {
   };
 }
 
-export function addShotCandidate(graph: ShotGraph, id: string, scene: Scene, durationSec: number, weight = 1, guard?: ShotGuard): ShotGraph {
+export function addShotCandidate(
+  graph: ShotGraph,
+  id: string,
+  scene: Scene,
+  durationSec: number,
+  weight = 1,
+  guard?: ShotGuard,
+  fromId = 'current',
+): ShotGraph {
   if (graph.nodes.some((node) => node.id === id)) throw new Error(`duplicate shot id: ${id}`);
-  const from = graph.nodes[graph.nodes.length - 1];
+  const from = graph.nodes.find((node) => node.id === fromId) ?? graph.nodes[0];
   return {
     nodes: [...graph.nodes, {
       id,

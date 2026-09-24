@@ -677,15 +677,18 @@ test('checkpoint compiles to a backend-neutral realization request', () => {
 test('shot graph keeps alternate candidates explicit and ordered', () => {
   const first = sceneFromPlan(initialPlan(), {}, 0);
   const graph = addShotCandidate(compileShotGraph(first), 'next', { ...first, seed: 2 }, 4, 0.8, { section: 2, requiresDownbeat: true });
-  const runtime = new ShotGraphRuntime(graph);
+  const branched = addShotCandidate(graph, 'alternate', { ...first, seed: 3 }, 4, 0.9, { section: 2, requiresDownbeat: true });
+  assert.deepEqual(nextShots(branched).map((edge) => edge.to), ['alternate', 'next']);
+  assert.deepEqual(nextShots(branched).map((edge) => edge.from), ['current', 'current']);
+  const runtime = new ShotGraphRuntime(branched);
   assert.equal(nextShots(graph)[0]!.to, 'next');
-  assert.equal(nextShots(graph)[0]!.prefetch, true);
-  assert.equal(runtime.prefetchCandidates()[0]!.id, 'next');
-  assert.equal(runtime.prefetchCandidates()[0]!.world, graph.nodes[1]!.world);
-  assert.equal(runtime.prefetchCandidates()[0]!.shot.id, graph.nodes[1]!.shot.id);
+  assert.equal(nextShots(branched)[0]!.prefetch, true);
+  assert.deepEqual(runtime.prefetchCandidates().map((node) => node.id), ['alternate', 'next']);
+  assert.equal(runtime.prefetchCandidates()[1]!.world, branched.nodes[1]!.world);
+  assert.equal(runtime.prefetchCandidates()[1]!.shot.id, branched.nodes[1]!.shot.id);
   assert.ok(runtime.prefetchCandidates()[0]!.worldDiff);
   assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: false }), null);
-  assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: true })?.id, 'next');
+  assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: true })?.id, 'alternate');
   assert.equal(runtime.cancel(), 1);
 });
 
