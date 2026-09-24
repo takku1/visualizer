@@ -2,8 +2,10 @@
 import fs from 'node:fs';
 
 const file = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
+const requiredLanguages = (process.argv.find((arg) => arg.startsWith('--require-languages='))?.split('=', 2)[1] ?? '')
+  .split(',').map((value) => value.trim().toLowerCase().split(/[-_]/u, 1)[0]).filter(Boolean);
 if (!file || process.argv.includes('--help')) {
-  console.log('Usage: node scripts/evaluate-logs.mjs <session.jsonl> [--json]');
+  console.log('Usage: node scripts/evaluate-logs.mjs <session.jsonl> [--json] [--require-languages=en,ja]');
   process.exit(file ? 0 : 1);
 }
 
@@ -150,6 +152,22 @@ const summary = {
   liveMeaning: (() => {
     const samples = telemetry.map((row) => row.meaning).filter(Boolean);
     const latest = samples.at(-1) ?? null;
+    const languageEvidence = Object.fromEntries(requiredLanguages.map((language) => {
+      const matching = samples.filter((sample) => {
+        const observed = String(sample.language ?? '').toLowerCase().split(/[-_]/u, 1)[0];
+        const configured = String(sample.configuredLanguage ?? '').toLowerCase().split(/[-_]/u, 1)[0];
+        return observed === language || (observed === 'und' && configured === language);
+      });
+      return [language, {
+        samples: matching.length,
+        groundedSamples: matching.filter((sample) => (sample.evidence?.groundedMotifs ?? 0) > 0).length,
+        committedSamples: matching.filter((sample) => (sample.committed ?? 0) > 0).length,
+        status: matching.some((sample) => (sample.evidence?.groundedMotifs ?? 0) > 0) ? 'pass' : 'unverified',
+      }];
+    }));
+    const languageValidation = requiredLanguages.length
+      ? (Object.values(languageEvidence).every((value) => value.status === 'pass') ? 'pass' : 'unverified')
+      : 'not-requested';
     return {
       samples: samples.length,
       latest,
@@ -167,6 +185,9 @@ const summary = {
       abstainedEvidenceSamples: samples.filter((sample) => sample.evidence?.abstained === true).length,
       provisionalCueSamples: samples.filter((sample) => sample.provisionalCue?.active === true).length,
       maxProvisionalCueConfidence: samples.length ? Math.max(...samples.map((sample) => sample.provisionalCue?.confidence ?? 0)) : 0,
+      requiredLanguages,
+      languageEvidence,
+      languageValidation,
     };
   })(),
   liveMeaningByTrack,
@@ -215,9 +236,11 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `World transitions: ${summary.worldTransitions.receipts}; identity breaks: ${summary.worldTransitions.identityBreaks}; keyframes required: ${summary.worldTransitions.keyframeRequired}`,
   `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} grounded<=${summary.liveMeaning.maxGroundedMotifs} actionOnly<=${summary.liveMeaning.maxActionOnlyEvidence} symbolsOnly<=${summary.liveMeaning.maxSymbolOnlyEvidence} abstainedSamples=${summary.liveMeaning.abstainedEvidenceSamples} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
   `Live meaning by track: ${JSON.stringify(summary.liveMeaningByTrack)}`,
+  `Live language gate: ${summary.liveMeaning.languageValidation}; required=${JSON.stringify(summary.liveMeaning.requiredLanguages)} evidence=${JSON.stringify(summary.liveMeaning.languageEvidence)}`,
   `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; resonanceSamples=${summary.realization.resonance.samples}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
   `Continuity: ${summary.realization.latestControlPlane ? `${summary.realization.latestControlPlane.mode}; direction refreshes=${summary.realization.latestControlPlane.directionDecisions}; committed checkpoints=${summary.realization.latestControlPlane.checkpoints}; last=${summary.realization.latestControlPlane.lastCheckpointReason ?? 'none'}` : 'no control-plane telemetry'}`,
   `Stream health: telemetry=${summary.streamHealth.samples}; zeroFps=${summary.streamHealth.zeroFpsSamples} (connected=${summary.streamHealth.zeroFpsWhileConnected}); disconnected=${summary.streamHealth.disconnectedSamples}; maxDropped=${summary.streamHealth.maxDropped}`,
   `ShotGraph: ${summary.shotGraph.latest ? `staged=${summary.shotGraph.latest.staged} prefetched=${summary.shotGraph.latest.prefetched} selected=${summary.shotGraph.latest.selected} pending=${summary.shotGraph.latest.pending}` : 'no runtime telemetry'}`,
   `Evidence-backed decisions: ${summary.evidence.semanticDecisions} (grounded=${summary.evidence.groundedSemanticDecisions}, ungrounded=${summary.evidence.ungroundedSemanticDecisions}); visual verification: deferred`,
 ].join('\n'));
+if (requiredLanguages.length && summary.liveMeaning.languageValidation !== 'pass') process.exitCode = 2;

@@ -69,6 +69,10 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - The same text report now includes live language/configuration coverage, structured-conditioning build hashes, and stream health (zero-FPS windows split by connection state, disconnects, and dropped frames) so startup gaps are not confused with renderer or world-state failures.
 - The same evaluator reports live ASR update/provisional/committed counts and structured-realization conditioning versions, making post-restart runtime validation reproducible.
 - The evaluator also reports structural world-transition metrics; visual identity/action verification remains explicitly unverified.
+- `npm run evaluate:logs -- <session.jsonl> --require-languages=en,ja` now
+  provides an explicit live-language gate: each requested language needs
+  observed evidence plus at least one grounded sample; missing coverage exits
+  with status 2 and is reported as `unverified`, not as renderer failure.
 - Log evaluation now separates semantic decisions from grounded semantic decisions; symbol/action-only promotions are reported as ungrounded instead of inflating evidence coverage.
 - Opt-in frame capture plus `tools/evaluate-world.py` provides a CLIP-based identity/action measurement seam without adding work to the real-time loop. It reports pairwise image-embedding consistency and, when a manifest supplies reference images, reference-image similarity for identity groups; these are diagnostic evidence, not identity verification.
 - The same offline evaluator now accepts `--optical-flow` and reports dense Farneback motion magnitude and directional coherence for labeled or sequence-grouped frames. This is an action/motion diagnostic only; it cannot separate camera motion from subject motion or verify an action label. The existing 22-frame abstract capture measured mean magnitude `3.40` and mean directional coherence `0.131`, so it has motion but no stable directional-action evidence.
