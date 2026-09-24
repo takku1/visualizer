@@ -62,6 +62,9 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - The shared bounded grounding vocabulary/actions now live in one versioned JSON
   contract consumed by both live TypeScript grounding and the timed importer;
   language adapters remain the only supported extension point.
+- Live and imported lyric evidence now resolve an effective bounded language per
+  unambiguous text window, so mixed Japanese/English tracks do not inherit the
+  wrong adapter while unsupported scripts still abstain.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
 - The same text report now includes live language/configuration coverage, structured-conditioning build hashes, and stream health (zero-FPS windows split by connection state, disconnects, and dropped frames) so startup gaps are not confused with renderer or world-state failures.
 - The same evaluator reports live ASR update/provisional/committed counts and structured-realization conditioning versions, making post-restart runtime validation reproducible.

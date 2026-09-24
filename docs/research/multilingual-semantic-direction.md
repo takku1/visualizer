@@ -122,6 +122,9 @@ The bounded lexical adapter and timed importer now consume the same versioned
 licensed/timed lyric evidence behavior aligned while leaving language-specific
 adapters replaceable. The JSON vocabulary is intentionally a contract artifact,
 not a claim that its finite patterns understand a language broadly.
+An unambiguous lyric window may select an effective English or Japanese
+adapter even when the track-level language is the other one, preserving
+mixed-language lines without treating unsupported scripts as understood.
 Automatic translation is still intentionally absent from `sceneFromPlan`:
 translation would move uncertain, expensive work into the director/render path
 and violate the project's timescale separation.

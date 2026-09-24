@@ -63,16 +63,30 @@ fs.writeFileSync(output, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`Imported ${lines.length} timed lyric lines -> ${output} (${grounded ? 'bounded motifs/actions' : 'symbol-only abstention'})`);
 
 function boundedMotifs(value, index) {
-  if (!boundedLanguage.has(language)) return [];
+  const resolvedLanguage = effectiveLanguage(language, value);
+  if (!boundedLanguage.has(resolvedLanguage)) return [];
   return VOCAB.flatMap(([kind, english, japanese]) => {
-    if (!english.test(value) && !japanese.test(value)) return [];
+    const matched = resolvedLanguage === 'ja' ? japanese.test(value) : resolvedLanguage === 'en' ? english.test(value) : english.test(value) || japanese.test(value);
+    if (!matched) return [];
     return [{ id: `lyric-line-${index}-${kind}`, kind, label: kind, attributes: [value], confidence, source: 'lyrics' }];
   });
 }
 
 function boundedAction(value) {
-  if (!boundedLanguage.has(language)) return null;
+  const resolvedLanguage = effectiveLanguage(language, value);
+  if (!boundedLanguage.has(resolvedLanguage)) return null;
+  if (resolvedLanguage === 'ja') for (const [pattern, action] of JAPANESE_ACTIONS) if (pattern.test(value)) return action;
+  if (resolvedLanguage === 'en') for (const [pattern, action] of ACTIONS) if (pattern.test(value)) return action;
   for (const [pattern, action] of ACTIONS) if (pattern.test(value)) return action;
   for (const [pattern, action] of JAPANESE_ACTIONS) if (pattern.test(value)) return action;
   return null;
+}
+
+function effectiveLanguage(value, text) {
+  const base = value.trim().toLowerCase().split(/[-_]/, 1)[0] || 'und';
+  const hasJapanese = /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
+  const hasLatin = /[a-z]/iu.test(text);
+  if (hasJapanese && !hasLatin && ['und', 'auto', 'en', 'ja'].includes(base)) return 'ja';
+  if (hasLatin && !hasJapanese && ['und', 'auto', 'en', 'ja'].includes(base)) return 'en';
+  return base;
 }

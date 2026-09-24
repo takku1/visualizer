@@ -17,7 +17,7 @@ import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { CachedLyricsProvider, LocalTimedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache, StorageLyricsCache, lyricsCacheKey, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
-import { groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
+import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -456,6 +456,13 @@ test('Japanese pronouns do not create weak person entities when a concrete cue i
   const motifs = groundMotifs('とりがわたしを呼んでいる', 'ja', 0.9, 'ja-call', 'audio');
   assert.deepEqual(motifs.map((motif) => motif.kind), ['object']);
   assert.equal(groundedAction('とりがわたしを呼んでいる', 'ja'), 'calls or summons another form');
+});
+
+test('mixed-language lyric windows resolve the effective bounded adapter per text', () => {
+  assert.equal(effectiveLanguage('ja', 'the woman walks'), 'en');
+  assert.equal(effectiveLanguage('ja', '雨の駅を歩く'), 'ja');
+  assert.equal(groundMotifs('the woman walks', 'ja', 0.9, 'mixed-en', 'lyrics').some((motif) => motif.kind === 'person'), true);
+  assert.equal(groundedAction('the woman walks', 'ja'), 'walks through the environment');
 });
 
 test('grounding is language-gated and unsupported languages remain symbols', () => {

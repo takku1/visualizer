@@ -39,6 +39,16 @@ function normalizedLanguage(language: string): string {
   return language.trim().toLowerCase().split(/[-_]/, 1)[0] || 'und';
 }
 
+/** Resolve mixed-language lyric windows without guessing from arbitrary Latin text. */
+export function effectiveLanguage(language: string, text: string): string {
+  const base = normalizedLanguage(language);
+  const hasJapanese = /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
+  const hasLatin = /[a-z]/iu.test(text);
+  if (hasJapanese && !hasLatin && (base === 'und' || base === 'auto' || base === 'en' || base === 'ja')) return 'ja';
+  if (hasLatin && !hasJapanese && (base === 'und' || base === 'auto' || base === 'en' || base === 'ja')) return 'en';
+  return base;
+}
+
 function isScriptCompatible(language: string, text: string): boolean {
   const base = normalizedLanguage(language);
   if (base === 'ja') return /[\u3040-\u30ff\u3400-\u9fff]/u.test(text);
@@ -96,9 +106,10 @@ function symbolResult(text: string, language: string, confidence: number, idPref
 }
 
 function groundWithAdapter(text: string, language: string, confidence: number, idPrefix: string, source: Extract<MeaningSource, 'audio' | 'lyrics'>): GroundingResult {
-  const adapter = adapters.find((candidate) => candidate.supports(language));
+  const resolvedLanguage = effectiveLanguage(language, text);
+  const adapter = adapters.find((candidate) => candidate.supports(resolvedLanguage));
   if (!adapter) return symbolResult(text, language, confidence, idPrefix, source);
-  return adapter.ground(text, language, confidence, idPrefix, source);
+  return adapter.ground(text, resolvedLanguage, confidence, idPrefix, source);
 }
 
 /** Ground only bounded, directly recognizable cues; unknown text remains a symbol. */
