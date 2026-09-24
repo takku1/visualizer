@@ -13,6 +13,7 @@ const rows = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean).flatMa
 const checkpoints = rows.filter((row) => row._checkpoint);
 const decisions = rows.filter((row) => row.scene && row.system1);
 const receipts = checkpoints.map((row) => row.timing).filter(Boolean);
+const diffs = checkpoints.map((row) => row.worldDiff).filter(Boolean);
 const changes = { identity: 0, action: 0, environment: 0, look: 0, camera: 0 };
 let previous = null;
 for (const row of checkpoints) {
@@ -35,6 +36,14 @@ const summary = {
     averagePhaseError: avg(receipts.map((receipt) => receipt.phaseError).filter((value) => typeof value === 'number')),
     sources: Object.fromEntries([...new Set(receipts.map((receipt) => receipt.source))].map((source) => [source, receipts.filter((receipt) => receipt.source === source).length])),
   },
+  worldTransitions: {
+    receipts: diffs.length,
+    identityBreaks: diffs.filter((diff) => diff.identityBreak).length,
+    keyframeRequired: diffs.filter((diff) => diff.requiresKeyframe).length,
+    averageKeptEntities: avg(diffs.map((diff) => diff.keep).filter((value) => typeof value === 'number')),
+    averageAddedEntities: avg(diffs.map((diff) => diff.add).filter((value) => typeof value === 'number')),
+    averageRemovedEntities: avg(diffs.map((diff) => diff.remove).filter((value) => typeof value === 'number')),
+  },
   evidence: {
     semanticDecisions: decisions.filter((row) => row.scene.source === 'semantic-manifest').length,
     identityVerified: false,
@@ -48,5 +57,6 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `Scene sources: ${JSON.stringify(summary.sceneSources)}`,
   `Fingerprint changes: ${JSON.stringify(summary.fingerprintChanges)}`,
   `Timing receipts: ${summary.timing.receipts}; fallback rate: ${summary.timing.fallbackRate == null ? 'n/a' : `${(summary.timing.fallbackRate * 100).toFixed(1)}%`}`,
+  `World transitions: ${summary.worldTransitions.receipts}; identity breaks: ${summary.worldTransitions.identityBreaks}; keyframes required: ${summary.worldTransitions.keyframeRequired}`,
   `Evidence-backed decisions: ${summary.evidence.semanticDecisions}; visual verification: deferred`,
 ].join('\n'));
