@@ -20,6 +20,7 @@ export interface StructureSnapshot {
   source: StructureSource;
   novelty: number;
   repeatSimilarity: number;
+  eventCounts: { boundaries: number; repeatStarts: number; repeatEnds: number };
   events: StructureEvent[];
 }
 
@@ -48,6 +49,7 @@ export class StructureMemory {
   #segmentCount = 0;
   #repeatActive = false;
   #ticksSinceBoundary = MIN_SEGMENT_TICKS;
+  #eventCounts = { boundaries: 0, repeatStarts: 0, repeatEnds: 0 };
   #lastSnapshot: StructureSnapshot = emptySnapshot();
 
   get snapshot(): StructureSnapshot {
@@ -61,6 +63,7 @@ export class StructureMemory {
     this.#segmentCount = 0;
     this.#repeatActive = false;
     this.#ticksSinceBoundary = MIN_SEGMENT_TICKS;
+    this.#eventCounts = { boundaries: 0, repeatStarts: 0, repeatEnds: 0 };
     this.#lastSnapshot = emptySnapshot();
   }
 
@@ -91,6 +94,8 @@ export class StructureMemory {
     if (repeat !== this.#repeatActive) {
       events.push({ kind: repeat ? 'repeat-start' : 'repeat-end', t: frame.t, confidence: bestSimilarity, lagTicks: bestLag });
       this.#repeatActive = repeat;
+      if (repeat) this.#eventCounts.repeatStarts++;
+      else this.#eventCounts.repeatEnds++;
     }
 
     const boundary = this.#ticks.length >= MIN_REPEAT_LAG
@@ -104,6 +109,7 @@ export class StructureMemory {
       events.push({ kind: 'boundary', t: frame.t, confidence: clamp(Math.max(novelty, bestSimilarity - 0.5), 0, 1), causes, lateByTicks: 0 });
       events.push({ kind: 'segment', t: frame.t, segmentId: this.#segmentId, repeatCount: repeat ? 1 : 0, confidence: clamp(Math.max(novelty, bestSimilarity), 0, 1) });
       this.#ticksSinceBoundary = 0;
+      this.#eventCounts.boundaries++;
     }
 
     this.#ticks.push({ t: frame.t, vector, segmentId: this.#segmentId });
@@ -120,6 +126,7 @@ export class StructureMemory {
       source: 'system0',
       novelty: clamp(novelty, 0, 1),
       repeatSimilarity: clamp(bestSimilarity, 0, 1),
+      eventCounts: { ...this.#eventCounts },
       events,
     };
     return this.#lastSnapshot;
@@ -127,7 +134,7 @@ export class StructureMemory {
 }
 
 function emptySnapshot(): StructureSnapshot {
-  return { segmentId: null, segmentOccurrence: 0, repeatCount: 0, confidence: 0, predictedBoundaryAt: null, chorusHint: false, patternId: null, source: 'abstain', novelty: 0, repeatSimilarity: 0, events: [] };
+  return { segmentId: null, segmentOccurrence: 0, repeatCount: 0, confidence: 0, predictedBoundaryAt: null, chorusHint: false, patternId: null, source: 'abstain', novelty: 0, repeatSimilarity: 0, eventCounts: { boundaries: 0, repeatStarts: 0, repeatEnds: 0 }, events: [] };
 }
 
 function featureVector(frame: FeatureFrame): number[] {

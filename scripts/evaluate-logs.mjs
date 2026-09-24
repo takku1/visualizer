@@ -20,6 +20,7 @@ const telemetry = rows.filter((row) => row._telemetry);
 const stateRows = rows.filter((row) => row._state);
 const structureSamples = stateRows.map((row) => row.structure).filter(Boolean);
 const structureEvents = structureSamples.flatMap((sample) => sample.events ?? []);
+const latestStructure = structureSamples.at(-1) ?? null;
 const decisionsWithTrack = decisions.filter((row) => row.track?.id);
 const trackIds = [...new Set(decisionsWithTrack.map((row) => row.track.id))];
 const trackTransitions = decisionsWithTrack.reduce((count, row, index) => {
@@ -155,9 +156,9 @@ const summary = {
     samples: structureSamples.length,
     sources: [...new Set(structureSamples.map((sample) => sample.source).filter(Boolean))],
     segmentIds: [...new Set(structureSamples.map((sample) => sample.segmentId).filter(Boolean))],
-    boundaryEvents: structureEvents.filter((event) => event.kind === 'boundary').length,
-    repeatStarts: structureEvents.filter((event) => event.kind === 'repeat-start').length,
-    repeatEnds: structureEvents.filter((event) => event.kind === 'repeat-end').length,
+    boundaryEvents: latestStructure?.eventCounts?.boundaries ?? structureEvents.filter((event) => event.kind === 'boundary').length,
+    repeatStarts: latestStructure?.eventCounts?.repeatStarts ?? structureEvents.filter((event) => event.kind === 'repeat-start').length,
+    repeatEnds: latestStructure?.eventCounts?.repeatEnds ?? structureEvents.filter((event) => event.kind === 'repeat-end').length,
     maxNovelty: maxFinite(structureSamples.map((sample) => sample.novelty)),
     maxRepeatSimilarity: maxFinite(structureSamples.map((sample) => sample.repeatSimilarity)),
     note: 'Shadow-only evidence; it does not replace the authoritative section clock.',
