@@ -35,6 +35,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Whisper pipeline failures now produce an empty live update and keep the optional ASR worker alive; they no longer tear down the WebSocket or the renderer's semantic connection.
 - ASR now rejects configurable low-RMS windows (`MEANING_MIN_RMS`, default `0.003`) before Whisper inference, preventing silence hallucinations from becoming repeated semantic evidence.
 - The diffusion control hot path reuses CPU staging buffers instead of allocating tensors per frame. The current isolated 150-frame CUDA benchmark at 576×320 measures 88.2 ms median / 89.9 ms p90 (~11.3 FPS), with peak VRAM 2476 MB of 6144 MB. Reproduce with the live app stopped using `npm run stream:bench -- --bench-json output/stream-bench/current.json`; concurrent sidecars contaminate the GPU measurement. The older 62.4 ms figure came from a different benchmark/runtime state and is not treated as the current baseline.
+- An isolated cuDNN-autotune experiment measured 85.0 ms median / 86.4 ms p90, but raised peak VRAM to 4080 MB and retains batch-shape autotuning stalls. It is rejected for the 6 GB live target; the default remains `cudnn.benchmark=False`.
 
 ## Still deliberately deferred
 
