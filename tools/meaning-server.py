@@ -48,7 +48,11 @@ class Probe:
     def transcribe(self, samples: np.ndarray, sample_rate: int, offset_sec: float) -> list[dict]:
         if self.pipe is None:
             return []
-        generate_kwargs = {"task": "transcribe"}
+        # Whisper's pipeline adds these processors itself. Passing the config
+        # values through generate() as well makes Transformers 5.x construct a
+        # second copy and emit duplicate-processor warnings on every window.
+        # None leaves the pipeline-owned processors authoritative.
+        generate_kwargs = {"task": "transcribe", "suppress_tokens": None, "begin_suppress_tokens": None}
         if self.language and self.language.lower() not in {"auto", "und"}:
             generate_kwargs["language"] = self.language
         result = self.pipe(

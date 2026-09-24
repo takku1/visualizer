@@ -25,6 +25,7 @@ import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-acc
 import { meaningFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
+import { addShotCandidate, compileShotGraph, ShotGraphRuntime } from './stream/shot-graph';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -111,6 +112,7 @@ export class VisualizerApp {
   #liveCommittedSignature = '';
   #liveAccumulator = new LiveLyricAccumulator();
   #lastMeaningSendAt = -Infinity;
+  #shotRuntime: ShotGraphRuntime | null = null;
 
   constructor(config: AppConfig = {}) {
     this.#config = config;
@@ -157,7 +159,23 @@ export class VisualizerApp {
           this.#stream?.sendBlend(targets.prompts, targets.weights, targets.tauSec);
           if (!targets.cut) this.#scene.setLook(targets.look, targets.tauSec);
         } else {
-          this.#scheduler.setScene(scene);
+          // The graph owns semantic candidate staging. The scheduler still
+          // owns the actual checkpoint commit, so a candidate cannot land
+          // until the graph sees a safe musical boundary.
+          const current = this.#scheduler.scene;
+          if (!current) {
+            this.#scheduler.setScene(scene);
+          } else {
+            const graph = addShotCandidate(
+              compileShotGraph(current),
+              `candidate-${this.#sceneIndex}`,
+              scene,
+              8,
+              scene.continuityContract.confidence,
+              { section: ctx.sectionIndex, requiresDownbeat: true },
+            );
+            this.#shotRuntime = new ShotGraphRuntime(graph);
+          }
           // Abstaining mode still needs strong visual chapters. Change the
           // procedural substrate on director cadence, but keep the diffusion
           // latent continuous: this gives a definite new look without a new
@@ -351,6 +369,17 @@ export class VisualizerApp {
 
     const stream = this.#stream;
     if (stream) {
+      if (this.#shotRuntime && frame.onBeat) {
+        const candidate = this.#shotRuntime.choose({
+          section: frame.sectionIndex,
+          confidence: this.#scheduler.scene?.continuityContract.confidence ?? 0,
+          downbeat: true,
+        });
+        if (candidate) {
+          this.#scheduler.setScene(candidate.scene);
+          this.#shotRuntime = null;
+        }
+      }
       stream.sendControl(control, now);
       // A slow GPU readback/encode can starve the display WebGL context. Once
       // it crosses the interactive budget, pause camera uploads temporarily;

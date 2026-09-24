@@ -16,6 +16,8 @@ spec.loader.exec_module(module)
 
 class WholeWindow:
     def __call__(self, *_args, **_kwargs):
+        assert _kwargs["generate_kwargs"]["suppress_tokens"] is None
+        assert _kwargs["generate_kwargs"]["begin_suppress_tokens"] is None
         return {"text": "雨の駅", "language": "ja", "chunks": []}
 
 

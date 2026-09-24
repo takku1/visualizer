@@ -216,6 +216,12 @@ lighting, and entity motion handles, but has no operation for creating/removing
 entities or changing their IDs. This keeps semantic content and audio-driven
 physics separate while giving future backends a structured control surface.
 
+In normal splice mode, `ShotGraphRuntime` stages each new director scene as a
+candidate and selects it only on a safe beat/downbeat. `CheckpointScheduler`
+still performs the world diff and realization commit. This keeps shot choice
+separate from rendering and avoids speculative GPU work; prefetch remains an
+available graph annotation, not an unconditional allocation.
+
 ## Checkpoint realization (browser decides, sidecar renders)
 
 - **What:** the director runs on section boundaries, or at most every 30 s.
