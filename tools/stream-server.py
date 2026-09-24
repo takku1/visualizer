@@ -556,7 +556,16 @@ class Engine:
         tiny = own_vae.exists() and json.loads(own_vae.read_text()).get("_class_name") == "AutoencoderTiny"
         self.taesd = AutoencoderTiny.from_pretrained(MODEL_DIR / "vae" if tiny else TAESD_DIR, torch_dtype=DTYPE).to(DEVICE).eval()
         if os.environ.get("STREAM_COMPILE") == "1":
-            self.unet = torch.compile(self.unet, mode="reduce-overhead")
+            # TorchInductor on Windows needs a working Triton installation.
+            # Keep this experiment opt-in and fail closed: the production
+            # CUDA-graph/eager path must remain available when the optional
+            # compiler is absent or incompatible with the installed wheel.
+            try:
+                import triton  # type: ignore[import-not-found]  # noqa: F401
+            except Exception as exc:
+                print(f"STREAM_COMPILE=1 ignored: Triton unavailable ({exc})", flush=True)
+            else:
+                self.unet = torch.compile(self.unet, mode="reduce-overhead")
 
         cfg = json.loads((MODEL_DIR / "scheduler" / "scheduler_config.json").read_text())
         if cfg.get("prediction_type", "epsilon") != "epsilon":

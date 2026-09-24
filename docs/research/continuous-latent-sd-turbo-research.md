@@ -88,3 +88,28 @@ Record median/p95 generation time, stream/display FPS, dropped frames, capture
 spikes, checkpoint count, stale-frame drops, and adjacent-frame continuity.
 The stage benchmark now reports encode, UNet, and decode medians; no speedup is
 claimed until those measurements are compared on the same process and device.
+
+## Optimization decision
+
+The corrected benchmark measured 49.25 ms median, 49.78 ms P90, and 50.58 ms
+P95. The UNet accounts for roughly 72% of the measured encode/UNet/decode
+stage time, so VAE micro-optimizations are not the next high-value target.
+
+The opt-in `STREAM_COMPILE=1` experiment was attempted, but this Windows
+environment has no working Triton installation (`torch 2.13.0+cu126`, CUDA
+12.6). TorchInductor therefore failed before the first frame. The runtime now
+detects that condition and falls back to the proven CUDA-graph/eager path
+instead of crashing. This follows NVIDIA's guidance to establish a stable
+baseline before changing batching or graph execution, and to treat CUDA graph
+capture as constrained by operator and shape compatibility:
+
+- [NVIDIA TensorRT performance optimization guidance](https://docs.nvidia.com/deeplearning/tensorrt/latest/performance/optimization.html)
+- [NVIDIA TensorRT benchmarking guidance](https://docs.nvidia.com/deeplearning/tensorrt/latest/performance/benchmarking.html)
+
+TensorRT is not installed, but installing it alone would not optimize this
+Diffusers UNet: it would still require an ONNX/TensorRT export, shape profile,
+precision validation, and a side-by-side temporal benchmark. That is the next
+legitimate UNet optimization project, not a safe one-line runtime switch. It
+must report the same P95, VRAM, temporal-change metrics, and checkpoint
+behavior; a faster UNet that destabilizes the persistent latent is not an
+acceptable optimization.
