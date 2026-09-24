@@ -77,6 +77,8 @@ async function main(): Promise<void> {
       trackId: item?.uri,
       title: meta?.title,
       artist: meta?.artist_name,
+      album: meta?.album_title,
+      durationSec: meta?.duration ? Number(meta.duration) / 1000 : undefined,
       tempo: info.tempo,
       key: info.key,
       mode: info.mode,

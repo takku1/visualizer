@@ -14,14 +14,22 @@ import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
-import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
+import { CachedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
 
 let passed = 0;
-function test(name: string, fn: () => void): void {
-  fn();
+const pendingTests: Promise<void>[] = [];
+function test(name: string, fn: () => void | Promise<void>): void {
+  const result = fn();
+  if (result && typeof (result as Promise<void>).then === 'function') {
+    pendingTests.push(Promise.resolve(result).then(() => {
+      passed++;
+      console.log(`ok  ${name}`);
+    }));
+    return;
+  }
   passed++;
   console.log(`ok  ${name}`);
 }
@@ -632,6 +640,48 @@ test('timed lyric import preserves evidence and rejects untimed results', () => 
   assert.equal(meaningFromLyrics({ provider: 'x', match: 'metadata', timing: 'none', rights: 'unknown', confidence: 0.4, lines }), null);
 });
 
+test('LRCLIB provider preserves synced evidence and rejects duration mismatches', async () => {
+  let calls = 0;
+  const provider = new LrclibLyricsProvider(async (url) => {
+    calls++;
+    assert.match(url, /duration=213/u);
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          id: 42, trackName: 'Rain', artistName: 'Band', albumName: 'Night', duration: 213,
+          language: 'en', syncedLyrics: '[00:01.00]the woman walks\n[00:04.00]through the rain', plainLyrics: 'the woman walks through the rain',
+        };
+      },
+    };
+  });
+  const result = await provider.lookup({ trackId: 'track-rain', title: 'Rain', artist: 'Band', album: 'Night', durationSec: 213 });
+  assert.equal(calls, 1);
+  assert.equal(result?.timing, 'line');
+  assert.equal(result?.rights, 'unknown');
+  assert.equal(result?.lines[0]?.text, 'the woman walks');
+  assert.equal(meaningFromLyrics(result!, 1), null);
+  assert.ok(meaningFromLyrics(result!, 1, { allowUnknownRights: true }));
+
+  const mismatch = new LrclibLyricsProvider(async () => ({
+    ok: true, status: 200, async json() { return { duration: 100, syncedLyrics: '[00:01.00]wrong version' }; },
+  }));
+  assert.equal(await mismatch.lookup({ trackId: 'track-rain', title: 'Rain', artist: 'Band', durationSec: 213 }), null);
+});
+
+test('cached lyric lookup avoids repeated provider requests', async () => {
+  let calls = 0;
+  const provider = new CachedLyricsProvider(new LrclibLyricsProvider(async () => {
+    calls++;
+    return { ok: true, status: 200, async json() { return { duration: 10, syncedLyrics: '[00:01.00]rain' }; } };
+  }), new MemoryLyricsCache());
+  const query = { trackId: 'cached', title: 'Rain', artist: 'Band', durationSec: 10 };
+  assert.ok(await provider.lookup(query));
+  assert.ok(await provider.lookup(query));
+  assert.equal(calls, 1);
+});
+
 test('timed lyric meaning shares bounded English/Japanese grounding with live ASR', () => {
   const english = meaningFromLyrics({
     provider: 'import', match: 'import', timing: 'line', rights: 'verified', confidence: 0.9,
@@ -1045,4 +1095,5 @@ test('lyric evidence can drive an actual subject and event', () => {
   assert.equal(scene.prompt.includes('story abstained'), false);
 });
 
+await Promise.all(pendingTests);
 console.log(`\n${passed} passed`);

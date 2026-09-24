@@ -48,7 +48,14 @@ function trackContext(): TrackContext {
   if (!media?.ok || !media.title) return {};
   const elapsed = media.playing && media.lastUpdated ? Math.max(0, (Date.now() - media.lastUpdated) / 1000) : 0;
   const position = Math.min((media.position ?? 0) + elapsed, media.duration || Infinity);
-  return { trackId: `${media.artist ?? ''}|${media.title}`, title: media.title, artist: media.artist, position };
+  return {
+    trackId: `${media.artist ?? ''}|${media.title}`,
+    title: media.title,
+    artist: media.artist,
+    album: media.album,
+    durationSec: media.duration,
+    position,
+  };
 }
 
 /**

@@ -42,6 +42,11 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Shot graphs now support guarded runtime selection, prefetch candidates, and cancellation epochs; GPU pre-rendering remains measurement-gated.
 - State/telemetry now records ShotGraph candidates staged, prefetch intent, selections, and pending state so production use is distinguishable from unit-test-only coverage.
 - Timed lyric import/provider interfaces now exist; `npm run meaning:import -- --lrc song.lrc --track <id> --out meaning/<id>.json` creates an evidence-bearing manifest.
+- The low-overhead lyric seam now carries album/duration from media-session and
+  host track contexts, provides a cached LRCLIB development adapter with strict
+  duration matching, and requires an explicit `allowUnknownRights` decision
+  before community lyrics can become committed meaning. See
+  [`docs/research/low-overhead-lyrics-and-meaning-sources.md`](research/low-overhead-lyrics-and-meaning-sources.md).
 - Timed lyric import now performs bounded English/Japanese lexical grounding
   for recognized motifs/actions while preserving unknown lines as symbols;
   `--symbols-only` retains an explicitly conservative import mode. This is

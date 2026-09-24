@@ -1,6 +1,8 @@
 # Reliable lyrics ingestion for semantic music video direction
 
-Status: research/design decision; no provider integration has been shipped.
+Status: research/design decision; the provider seam and development LRCLIB
+adapter are implemented, but no community result is enabled by default for
+committed production meaning.
 
 ## Executive conclusion
 

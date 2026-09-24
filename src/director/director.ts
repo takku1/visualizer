@@ -15,6 +15,9 @@ export interface TrackContext {
   trackId?: string;
   title?: string;
   artist?: string;
+  album?: string;
+  /** Track duration in seconds when the host exposes it; used for lyric identity matching. */
+  durationSec?: number;
   /** Spotify genre tags, when the client exposes them. */
   genres?: string[];
   tempo?: number;
