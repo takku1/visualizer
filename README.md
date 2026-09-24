@@ -57,6 +57,7 @@ npm run stream:bench  # headless throughput + sample frames in output/stream-ben
 python tools/stream-server.py --bench 150 --bench-json output/stream-bench/report.json  # machine-readable timing
 npm run app -- --no-meaning  # isolate diffusion/procedural performance
 npm run app -- --meaning-language ja  # force Japanese Whisper decoding for validation
+npm run app -- --restart-sidecars --meaning-language ja  # replace stale local workers for a clean validation run
 ```
 
 `H` toggles the HUD. Expand it ("capture info") to see the live sampler

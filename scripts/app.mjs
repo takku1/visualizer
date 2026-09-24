@@ -15,6 +15,7 @@ const python = process.env.PYTHON ?? 'python';
 const withStream = !process.argv.includes('--no-stream');
 // Meaning is part of the normal product path. Use --no-meaning only for performance isolation.
 const withMeaning = !process.argv.includes('--no-meaning');
+const restartSidecars = process.argv.includes('--restart-sidecars');
 const meaningLanguageIndex = process.argv.indexOf('--meaning-language');
 const meaningLanguage = meaningLanguageIndex >= 0 ? process.argv[meaningLanguageIndex + 1] : null;
 if (meaningLanguage && !meaningLanguage.startsWith('--')) process.env.MEANING_ASR_LANGUAGE = meaningLanguage;
@@ -52,6 +53,23 @@ function portIsListening(port) {
   });
 }
 
+function listeningPids(port) {
+  if (process.platform !== 'win32') return [];
+  const output = execFileSync('netstat', ['-ano', '-p', 'tcp'], { encoding: 'utf8' });
+  return [...new Set(output.split(/\r?\n/).flatMap((line) => {
+    const match = line.match(/^\s*TCP\s+\S+:(\d+)\s+\S+\s+LISTENING\s+(\d+)\s*$/i);
+    return match && Number(match[1]) === port ? [Number(match[2])] : [];
+  }))];
+}
+
+function restartSidecar(port, label) {
+  for (const pid of listeningPids(port)) {
+    if (pid === process.pid) continue;
+    console.warn(`[app] restarting ${label} listener on ${port} (pid ${pid})`);
+    try { execFileSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' }); } catch { /* already gone */ }
+  }
+}
+
 function start(command, args) {
   const child = spawn(command, args, { cwd: projectRoot, stdio: 'inherit', windowsHide: false });
   children.add(child);
@@ -83,6 +101,7 @@ try {
     process.env.S1_BUILD_HASH = 'unknown';
   }
   if (withStream) {
+    if (restartSidecars) restartSidecar(STREAM_PORT, 'stream sidecar');
     if (existsSync(join(projectRoot, 'models/sd-turbo/unet')) && existsSync(join(projectRoot, 'models/taesd'))) {
       if (await portIsListening(STREAM_PORT)) {
         console.warn(`[app] stream sidecar already listening on ${STREAM_PORT}; reusing it`);
@@ -95,6 +114,7 @@ try {
   }
   if (withMeaning) {
     process.env.S1_MEANING_URL = 'ws://127.0.0.1:8772';
+    if (restartSidecars) restartSidecar(MEANING_PORT, 'meaning worker');
     if (await portIsListening(MEANING_PORT)) {
       console.warn(`[app] meaning worker already listening on ${MEANING_PORT}; reusing it`);
     } else {
