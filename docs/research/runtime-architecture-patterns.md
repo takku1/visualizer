@@ -106,6 +106,12 @@ not Japanese transcription quality or semantic promotion.
 - Do not optimize the GPU path from director log volume. Optimize only from
   frame/latency/VRAM measurements on an isolated sidecar.
 
+The current isolated benchmark receipt is 150 frames at 576×320: 88.2 ms
+median, 89.9 ms p90, 11.3 FPS, and 2476 MB peak allocation on a 6144 MB GPU.
+This agrees with the live sidecar's roughly 10--11 FPS telemetry. A concurrent
+benchmark run measured roughly 268 ms/frame and is explicitly rejected as GPU
+contention, not a renderer regression.
+
 The academic basis remains the persistent-world and emergent-intent notes:
 object-centric temporal memory requires correspondence and state, while
 prompt text alone does not provide object permanence.
