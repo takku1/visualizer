@@ -13,6 +13,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   telemetry reports `trackId`, `trackTransitions`, `reseedEnabled`, and
   `keyframesEnabled` so one-session-per-song behavior is directly auditable.
 - `WorldState` transitions now have a pure `applySceneDiff` reducer; checkpoint commits calculate against the prior committed world and expose the committed world to callers.
+- World diffs reconcile rolling ASR evidence IDs by stable entity kind/label before declaring replacement. This prevents a revised transcript window from turning the same bounded cue into an identity break; duplicate labels are matched deterministically and true unmatched additions/removals remain explicit.
 - Persistent `ColorState` and `LightingState` now live with world visual identity and compile deterministically to the existing `Look`; knob blending updates both representations.
 - `Shot` and `RealizationRequest` now separate presentation/backend compilation from authoritative world state; the current sidecar remains a legacy-compatible adapter.
 - Continuous audio is now mapped into bounded renderer-neutral forces and transported separately from semantic content; ShotGraph nodes carry world/shot diffs instead of only prompt candidates.
