@@ -18,6 +18,8 @@ const receipts = checkpoints.map((row) => row.timing).filter(Boolean);
 const diffs = checkpoints.map((row) => row.worldDiff).filter(Boolean);
 const telemetry = rows.filter((row) => row._telemetry);
 const stateRows = rows.filter((row) => row._state);
+const structureSamples = stateRows.map((row) => row.structure).filter(Boolean);
+const structureEvents = structureSamples.flatMap((sample) => sample.events ?? []);
 const decisionsWithTrack = decisions.filter((row) => row.track?.id);
 const trackIds = [...new Set(decisionsWithTrack.map((row) => row.track.id))];
 const trackTransitions = decisionsWithTrack.reduce((count, row, index) => {
@@ -149,6 +151,17 @@ const summary = {
     averageAddedEntities: avg(diffs.map((diff) => diff.add).filter((value) => typeof value === 'number')),
     averageRemovedEntities: avg(diffs.map((diff) => diff.remove).filter((value) => typeof value === 'number')),
   },
+  structureMemory: {
+    samples: structureSamples.length,
+    sources: [...new Set(structureSamples.map((sample) => sample.source).filter(Boolean))],
+    segmentIds: [...new Set(structureSamples.map((sample) => sample.segmentId).filter(Boolean))],
+    boundaryEvents: structureEvents.filter((event) => event.kind === 'boundary').length,
+    repeatStarts: structureEvents.filter((event) => event.kind === 'repeat-start').length,
+    repeatEnds: structureEvents.filter((event) => event.kind === 'repeat-end').length,
+    maxNovelty: maxFinite(structureSamples.map((sample) => sample.novelty)),
+    maxRepeatSimilarity: maxFinite(structureSamples.map((sample) => sample.repeatSimilarity)),
+    note: 'Shadow-only evidence; it does not replace the authoritative section clock.',
+  },
   liveMeaning: (() => {
     const samples = telemetry.map((row) => row.meaning).filter(Boolean);
     const latest = samples.at(-1) ?? null;
@@ -234,6 +247,7 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `Fingerprint changes: ${JSON.stringify(summary.fingerprintChanges)}`,
   `Timing receipts: ${summary.timing.receipts}; fallback rate: ${summary.timing.fallbackRate == null ? 'n/a' : `${(summary.timing.fallbackRate * 100).toFixed(1)}%`}`,
   `World transitions: ${summary.worldTransitions.receipts}; identity breaks: ${summary.worldTransitions.identityBreaks}; keyframes required: ${summary.worldTransitions.keyframeRequired}`,
+  `System 0 shadow: samples=${summary.structureMemory.samples}; segments=${JSON.stringify(summary.structureMemory.segmentIds)}; boundaries=${summary.structureMemory.boundaryEvents}; repeats=${summary.structureMemory.repeatStarts}/${summary.structureMemory.repeatEnds}`,
   `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} grounded<=${summary.liveMeaning.maxGroundedMotifs} actionOnly<=${summary.liveMeaning.maxActionOnlyEvidence} symbolsOnly<=${summary.liveMeaning.maxSymbolOnlyEvidence} abstainedSamples=${summary.liveMeaning.abstainedEvidenceSamples} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
   `Live meaning by track: ${JSON.stringify(summary.liveMeaningByTrack)}`,
   `Live language gate: ${summary.liveMeaning.languageValidation}; required=${JSON.stringify(summary.liveMeaning.requiredLanguages)} evidence=${JSON.stringify(summary.liveMeaning.languageEvidence)}`,

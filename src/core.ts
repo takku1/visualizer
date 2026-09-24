@@ -582,6 +582,16 @@ export class VisualizerApp {
       this.#config.log?.(stateLine(frame.t, {
         track: { id: ctx.trackId ?? null, title: ctx.title ?? null, artist: ctx.artist ?? null },
         section: { index: frame.sectionIndex, label: ctx.sectionLabel ?? null },
+        structure: frame.structure ? {
+          segmentId: frame.structure.segmentId,
+          segmentOccurrence: frame.structure.segmentOccurrence,
+          repeatCount: frame.structure.repeatCount,
+          confidence: frame.structure.confidence,
+          novelty: frame.structure.novelty,
+          repeatSimilarity: frame.structure.repeatSimilarity,
+          source: frame.structure.source,
+          events: frame.structure.events,
+        } : null,
         audio: { level: frame.level, bass: frame.bass, mid: frame.mid, treble: frame.treble, flux: frame.flux, tempo: frame.tempo },
         scene: {
           prompt: (this.#scheduler.scene?.prompt ?? '').slice(0, 160),
@@ -650,6 +660,14 @@ export class VisualizerApp {
           lastCheckpointReason: this.#lastCheckpointReason,
         },
         audio: { level: frame.level, bass: frame.bass, flux: frame.flux, tempo: frame.tempo, hasStructure: frame.hasStructure },
+        structure: frame.structure ? {
+          segmentId: frame.structure.segmentId,
+          confidence: frame.structure.confidence,
+          novelty: frame.structure.novelty,
+          repeatSimilarity: frame.structure.repeatSimilarity,
+          source: frame.structure.source,
+          eventKinds: frame.structure.events.map((event) => event.kind),
+        } : null,
       }));
       this.#streamFramesAtWindow = received;
       this.#fpsFrames = 0;
