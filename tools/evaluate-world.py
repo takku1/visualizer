@@ -37,20 +37,12 @@ def embeddings(value: object) -> torch.Tensor:
     raise TypeError(f"unsupported CLIP feature output: {type(value).__name__}")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("manifest", type=Path)
-    parser.add_argument("--model", type=Path, default=Path("models/clip-vit-b32"))
-    parser.add_argument("--threshold", type=float, default=0.2)
-    parser.add_argument("--validate-only", action="store_true", help="check capture files and annotation coverage without loading the model")
-    args = parser.parse_args()
-    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
+    """Validate evidence coverage without loading a vision model."""
     rows = [row for row in manifest.get("frames", []) if row.get("file")]
-    if not rows:
-        raise SystemExit("manifest has no frames")
     references_manifest = {str(group): path for group, path in (manifest.get("references") or {}).items() if path}
-    missing_frames = [str(row["file"]) for row in rows if not (args.manifest.parent / row["file"]).is_file()]
-    missing_references = [str(path) for path in references_manifest.values() if not (args.manifest.parent / path).is_file()]
+    missing_frames = [str(row["file"]) for row in rows if not (root / row["file"]).is_file()]
+    missing_references = [str(path) for path in references_manifest.values() if not (root / path).is_file()]
     groups: dict[str, list[int]] = {}
     sequences: dict[str, list[int]] = {}
     for index, row in enumerate(rows):
@@ -59,10 +51,30 @@ def main() -> None:
             groups.setdefault(group, []).append(index)
         if row.get("sequenceGroup"):
             sequences.setdefault(str(row["sequenceGroup"]), []).append(index)
+
+    missing_group_references = sorted(group for group in groups if group not in references_manifest)
+    frame_paths = {str(row["file"]) for row in rows}
+    reference_frame_collisions = sorted(
+        str(path) for path in references_manifest.values() if str(path) in frame_paths
+    )
+    multi_frame_identity_groups = {
+        group: indices for group, indices in groups.items() if len(indices) >= 2
+    }
+    action_groups = {
+        group: [index for index in indices if rows[index].get("action")]
+        for group, indices in groups.items()
+    }
     temporal_ready = not missing_frames and any(len(indices) >= 2 for indices in sequences.values())
-    identity_ready = not missing_frames and not missing_references and any(len(indices) >= 2 for indices in groups.values())
-    action_ready = identity_ready and any(bool(row.get("action")) for row in rows)
-    validation = {
+    identity_ready = (
+        not missing_frames
+        and not missing_references
+        and not missing_group_references
+        and not reference_frame_collisions
+        and bool(groups)
+        and all(len(indices) >= 2 for indices in groups.values())
+    )
+    action_ready = identity_ready and any(len(indices) >= 2 for indices in action_groups.values())
+    return {
         "ready": temporal_ready or identity_ready,
         "temporalReady": temporal_ready,
         "identityReady": identity_ready,
@@ -70,11 +82,39 @@ def main() -> None:
         "frames": len(rows),
         "missingFrames": missing_frames,
         "missingReferences": missing_references,
+        "missingGroupReferences": missing_group_references,
+        "referenceFrameCollisions": reference_frame_collisions,
         "identityGroups": {group: len(indices) for group, indices in groups.items()},
         "sequenceGroups": {group: len(indices) for group, indices in sequences.items()},
-        "multiFrameIdentityGroups": sum(len(indices) >= 2 for indices in groups.values()),
+        "multiFrameIdentityGroups": len(multi_frame_identity_groups),
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
+        "actionGroups": {group: len(indices) for group, indices in action_groups.items() if indices},
     }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("--model", type=Path, default=Path("models/clip-vit-b32"))
+    parser.add_argument("--threshold", type=float, default=0.2)
+    parser.add_argument("--validate-only", action="store_true", help="check capture files and annotation coverage without loading the model")
+    args = parser.parse_args()
+    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+    validation = validate_manifest(manifest, args.manifest.parent)
+    rows = [row for row in manifest.get("frames", []) if row.get("file")]
+    if not rows:
+        raise SystemExit("manifest has no frames")
+    references_manifest = {str(group): path for group, path in (manifest.get("references") or {}).items() if path}
+    missing_frames = validation["missingFrames"]
+    missing_references = validation["missingReferences"]
+    groups: dict[str, list[int]] = {}
+    sequences: dict[str, list[int]] = {}
+    for index, row in enumerate(rows):
+        if row.get("identity"):
+            group = str(row.get("identityGroup") or row["identity"])
+            groups.setdefault(group, []).append(index)
+        if row.get("sequenceGroup"):
+            sequences.setdefault(str(row["sequenceGroup"]), []).append(index)
     if args.validate_only:
         print(json.dumps(validation, indent=2))
         if not validation["ready"]:
@@ -171,9 +211,9 @@ def main() -> None:
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
         "temporalIdentityEvidenceAvailable": any(len(indices) >= 2 for indices in groups.values()),
         "temporalSequenceEvidenceAvailable": any(len(indices) >= 2 for indices in sequences.values()),
-        "temporalReady": any(len(indices) >= 2 for indices in sequences.values()),
-        "identityReady": any(len(indices) >= 2 for indices in groups.values()) and not missing_references,
-        "actionReady": any(len(indices) >= 2 for indices in groups.values()) and not missing_references and any(bool(row.get("action")) for row in rows),
+        "temporalReady": validation["temporalReady"],
+        "identityReady": validation["identityReady"],
+        "actionReady": validation["actionReady"],
         "note": "A single frame cannot establish persistence; temporal scores require at least two annotated frames in one identity group.",
     }
     print(json.dumps(report, indent=2))

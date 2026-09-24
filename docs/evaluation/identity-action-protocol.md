@@ -19,7 +19,10 @@ python tools/evaluate-world.py path/to/manifest.json --validate-only
 
 The preflight must report the frame/reference files as present and at least
 one identity group with two or more frames before temporal identity claims are
-interpretable.
+interpretable. Every annotated identity group must have its own reference
+image, and the reference path must be independent of the captured frame paths.
+`actionReady` requires action labels on at least two frames in one identity
+group; a single action label is descriptive evidence, not an action evaluation.
 
 6. Run:
 
