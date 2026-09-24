@@ -15,6 +15,7 @@ const decisions = rows.filter((row) => row.scene && row.system1);
 const receipts = checkpoints.map((row) => row.timing).filter(Boolean);
 const diffs = checkpoints.map((row) => row.worldDiff).filter(Boolean);
 const telemetry = rows.filter((row) => row._telemetry);
+const stateRows = rows.filter((row) => row._state);
 const decisionsWithTrack = decisions.filter((row) => row.track?.id);
 const trackIds = [...new Set(decisionsWithTrack.map((row) => row.track.id))];
 const trackTransitions = decisionsWithTrack.reduce((count, row, index) => {
@@ -32,6 +33,22 @@ const checkpointsByTrack = Object.fromEntries(trackIds.map((trackId) => [
   trackId,
   checkpoints.filter((row) => trackAt(row.t) === trackId).length,
 ]));
+const liveMeaningByTrack = Object.fromEntries(trackIds.map((trackId) => {
+  const samples = stateRows
+    .filter((row) => row.track?.id === trackId)
+    .map((row) => row.meaning)
+    .filter(Boolean);
+  return [trackId, {
+    samples: samples.length,
+    languages: [...new Set(samples.map((sample) => sample.language).filter(Boolean))],
+    maxUpdates: samples.length ? Math.max(...samples.map((sample) => sample.updates ?? 0)) : 0,
+    maxHypotheses: samples.length ? Math.max(...samples.map((sample) => sample.hypotheses ?? 0)) : 0,
+    maxProvisional: samples.length ? Math.max(...samples.map((sample) => sample.provisional ?? 0)) : 0,
+    maxCommitted: samples.length ? Math.max(...samples.map((sample) => sample.committed ?? 0)) : 0,
+    maxCandidateObservations: samples.length ? Math.max(...samples.map((sample) => sample.maxCandidateObservations ?? 0)) : 0,
+    semanticDecisions: decisions.filter((row) => row.track?.id === trackId && row.scene?.source === 'semantic-manifest').length,
+  }];
+}));
 const changes = { identity: 0, action: 0, environment: 0, look: 0, camera: 0 };
 let previous = null;
 for (const row of checkpoints) {
@@ -88,6 +105,7 @@ const summary = {
       maxProvisionalCueConfidence: samples.length ? Math.max(...samples.map((sample) => sample.provisionalCue?.confidence ?? 0)) : 0,
     };
   })(),
+  liveMeaningByTrack,
   realization: {
     latestControlPlane: telemetry.map((row) => row.realization).filter(Boolean).at(-1) ?? null,
     structuredTelemetrySamples: telemetry.filter((row) => row.stream?.meta?.realization?.structured === true).length,
@@ -122,6 +140,7 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `Timing receipts: ${summary.timing.receipts}; fallback rate: ${summary.timing.fallbackRate == null ? 'n/a' : `${(summary.timing.fallbackRate * 100).toFixed(1)}%`}`,
   `World transitions: ${summary.worldTransitions.receipts}; identity breaks: ${summary.worldTransitions.identityBreaks}; keyframes required: ${summary.worldTransitions.keyframeRequired}`,
   `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
+  `Live meaning by track: ${JSON.stringify(summary.liveMeaningByTrack)}`,
   `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
   `Continuity: ${summary.realization.latestControlPlane ? `${summary.realization.latestControlPlane.mode}; direction refreshes=${summary.realization.latestControlPlane.directionDecisions}; committed checkpoints=${summary.realization.latestControlPlane.checkpoints}; last=${summary.realization.latestControlPlane.lastCheckpointReason ?? 'none'}` : 'no control-plane telemetry'}`,
   `Stream health: telemetry=${summary.streamHealth.samples}; zeroFps=${summary.streamHealth.zeroFpsSamples} (connected=${summary.streamHealth.zeroFpsWhileConnected}); disconnected=${summary.streamHealth.disconnectedSamples}; maxDropped=${summary.streamHealth.maxDropped}`,
