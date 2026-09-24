@@ -718,8 +718,12 @@ class Engine:
         """Integrate the audio-driven camera rates; a spring pulls every axis home."""
         before = list(self.cam)
         spring = math.exp(-0.6 * dt)
-        rates = (c.zoom, c.rotate, c.driftX, c.driftY)
-        limits = ((-0.2, 0.55), (-0.5, 0.5), (-0.2, 0.2), (-0.2, 0.2))
+        # Lateral drift is only used when no fresh procedural source is
+        # available. Let it provide gentle camera travel, but keep it from
+        # translating the entire fallback image like a page swipe during a
+        # capture gap or sidecar startup.
+        rates = (c.zoom, c.rotate, c.driftX * 0.25, c.driftY * 0.25)
+        limits = ((-0.2, 0.55), (-0.5, 0.5), (-0.08, 0.08), (-0.08, 0.08))
         self.cam = [_clamp((v + r * dt) * spring, lo, hi) for v, r, (lo, hi) in zip(self.cam, rates, limits)]
         return before, self.cam
 
