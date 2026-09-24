@@ -39,6 +39,29 @@ const checkpointsByTrack = Object.fromEntries(trackIds.map((trackId) => [
   trackId,
   checkpoints.filter((row) => trackAt(row.t) === trackId).length,
 ]));
+const initialCheckpointsByTrack = Object.fromEntries(trackIds.map((trackId) => [
+  trackId,
+  checkpoints.filter((row) => trackAt(row.t) === trackId && row.reason === 'initial').length,
+]));
+const nonInitialCheckpointsByTrack = Object.fromEntries(trackIds.map((trackId) => [
+  trackId,
+  checkpoints.filter((row) => trackAt(row.t) === trackId && row.reason !== 'initial').length,
+]));
+const trackSessionTelemetry = Object.fromEntries(trackIds.map((trackId) => {
+  const sessions = stateRows
+    .map((row) => row.realization)
+    .filter((realization) => realization?.trackId === trackId);
+  return [trackId, {
+    samples: sessions.length,
+    modes: [...new Set(sessions.map((session) => session.mode).filter(Boolean))],
+    reseedEnabled: [...new Set(sessions.map((session) => session.reseedEnabled).filter((value) => typeof value === 'boolean'))],
+    keyframesEnabled: [...new Set(sessions.map((session) => session.keyframesEnabled).filter((value) => typeof value === 'boolean'))],
+  }];
+}));
+const continuousPerTrack = trackIds.length > 0 && trackIds.every((trackId) => (
+  initialCheckpointsByTrack[trackId] === 1
+  && (trackSessionTelemetry[trackId]?.modes ?? []).includes('continuous-song')
+));
 const liveMeaningByTrack = Object.fromEntries(trackIds.map((trackId) => {
   const samples = stateRows
     .filter((row) => row.track?.id === trackId)
@@ -74,6 +97,10 @@ const summary = {
     trackIds,
     trackTransitions,
     checkpointsByTrack,
+    initialCheckpointsByTrack,
+    nonInitialCheckpointsByTrack,
+    trackSessionTelemetry,
+    continuousPerTrack,
     invariant: trackIds.length > 0
       ? 'Each observed track should have one initial realization checkpoint; later director decisions are control-plane updates.'
       : 'No track identity was observed; continuous-per-song behavior is not verifiable from this log.',
@@ -148,7 +175,7 @@ const summary = {
 console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) : [
   `Session: ${file}`,
   `Checkpoints: ${summary.checkpoints}; decisions: ${summary.decisions}`,
-  `Realization sessions: ${summary.realizationSessions.trackIds.length}; track transitions: ${summary.realizationSessions.trackTransitions}; checkpoints by track: ${JSON.stringify(summary.realizationSessions.checkpointsByTrack)}`,
+  `Realization sessions: ${summary.realizationSessions.trackIds.length}; track transitions: ${summary.realizationSessions.trackTransitions}; checkpoints by track: ${JSON.stringify(summary.realizationSessions.checkpointsByTrack)}; initial per track: ${JSON.stringify(summary.realizationSessions.initialCheckpointsByTrack)}; continuous invariant: ${summary.realizationSessions.continuousPerTrack}`,
   `Scene sources: ${JSON.stringify(summary.sceneSources)}`,
   `Fingerprint changes: ${JSON.stringify(summary.fingerprintChanges)}`,
   `Timing receipts: ${summary.timing.receipts}; fallback rate: ${summary.timing.fallbackRate == null ? 'n/a' : `${(summary.timing.fallbackRate * 100).toFixed(1)}%`}`,
