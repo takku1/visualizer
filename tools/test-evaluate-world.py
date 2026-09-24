@@ -33,6 +33,10 @@ with tempfile.TemporaryDirectory() as directory:
     assert valid["actionVerified"] is False
     assert valid["identityReady"] is True
     assert valid["actionReady"] is True
+    assert valid["actionAdjacentPairs"] == {"form-a": 1}
+    assert valid["directionAdjacentPairs"] == {"form-a": 1}
+    assert valid["evidenceReadiness"]["identityReferenceCoverage"] == 1.0
+    assert valid["evidenceReadiness"]["directionAdjacentPairCoverage"] == 1.0
     assert valid["nextSteps"] == ["run the model-backed diagnostic and review identity/action evidence"]
 
     missing_reference = module.validate_manifest({**base, "references": {}}, root)

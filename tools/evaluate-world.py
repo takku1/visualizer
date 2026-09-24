@@ -62,6 +62,20 @@ def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
         group: [index for index in indices if rows[index].get("action")]
         for group, indices in groups.items()
     }
+    action_pairs = {
+        group: sum(
+            bool(rows[first].get("action")) and bool(rows[second].get("action"))
+            for first, second in zip(indices, indices[1:])
+        )
+        for group, indices in groups.items()
+    }
+    direction_pairs = {
+        group: sum(
+            bool(rows[first].get("actionDirection")) and bool(rows[second].get("actionDirection"))
+            for first, second in zip(indices, indices[1:])
+        )
+        for group, indices in groups.items()
+    }
     temporal_ready = not missing_frames and any(len(indices) >= 2 for indices in sequences.values())
     identity_ready = (
         not missing_frames
@@ -107,6 +121,16 @@ def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
         "multiFrameIdentityGroups": len(multi_frame_identity_groups),
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
         "actionGroups": {group: len(indices) for group, indices in action_groups.items() if indices},
+        "actionAdjacentPairs": {group: count for group, count in action_pairs.items() if count},
+        "directionAdjacentPairs": {group: count for group, count in direction_pairs.items() if count},
+        "evidenceReadiness": {
+            "temporal": temporal_ready,
+            "identity": identity_ready,
+            "action": action_ready,
+            "identityReferenceCoverage": float(len(groups) - len(missing_group_references)) / len(groups) if groups else 0.0,
+            "actionAdjacentPairCoverage": float(sum(action_pairs.values())) / max(1, sum(max(0, len(indices) - 1) for indices in groups.values())),
+            "directionAdjacentPairCoverage": float(sum(direction_pairs.values())) / max(1, sum(max(0, len(indices) - 1) for indices in groups.values())),
+        },
         "nextSteps": next_steps,
     }
 

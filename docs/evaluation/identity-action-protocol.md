@@ -57,6 +57,9 @@ interpretable. Every annotated identity group must have its own reference
 image, and the reference path must be independent of the captured frame paths.
 `actionReady` requires action labels on at least two frames in one identity
 group; a single action label is descriptive evidence, not an action evaluation.
+The preflight also reports `evidenceReadiness`, including independent-reference
+coverage and adjacent action/direction pair coverage. These coverage values
+are experiment design diagnostics, not quality scores.
 
 6. Run:
 
