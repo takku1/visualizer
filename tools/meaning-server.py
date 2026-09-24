@@ -201,6 +201,7 @@ class Server:
             header = None
             error: str | None = None
             started = time.perf_counter()
+            input_rms = float(np.sqrt(np.mean(np.square(samples, dtype=np.float64)))) if samples.size else 0.0
             try:
                 hypotheses = await asyncio.to_thread(
                     self.probe.transcribe,
@@ -222,6 +223,8 @@ class Server:
                 "hypotheses": hypotheses,
                 "latencyMs": round((time.perf_counter() - started) * 1000, 1),
                 "windowSec": round(len(samples) / max(int(current.get("sampleRate", 16000)), 1), 3),
+                "inputRms": round(input_rms, 6),
+                "inputSamples": int(samples.size),
             }
             if error:
                 response["error"] = error

@@ -30,6 +30,8 @@ export interface LiveLyricUpdate {
   hypotheses: LiveLyricHypothesis[];
   latencyMs?: number;
   windowSec?: number;
+  inputRms?: number;
+  inputSamples?: number;
 }
 
 export function isLiveLyricUpdate(value: unknown): value is LiveLyricUpdate {

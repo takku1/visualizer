@@ -11,8 +11,10 @@ prevents an ASR backlog from competing with rendering, but it also means that
 a six-second window whose inference takes longer than the send interval can
 reduce semantic observations to roughly one result per inference duration.
 These values are reported as `meaning.lastLatencyMs` and
-`meaning.lastWindowSec`; model or window changes should be made only after
-capturing this measurement.
+`meaning.lastWindowSec`. The response also reports `meaning.lastInputRms` and
+`meaning.lastInputSamples`, which distinguish silence/capture loss from a
+transcription miss. Model or window changes should be made only after
+capturing these measurements.
 
 ## The honest constraint
 
