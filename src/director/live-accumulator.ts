@@ -4,6 +4,9 @@ export interface LiveMeaningState {
   trackId: string | null;
   provisional: LiveLyricHypothesis[];
   committed: LiveLyricHypothesis[];
+  /** Privacy-preserving stabilization diagnostics; transcript text is excluded. */
+  candidateCount?: number;
+  maxCandidateObservations?: number;
 }
 
 type Candidate = {
@@ -75,10 +78,13 @@ export class LiveLyricAccumulator {
   }
 
   state(): LiveMeaningState {
+    const candidates = [...this.#candidates.values()];
     return {
       trackId: this.#trackId,
-      provisional: [...this.#candidates.values()].map(({ hypothesis }) => hypothesis),
+      provisional: candidates.map(({ hypothesis }) => hypothesis),
       committed: [...this.#committed.values()],
+      candidateCount: candidates.length,
+      maxCandidateObservations: candidates.reduce((max, candidate) => Math.max(max, candidate.observations), 0),
     };
   }
 }

@@ -82,6 +82,8 @@ const summary = {
       maxHypotheses: samples.length ? Math.max(...samples.map((sample) => sample.hypotheses ?? 0)) : 0,
       maxProvisional: samples.length ? Math.max(...samples.map((sample) => sample.provisional ?? 0)) : 0,
       maxCommitted: samples.length ? Math.max(...samples.map((sample) => sample.committed ?? 0)) : 0,
+      maxCandidateCount: samples.length ? Math.max(...samples.map((sample) => sample.candidateCount ?? 0)) : 0,
+      maxCandidateObservations: samples.length ? Math.max(...samples.map((sample) => sample.maxCandidateObservations ?? 0)) : 0,
     };
   })(),
   realization: {

@@ -120,6 +120,8 @@ export class VisualizerApp {
       ...this.#liveMeaning.telemetry(),
       provisional: this.#liveMeaningState?.provisional.length ?? 0,
       committed: this.#liveMeaningState?.committed.length ?? 0,
+      candidateCount: this.#liveMeaningState?.candidateCount ?? 0,
+      maxCandidateObservations: this.#liveMeaningState?.maxCandidateObservations ?? 0,
     };
   }
 
