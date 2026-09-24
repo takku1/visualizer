@@ -25,7 +25,7 @@ import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-acc
 import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
-import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime } from './stream/shot-graph';
+import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime, type ShotSelectionDiagnostic } from './stream/shot-graph';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -120,6 +120,7 @@ export class VisualizerApp {
   #shotGraphStagedIds: string[] = [];
   #shotGraphPrefetchedIds: string[] = [];
   #shotGraphSelectedIds: string[] = [];
+  #shotGraphLastSelection: ShotSelectionDiagnostic | null = null;
   #directionDecisions = 0;
   #lastCheckpointReason: string | null = null;
   #realizationTrackId: string | null = null;
@@ -159,6 +160,7 @@ export class VisualizerApp {
       stagedIds: this.#shotGraphStagedIds.slice(-8),
       prefetchedIds: this.#shotGraphPrefetchedIds.slice(-8),
       selectedIds: this.#shotGraphSelectedIds.slice(-8),
+      lastSelection: this.#shotGraphLastSelection,
     };
   }
 
@@ -444,6 +446,7 @@ export class VisualizerApp {
         this.#shotGraphStagedIds = [];
         this.#shotGraphPrefetchedIds = [];
         this.#shotGraphSelectedIds = [];
+        this.#shotGraphLastSelection = null;
         this.#lastCheckpointReason = null;
       }
     }
@@ -517,6 +520,7 @@ export class VisualizerApp {
           confidence: this.#scheduler.scene?.continuityContract.confidence ?? 0,
           downbeat: graphClock.downbeat || (!frame.hasStructure && frame.rhythmConfidence <= 0.5 && frame.onBeat),
         });
+        this.#shotGraphLastSelection = this.#shotRuntime.lastSelection;
         if (candidate) {
           this.#scheduler.setScene(candidate.scene);
           this.#shotRuntime = null;

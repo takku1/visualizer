@@ -34,6 +34,15 @@ export interface ShotSelectionContext {
   downbeat: boolean;
 }
 
+export interface ShotSelectionDiagnostic {
+  status: 'selected' | 'waiting' | 'no-edge';
+  current: string;
+  selectedId: string | null;
+  eligibleIds: string[];
+  rejected: { id: string; reasons: string[] }[];
+  context: ShotSelectionContext;
+}
+
 /** Match checkpoint timing: trusted grids select on bar wrap; fallback grids use beats. */
 export function shotGraphBoundary(
   barPhase: number,
@@ -96,6 +105,7 @@ export class ShotGraphRuntime {
   #graph: ShotGraph;
   #current = 'current';
   #epoch = 0;
+  #lastSelection: ShotSelectionDiagnostic | null = null;
 
   constructor(graph: ShotGraph) {
     this.#graph = graph;
@@ -103,6 +113,10 @@ export class ShotGraphRuntime {
 
   get epoch(): number {
     return this.#epoch;
+  }
+
+  get lastSelection(): ShotSelectionDiagnostic | null {
+    return this.#lastSelection;
   }
 
   prefetchCandidates(): ShotNode[] {
@@ -115,14 +129,24 @@ export class ShotGraphRuntime {
 
   choose(context: ShotSelectionContext): ShotNode | null {
     const nodes = new Map(this.#graph.nodes.map((node) => [node.id, node]));
-    const edge = nextShots(this.#graph, this.#current).find((candidate) => {
-      const guard = candidate.guard;
-      return (guard?.section == null || guard.section === context.section)
-        && (guard?.minConfidence == null || context.confidence >= guard.minConfidence)
-        && (!guard?.requiresDownbeat || context.downbeat);
-    });
-    if (!edge) return null;
+    const current = this.#current;
+    const edges = nextShots(this.#graph, current);
+    const rejected = edges.map((edge) => ({ id: edge.to, reasons: guardReasons(edge, context) }))
+      .filter((item) => item.reasons.length > 0);
+    const eligibleIds = edges.filter((edge) => guardReasons(edge, context).length === 0).map((edge) => edge.to);
+    const edge = edges.find((candidate) => guardReasons(candidate, context).length === 0);
+    if (!edge) {
+      this.#lastSelection = {
+        status: edges.length ? 'waiting' : 'no-edge', current, selectedId: null,
+        eligibleIds, rejected, context: { ...context },
+      };
+      return null;
+    }
     this.#current = edge.to;
+    this.#lastSelection = {
+      status: 'selected', current, selectedId: edge.to,
+      eligibleIds, rejected, context: { ...context },
+    };
     return nodes.get(edge.to) ?? null;
   }
 
@@ -130,4 +154,13 @@ export class ShotGraphRuntime {
     this.#epoch++;
     return this.#epoch;
   }
+}
+
+function guardReasons(edge: ShotEdge, context: ShotSelectionContext): string[] {
+  const guard = edge.guard;
+  const reasons: string[] = [];
+  if (guard?.section != null && guard.section !== context.section) reasons.push('section');
+  if (guard?.minConfidence != null && context.confidence < guard.minConfidence) reasons.push('confidence');
+  if (guard?.requiresDownbeat && !context.downbeat) reasons.push('downbeat');
+  return reasons;
 }

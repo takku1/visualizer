@@ -19,6 +19,10 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - The current sidecar compiles structured `WorldState`/`Shot`/`SceneDiff` into a backend-specific conditioning prompt (`structured-world-v1`), while preserving the legacy fields and reporting the diff summary, conditioned field set, and prompt hash in stream telemetry. This makes the current text bridge auditable without pretending SD-Turbo has object-level reference conditioning.
 - ShotGraph candidate insertion now supports true alternate branches from the current shot (with an explicit `fromId` escape hatch for chained transitions), so prefetch and weighted selection operate on competing production candidates rather than accidentally forming a candidate chain.
 - ShotGraph telemetry now includes recent staged, prefetched, and selected candidate IDs in addition to counts, making live production selection auditable from JSONL rather than inferred from aggregate counters.
+- ShotGraph runtime telemetry now records whether selection was made, is waiting
+  on a guard (section/confidence/downbeat), or had no edge, including the
+  rejected-candidate reasons. This distinguishes an unused graph from a graph
+  correctly deferring a transition.
 - Abstaining realization now compiles perceptual constraints (form, behavior, space, material, motion, and tension) before legacy procedural vocabulary; geometry remains a continuous motion substrate rather than authoritative scene content.
 - Default abstaining/emergent scenes now suppress legacy procedural symmetry folds, so the motion substrate cannot reintroduce kaleidoscopic content after the perceptual compiler requests a persistent asymmetric form. Explicit knob mode retains its structural-fold contract.
 - `PerceptualIntent` and anonymous `EmergentWorldState` now exist as typed seams; a measured backend observer still needs to provide correspondence handles before emergent hypotheses can be populated from pixels.
