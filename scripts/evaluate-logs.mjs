@@ -14,6 +14,7 @@ const checkpoints = rows.filter((row) => row._checkpoint);
 const decisions = rows.filter((row) => row.scene && row.system1);
 const receipts = checkpoints.map((row) => row.timing).filter(Boolean);
 const diffs = checkpoints.map((row) => row.worldDiff).filter(Boolean);
+const telemetry = rows.filter((row) => row._telemetry);
 const changes = { identity: 0, action: 0, environment: 0, look: 0, camera: 0 };
 let previous = null;
 for (const row of checkpoints) {
@@ -43,6 +44,23 @@ const summary = {
     averageKeptEntities: avg(diffs.map((diff) => diff.keep).filter((value) => typeof value === 'number')),
     averageAddedEntities: avg(diffs.map((diff) => diff.add).filter((value) => typeof value === 'number')),
     averageRemovedEntities: avg(diffs.map((diff) => diff.remove).filter((value) => typeof value === 'number')),
+  },
+  liveMeaning: (() => {
+    const samples = telemetry.map((row) => row.meaning).filter(Boolean);
+    const latest = samples.at(-1) ?? null;
+    return {
+      samples: samples.length,
+      latest,
+      languages: [...new Set(samples.map((sample) => sample.language).filter(Boolean))],
+      maxUpdates: samples.length ? Math.max(...samples.map((sample) => sample.updates ?? 0)) : 0,
+      maxHypotheses: samples.length ? Math.max(...samples.map((sample) => sample.hypotheses ?? 0)) : 0,
+      maxProvisional: samples.length ? Math.max(...samples.map((sample) => sample.provisional ?? 0)) : 0,
+      maxCommitted: samples.length ? Math.max(...samples.map((sample) => sample.committed ?? 0)) : 0,
+    };
+  })(),
+  realization: {
+    structuredTelemetrySamples: telemetry.filter((row) => row.stream?.meta?.realization?.structured === true).length,
+    conditioningVersions: [...new Set(telemetry.map((row) => row.stream?.meta?.realization?.conditioning).filter(Boolean))],
   },
   evidence: {
     semanticDecisions: decisions.filter((row) => row.scene.source === 'semantic-manifest').length,
