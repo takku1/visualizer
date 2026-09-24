@@ -1,6 +1,7 @@
 # Multilingual semantic direction
 
-Status: design captured; no lyric or audio-language extractor is implemented yet.
+Status: local multilingual ASR transport and conservative semantic promotion are
+implemented; language/semantic quality and visual evaluation remain open.
 
 ## Finding
 
@@ -76,16 +77,21 @@ versioned SongMeaning(language=BCP47)
 scene compiler → prompt + typed fingerprint
 ```
 
-The first implementation slice should support manifests authored in any language,
-then add language identification and lyric ingestion as separate measured seams.
-Do not add automatic translation to `sceneFromPlan`; that would move uncertain,
-expensive work into the director/render path and would violate the project's
-timescale separation.
+The current implementation slice supports manifests authored in any language,
+local Whisper ASR windows, explicit language forcing (including `ja`), bounded
+timestamps, script-based Japanese recovery when Whisper reports `und`, and
+conservative English/Japanese motif/action extraction. It preserves source
+evidence and keeps provisional hypotheses separate from committed meaning.
+Automatic translation is still intentionally absent from `sceneFromPlan`:
+translation would move uncertain, expensive work into the director/render path
+and violate the project's timescale separation.
 
 ## Current evidence boundary
 
 Implemented now: optional `language` on `SongMeaning`, propagation to
-`SemanticScene`, and explicit scene-source telemetry. Not implemented: language
-detection, lyrics acquisition, translation, multilingual ASR, or evaluation across
-languages. Those remain research/prototype work and must not be claimed as current
-capability.
+`SemanticScene`, explicit scene-source telemetry, local multilingual ASR,
+language forcing, bounded live evidence, and conservative Japanese/English
+extraction. Timed lyric acquisition/providers, translation, broad language
+coverage, calibrated transcription quality, and cross-language visual
+evaluation remain deferred. A connected ASR worker or a language label alone
+must not be claimed as semantic or visual understanding.

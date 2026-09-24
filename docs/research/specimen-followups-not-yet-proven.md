@@ -93,9 +93,10 @@ That creates a stable seam for later experiments:
 4. fused evidence with abstention.
 
 The current code implements the narrower `SongMeaning` seam in
-`src/director/semantic.ts` and a local manifest loader in the stream sidecar.
-It does not yet implement any lyric provider or audio-language model; absent
-manifests remain an explicit abstention.
+`src/director/semantic.ts`, a local manifest loader in the stream sidecar, and
+an opt-in local Whisper ASR path. It still does not implement a licensed lyric
+provider, translation, or calibrated audio-language understanding; absent or
+uncommitted evidence remains an explicit abstention.
 
 The comparison must measure whether each added source improves semantic
 coherence rather than merely making prompts longer.
