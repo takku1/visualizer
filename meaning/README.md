@@ -22,6 +22,12 @@ npm run meaning:new -- --track-id "spotify:track:example" --language en
 The scaffold is intentionally abstaining. Fill it only with verified lyric or
 transcript evidence before setting `abstained` to `false`.
 
+For verified timed `.lrc` evidence, `npm run meaning:import` applies a small
+bounded English/Japanese vocabulary to expose safe person, place, object,
+force, texture, and action handles. It does not translate lyrics or infer an
+unrecognized story; unknown lines remain `symbol` motifs. Use
+`--symbols-only` when importing evidence without even this bounded grounding.
+
 The JSON shape is the `SongMeaning` contract in `src/director/semantic.ts`:
 
 `language` is an optional BCP 47 tag for the evidence and labels (`ja`, `ko`,

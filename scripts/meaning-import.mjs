@@ -22,13 +22,60 @@ const lines = [...text.split(/\r?\n/).flatMap((raw) => {
 })].sort((a, b) => a.startSec - b.startSec).map((line, index, all) => ({ ...line, endSec: all[index + 1]?.startSec }));
 if (!lines.length) throw new Error('No timed lyric lines found');
 const confidence = 0.9;
-const motifs = lines.slice(0, 8).map((line, index) => ({ id: `lyric-line-${index}`, kind: 'symbol', label: line.text, attributes: [], confidence, source: 'lyrics' }));
+
+// This is deliberately a small evidence-grounding vocabulary, not a
+// translation or narrative model. Exact lyric text remains the evidence;
+// recognized labels only expose safe renderer handles. Unknown text remains a
+// symbol so an importer cannot silently invent a world.
+const VOCAB = [
+  ['person', /\b(woman|girl|man|boy|person|child|mother|father|lover)\b/iu, /彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人/u],
+  ['place', /\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|field|night)\b/iu, /駅|ホーム|街|町|通り|道|部屋|家|森|庭|川|海|山|橋|学校|野原|夜/u],
+  ['object', /\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\b/iu, /電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|犬|猫|夢|心|声|歌|手紙/u],
+  ['force', /\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn|love|tears|time)\b/iu, /雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時/u],
+  ['texture', /\b(fog|smoke|mist|water|ice|dust|glass|stone|shadow|sky|world)\b/iu, /霧|煙|水|氷|埃|ほこり|ガラス|石|影|空|世界/u],
+];
+const symbolsOnly = args.includes('--symbols-only');
+const groundedLines = lines.map((line, index) => ({ ...line, index, motifs: symbolsOnly ? [] : boundedMotifs(line.text, index), action: symbolsOnly ? null : boundedAction(line.text) }));
+const motifs = groundedLines.flatMap((line) => line.motifs);
+const fallbackMotifs = groundedLines.filter((line) => line.index < 8)
+  .filter((line) => line.motifs.length === 0)
+  .map((line) => ({ id: `lyric-line-${line.index}-symbol`, kind: 'symbol', label: line.text, attributes: [], confidence, source: 'lyrics' }));
+const allMotifs = [...motifs, ...fallbackMotifs];
+const grounded = allMotifs.some((motif) => motif.kind !== 'symbol');
+const sections = groundedLines.map((line) => ({
+  index: line.index,
+  startSec: line.startSec,
+  endSec: line.endSec,
+  action: line.action ?? 'lyric evidence unfolds through the frame',
+  activeMotifs: [...line.motifs.map((motif) => motif.id), ...(!line.motifs.length && line.index < 8 ? [`lyric-line-${line.index}-symbol`] : [])],
+  affect: [],
+  confidence,
+}));
 const manifest = {
-  revision: 1, thesis: 'meaning imported from timed lyric evidence', abstained: false,
-  motifs, relations: [], language: value('--language', 'und'),
-  sections: [{ index: 0, startSec: lines[0].startSec, endSec: lines.at(-1).endSec, action: 'lyric evidence unfolds through the frame', activeMotifs: motifs.map((motif) => motif.id), affect: [], confidence }],
+  revision: 1, thesis: 'meaning imported from timed lyric evidence', abstained: !grounded,
+  motifs: allMotifs, relations: [], language: value('--language', 'und'),
+  sections,
   evidence: lines.map((line) => ({ source: 'lyrics', text: line.text, confidence, startSec: line.startSec, endSec: line.endSec })),
 };
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, JSON.stringify(manifest, null, 2) + '\n');
-console.log(`Imported ${lines.length} timed lyric lines -> ${output}`);
+console.log(`Imported ${lines.length} timed lyric lines -> ${output} (${grounded ? 'bounded motifs/actions' : 'symbol-only abstention'})`);
+
+function boundedMotifs(value, index) {
+  return VOCAB.flatMap(([kind, english, japanese]) => {
+    if (!english.test(value) && !japanese.test(value)) return [];
+    return [{ id: `lyric-line-${index}-${kind}`, kind, label: kind, attributes: [value], confidence, source: 'lyrics' }];
+  });
+}
+
+function boundedAction(value) {
+  if (/\b(walk|walking|walks)\b/iu.test(value) || /歩く|歩いて|歩き|進む|進んで/u.test(value)) return 'walks through the environment';
+  if (/\b(run|running|runs)\b/iu.test(value) || /走る|走って|走り|駆ける|駆けて/u.test(value)) return 'runs through the environment';
+  if (/\b(stand|standing|stands|wait|waiting)\b/iu.test(value) || /待つ|待って|立つ|立って|佇む|佇んで/u.test(value)) return 'waits in place';
+  if (/\b(come|approach|arrive|enter)\b/iu.test(value) || /近づく|近づいて|来る|来て|入る|入って|向かう/u.test(value)) return 'approaches a nearby place';
+  if (/\b(leave|depart|return)\b/iu.test(value) || /去る|去って|帰る|帰って|戻る|戻って|離れる/u.test(value)) return 'leaves or returns';
+  if (/\b(dance|dancing|dances)\b/iu.test(value) || /踊る|踊って|踊り/u.test(value)) return 'moves rhythmically';
+  if (/\b(sway|swaying|sways|flow|flowing|flows|drift|drifting|drifts|float|floating)\b/iu.test(value) || /揺れる|揺れて|揺らぐ|揺らいで|流れる|流れて|漂う|漂って|浮かぶ|浮かんで/u.test(value)) return 'moves with a flowing motion';
+  if (/\b(open|opening|opens|close|closing|closes|unfold|unfolding)\b/iu.test(value) || /開く|開いて|閉じる|閉じて|ほどける|ほどけて|ひらく|ひらいて|解ける|解けて/u.test(value)) return 'reveals or conceals space';
+  return null;
+}

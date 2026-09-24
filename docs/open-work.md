@@ -25,6 +25,10 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - Shot graphs now support guarded runtime selection, prefetch candidates, and cancellation epochs; GPU pre-rendering remains measurement-gated.
 - State/telemetry now records ShotGraph candidates staged, prefetch intent, selections, and pending state so production use is distinguishable from unit-test-only coverage.
 - Timed lyric import/provider interfaces now exist; `npm run meaning:import -- --lrc song.lrc --track <id> --out meaning/<id>.json` creates an evidence-bearing manifest.
+- Timed lyric import now performs bounded English/Japanese lexical grounding
+  for recognized motifs/actions while preserving unknown lines as symbols;
+  `--symbols-only` retains an explicitly conservative import mode. This is
+  evidence grounding, not translation or unrestricted narrative inference.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
 - The same text report now includes live language/configuration coverage, structured-conditioning build hashes, and stream health (zero-FPS windows split by connection state, disconnects, and dropped frames) so startup gaps are not confused with renderer or world-state failures.
 - The same evaluator reports live ASR update/provisional/committed counts and structured-realization conditioning versions, making post-restart runtime validation reproducible.
