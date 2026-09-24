@@ -50,6 +50,44 @@ export class MemoryLyricsCache implements LyricsCache {
   }
 }
 
+export interface LyricsStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+/** Small persistent cache adapter for browser/Electron hosts; failures are misses. */
+export class StorageLyricsCache implements LyricsCache {
+  #storage: LyricsStorage;
+  #prefix: string;
+  #maxAgeMs: number;
+
+  constructor(storage: LyricsStorage, prefix = 's1:lyrics:', maxAgeMs = 30 * 24 * 60 * 60 * 1000) {
+    this.#storage = storage;
+    this.#prefix = prefix;
+    this.#maxAgeMs = maxAgeMs;
+  }
+
+  get(key: string): LyricsResult | null {
+    try {
+      const raw = this.#storage.getItem(this.#prefix + encodeURIComponent(key));
+      if (!raw) return null;
+      const entry = JSON.parse(raw) as { cachedAt?: number; value?: LyricsResult };
+      if (!entry.value || !Number.isFinite(entry.cachedAt) || Date.now() - entry.cachedAt! > this.#maxAgeMs) return null;
+      return entry.value;
+    } catch {
+      return null;
+    }
+  }
+
+  set(key: string, value: LyricsResult): void {
+    try {
+      this.#storage.setItem(this.#prefix + encodeURIComponent(key), JSON.stringify({ cachedAt: Date.now(), value }));
+    } catch {
+      // Quota/private-mode failures must never affect playback.
+    }
+  }
+}
+
 interface LyricsHttpResponse {
   ok: boolean;
   status: number;

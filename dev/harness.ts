@@ -1,5 +1,5 @@
 import { VisualizerApp, type TrackContext } from '../src/core';
-import { CachedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache } from '../src/director/lyrics';
+import { CachedLyricsProvider, LrclibLyricsProvider, StorageLyricsCache } from '../src/director/lyrics';
 
 /**
  * Standalone dev harness. Runs in a plain browser tab, or - unmodified - as
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
     streamUrl: params.get('stream') === 'off' ? undefined : params.get('stream') ?? 'ws://127.0.0.1:8771',
     meaningUrl: params.get('meaning') ?? undefined,
     lyricsProvider: params.get('lyrics') === 'lrclib'
-      ? new CachedLyricsProvider(new LrclibLyricsProvider(), new MemoryLyricsCache())
+      ? new CachedLyricsProvider(new LrclibLyricsProvider(), new StorageLyricsCache(localStorage))
       : undefined,
     allowUnknownLyrics: params.get('lyrics-rights') === 'community',
     paint: Number(params.get('paint') ?? storedPaint() ?? 0.85),

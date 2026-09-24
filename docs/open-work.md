@@ -47,6 +47,9 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   duration matching, and requires an explicit `allowUnknownRights` decision
   before community lyrics can become committed meaning. See
   [`docs/research/low-overhead-lyrics-and-meaning-sources.md`](research/low-overhead-lyrics-and-meaning-sources.md).
+- The explicit LRCLIB harness path now persists exact-track results in a
+  30-day browser/Electron cache; quota, private-mode, and expiry failures are
+  treated as lookup misses and never touch the frame loop.
 - Timed lyric import now performs bounded English/Japanese lexical grounding
   for recognized motifs/actions while preserving unknown lines as symbols;
   `--symbols-only` retains an explicitly conservative import mode. This is

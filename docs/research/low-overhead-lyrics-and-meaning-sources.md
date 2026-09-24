@@ -38,7 +38,8 @@ LRCLIB documents `GET /api/get` with `track_name`, `artist_name`, optional
 - returns `null` on network, shape, status, or match failure.
 
 The current implementation lives in `src/director/lyrics.ts` as
-`LrclibLyricsProvider` and `CachedLyricsProvider`. It is deliberately not
+`LrclibLyricsProvider`, `CachedLyricsProvider`, and the browser-safe
+`StorageLyricsCache`. It is deliberately not
 silently promoted to licensed production evidence. A caller must explicitly
 decide whether unknown-rights development data may affect committed meaning.
 
@@ -50,6 +51,10 @@ or regional release from inheriting another recording's lyrics merely because
 the title matches. A future persistent cache can store the raw provider record
 and the compiled meaning manifest separately, with provider revision and
 rights metadata retained.
+
+The Electron/browser harness uses a bounded local-storage cache when the
+provider is explicitly enabled. Cache expiry or storage/quota failures are
+treated as misses and never interrupt playback.
 
 ## Meaning without an LLM
 

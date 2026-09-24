@@ -14,7 +14,7 @@ import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from '../src/director/live-meaning';
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
-import { CachedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
+import { CachedLyricsProvider, LrclibLyricsProvider, MemoryLyricsCache, StorageLyricsCache, lyricsCacheKey, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
@@ -680,6 +680,17 @@ test('cached lyric lookup avoids repeated provider requests', async () => {
   assert.ok(await provider.lookup(query));
   assert.ok(await provider.lookup(query));
   assert.equal(calls, 1);
+});
+
+test('persistent lyric cache survives provider recreation and expires safely', () => {
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+  const query = { trackId: 'persistent', title: 'Rain', artist: 'Band', durationSec: 10 };
+  const result = { provider: 'lrclib', match: 'metadata' as const, timing: 'line' as const, rights: 'unknown' as const, confidence: 0.7, lines: [{ startSec: 1, text: 'rain' }] };
+  new StorageLyricsCache(storage).set('lrclib\u0000persistent', result);
+  assert.deepEqual(new StorageLyricsCache(storage).get('lrclib\u0000persistent'), result);
+  assert.equal(new StorageLyricsCache(storage, 's1:short:', 0).get('lrclib\u0000persistent'), null);
+  assert.equal(lyricsCacheKey('lrclib', query).includes('persistent'), true);
 });
 
 test('timed lyric meaning shares bounded English/Japanese grounding with live ASR', () => {
