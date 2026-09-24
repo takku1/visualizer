@@ -82,7 +82,12 @@ export class FeatureBus {
     this.#trackLevel.push(f.level);
     f.levelRelative = this.#trackLevel.zScore(f.level);
     const rhythm = this.#rhythm.update(f);
-    f.rhythmConfidence = rhythm.confidence;
+    // A causal tracker has already measured the grid on the audio clock. The
+    // display-rate RhythmAnalyzer is still useful for swing/syncopation, but
+    // its confidence must not overwrite the tracker's structural confidence;
+    // doing so made verified tracker beats appear untrusted to checkpoints and
+    // ShotGraph even while `beatSource` and `confidence` were healthy.
+    f.rhythmConfidence = f.beatSource === 'tracker' ? f.confidence : rhythm.confidence;
     f.swing = Math.min(Math.max((rhythm.feel.swingRatio - 1) / 0.66, 0), 1);
     f.syncopation = rhythm.feel.syncopation;
     f.microtiming = rhythm.feel.microtiming;

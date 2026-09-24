@@ -21,6 +21,7 @@ import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapt
 import { StructureMemory } from '../src/structure/memory';
 import { estimateKey } from '../src/audio/loopback';
 import { BeatTracker } from '../src/rhythm/beat-tracker';
+import { FeatureBus } from '../src/audio/bus';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -67,6 +68,26 @@ test('causal beat tracker locks to a steady 120 BPM pulse', () => {
   const estimate = tracker.estimate(12);
   assert.ok(estimate.tempo >= 110 && estimate.tempo <= 130, `tempo ${estimate.tempo}`);
   assert.ok(estimate.confidence > 0.2, `confidence ${estimate.confidence}`);
+});
+
+test('FeatureBus exposes confident tracker beats to structural consumers', () => {
+  const bus = new FeatureBus().add({
+    name: 'synthetic-tracker',
+    ready: true,
+    start: async () => undefined,
+    stop: () => undefined,
+    sample: (f) => {
+      f.beatSource = 'tracker';
+      f.confidence = 0.9;
+      f.onBeat = true;
+      f.level = 0.5;
+      f.bass = 0.5;
+      f.flux = 0.5;
+    },
+  });
+  const frame = bus.update(1000);
+  assert.equal(frame.beatSource, 'tracker');
+  assert.ok(frame.rhythmConfidence >= 0.5, `rhythm confidence ${frame.rhythmConfidence}`);
 });
 
 test('System 0 observes a conservative repeat without changing section state', () => {
