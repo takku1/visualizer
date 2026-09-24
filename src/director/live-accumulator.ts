@@ -101,20 +101,34 @@ function overlaps(a: LiveLyricHypothesis, b: LiveLyricHypothesis): boolean {
  * merging unrelated phrases that merely occur in the same six-second window. */
 function textSimilarity(a: string, b: string): number {
   if (a === b) return 1;
-  if (Math.min(a.length, b.length) < 4) return 0;
+  const leftChars = Array.from(a);
+  const rightChars = Array.from(b);
+  // Japanese lyrics often arrive as short kana/kanji chunks without spaces.
+  // UTF-16 length and Latin-oriented n-grams incorrectly reject those chunks
+  // before temporal evidence can accumulate.
+  if (Math.min(leftChars.length, rightChars.length) < 4) {
+    return shortScriptSimilarity(leftChars, rightChars);
+  }
   if (a.includes(b) || b.includes(a)) return Math.min(a.length, b.length) / Math.max(a.length, b.length);
-  const left = new Set(ngrams(a));
-  const right = new Set(ngrams(b));
+  const left = new Set(ngrams(leftChars));
+  const right = new Set(ngrams(rightChars));
   const intersection = [...left].filter((gram) => right.has(gram)).length;
   const jaccard = intersection / Math.max(1, new Set([...left, ...right]).size);
-  return Math.max(jaccard, 1 - editDistance(a, b) / Math.max(a.length, b.length));
+  return Math.max(jaccard, 1 - editDistance(leftChars, rightChars) / Math.max(leftChars.length, rightChars.length));
 }
 
-function ngrams(value: string): string[] {
-  return [...value].map((_, index) => value.slice(index, index + 2)).filter((gram) => gram.length === 2);
+function shortScriptSimilarity(a: string[], b: string[]): number {
+  const shared = a.filter((char) => b.includes(char)).length;
+  const overlap = shared / Math.max(1, Math.max(a.length, b.length));
+  const edit = 1 - editDistance(a, b) / Math.max(a.length, b.length);
+  return Math.max(overlap, edit);
 }
 
-function editDistance(a: string, b: string): number {
+function ngrams(value: string[]): string[] {
+  return value.map((_, index) => value.slice(index, index + 2).join('')).filter((gram) => Array.from(gram).length === 2);
+}
+
+function editDistance(a: string[], b: string[]): number {
   let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
   for (let i = 1; i <= a.length; i++) {
     const current = [i];

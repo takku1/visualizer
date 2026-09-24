@@ -269,6 +269,21 @@ test('live meaning tolerates bounded Japanese ASR wording revisions', () => {
   assert.equal(state.committed.length, 1);
 });
 
+test('live meaning stabilizes short Japanese lyric chunks', () => {
+  const accumulator = new LiveLyricAccumulator();
+  const make = (revision: number, text: string): LiveLyricUpdate => ({
+    type: 'live-lyrics', trackId: 'ja-short', playheadSec: revision * 1.5, revision,
+    model: 'whisper-small', hypotheses: [{
+      ...liveHypothesis, id: `ja-short-${revision}`, text, language: 'ja',
+      startSec: 2.1, endSec: 5.4, confidence: 0.8,
+    }],
+  });
+  accumulator.update('ja-short', 1, make(1, '雨が降る').hypotheses);
+  accumulator.update('ja-short', 2, make(2, '雨降る').hypotheses);
+  const state = accumulator.update('ja-short', 3, make(3, '雨が降る').hypotheses);
+  assert.equal(state.committed.length, 1);
+});
+
 test('a new track and stale revision cannot inherit committed live meaning', () => {
   const accumulator = new LiveLyricAccumulator();
   accumulator.update('track-a', 1, [{ ...liveHypothesis, confidence: 0.9, stability: 0.9 }]);

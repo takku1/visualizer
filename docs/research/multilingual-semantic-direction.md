@@ -86,6 +86,16 @@ Automatic translation is still intentionally absent from `sceneFromPlan`:
 translation would move uncertain, expensive work into the director/render path
 and violate the project's timescale separation.
 
+The live evidence accumulator now compares Unicode code points rather than
+UTF-16/code-unit length and Latin-only character n-grams. This matters for
+short Japanese lyric chunks: a phrase may contain only a few kana/kanji and no
+spaces, so a minimum Latin word length would silently prevent repeated-window
+stabilization. The matcher remains bounded by temporal overlap, repeated
+observations, and confidence; script-aware matching improves recall without
+turning a single uncertain ASR window into committed meaning. This is an
+implementation of the broader sequential-evidence principle used in streaming
+recognition, not a claim that Whisper confidence is calibrated for singing.
+
 ## Current evidence boundary
 
 Implemented now: optional `language` on `SongMeaning`, propagation to
