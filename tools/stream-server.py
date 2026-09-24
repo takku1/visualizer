@@ -62,6 +62,10 @@ KEY_STEPS = int(os.environ.get("STREAM_KEY_STEPS", "4"))
 JPEG_QUALITY = int(os.environ.get("STREAM_JPEG_QUALITY", "88"))
 MAX_FPS = float(os.environ.get("STREAM_MAX_FPS", "30"))
 MEANING_DIR = Path(os.environ.get("STREAM_MEANING_DIR", ROOT / "meaning"))
+EVAL_DIR = Path(os.environ["STREAM_EVAL_DIR"]) if os.environ.get("STREAM_EVAL_DIR") else None
+EVAL_EVERY = max(1, int(os.environ.get("STREAM_EVAL_EVERY", "15")))
+if EVAL_DIR:
+    EVAL_DIR.mkdir(parents=True, exist_ok=True)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
@@ -857,7 +861,13 @@ class Stream:
             ok, jpg = cv2.imencode(".jpg", cv2.cvtColor(img, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
             self.frame += 1
             meta.update({"frame": self.frame, "fps": round(self.fps, 1), "width": img.shape[1], "height": img.shape[0]})
-            self._publish(meta, jpg.tobytes() if ok else b"")
+            encoded = jpg.tobytes() if ok else b""
+            if EVAL_DIR and self.frame % EVAL_EVERY == 0:
+                name = f"frame-{self.frame:08d}.jpg"
+                (EVAL_DIR / name).write_bytes(encoded)
+                with (EVAL_DIR / "frames.jsonl").open("a", encoding="utf-8") as handle:
+                    handle.write(json.dumps({"file": name, "meta": meta}) + "\n")
+            self._publish(meta, encoded)
             spare = 1.0 / MAX_FPS - (time.perf_counter() - now)
             if spare > 0:
                 time.sleep(spare)
