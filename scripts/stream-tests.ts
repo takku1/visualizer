@@ -345,7 +345,7 @@ test('committed live audio promotes to SongMeaning without blocking the renderer
   state = accumulator.update('track-a', 3, [{ ...liveHypothesis, confidence: 0.8, stability: 0 }]);
   const meaning = meaningFromLive(state, 1, 0);
   assert.equal(meaning?.evidence[0]?.source, 'audio');
-  assert.equal(meaning?.motifs[0]?.label, liveHypothesis.text);
+  assert.deepEqual(meaning?.motifs.map((motif) => motif.kind).sort(), ['object', 'place']);
   assert.equal(meaning?.abstained, false);
 });
 
@@ -406,6 +406,7 @@ test('unknown committed live wording remains a symbol instead of inventing a wor
   }, 4, 0);
   assert.deepEqual(meaning?.motifs.map((motif) => motif.kind), ['symbol']);
   assert.equal(meaning?.sections[0]?.action, 'the vocal motif moves through the frame');
+  assert.equal(meaning?.abstained, true);
 });
 
 test('unknown live symbols never become persistent world entities', () => {
@@ -417,7 +418,7 @@ test('unknown live symbols never become persistent world entities', () => {
   assert.ok(meaning);
   const scene = sceneFromPlan(initialPlan(), { trackId: 'track-symbol', meaning }, 0);
   assert.deepEqual(scene.world.entities, []);
-  assert.match(scene.prompt, /central motif/);
+  assert.equal(scene.source, 'abstract-fallback');
   assert.doesNotMatch(scene.prompt, /Thank you very much/);
 });
 

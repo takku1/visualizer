@@ -41,12 +41,18 @@ export function meaningFromLive(state: LiveMeaningState, revision: number, secti
   if (!committed.length) return null;
   const motifs = committed.slice(-4).flatMap((item, index) => extractMotifs(item.text, item.language, item.confidence, index, item.id));
   const confidence = committed.reduce((sum, item) => sum + item.confidence, 0) / committed.length;
-  const action = committed.map((item) => actionFor(item.text, item.language)).find(Boolean) ?? 'the vocal motif moves through the frame';
+  const extractedAction = committed.map((item) => actionFor(item.text, item.language)).find(Boolean);
+  const action = extractedAction ?? 'the vocal motif moves through the frame';
+  const hasGroundedMotif = motifs.some((motif) => motif.kind !== 'symbol');
   return {
     revision,
     thesis: 'meaning discovered from committed live audio evidence',
     language: committed[0]!.language,
-    abstained: false,
+    // A committed ASR phrase is evidence that sound was heard, not proof that
+    // its content was grounded. Keep action/perceptual information available,
+    // but require at least one recognized motif before compiling a literal
+    // semantic scene or persistent world entity.
+    abstained: !hasGroundedMotif,
     motifs,
     relations: [],
     sections: [{
@@ -71,8 +77,8 @@ type ExtractedKind = 'person' | 'place' | 'object' | 'force' | 'texture';
 
 const VOCAB: Record<ExtractedKind, readonly [RegExp, string][]> = {
   person: [[/\b(woman|girl|man|boy|person|child|mother|father|lover)\b/iu, 'person'], [/彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人/u, 'person']],
-  place: [[/\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|night)\b/iu, 'place'], [/駅|ホーム|街|町|通り|道|部屋|家|森|庭|川|海|山|橋|学校|夜/u, 'place']],
-  object: [[/\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird)\b/iu, 'object'], [/電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥/u, 'object']],
+  place: [[/\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|field|night)\b/iu, 'place'], [/駅|ホーム|街|町|通り|道|部屋|家|森|庭|川|海|山|橋|学校|野原|夜/u, 'place']],
+  object: [[/\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat)\b/iu, 'object'], [/電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|犬|猫/u, 'object']],
   force: [[/\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn)\b/iu, 'force'], [/雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け/u, 'force']],
   texture: [[/\b(fog|smoke|mist|water|ice|dust|glass|stone)\b/iu, 'texture'], [/霧|煙|水|氷|埃|ほこり|ガラス|石/u, 'texture']],
 };
