@@ -92,15 +92,17 @@ class Probe:
             generate_kwargs=generate_kwargs,
         )
         hypotheses: list[dict] = []
+        forced_language = bool(self.language and self.language.lower() not in {"auto", "und"})
         detected_language = infer_language(
             str(result.get("language") or self.language or "und"),
             str(result.get("text") or ""),
+            explicit=forced_language,
         )
         for index, chunk in enumerate(result.get("chunks", [])):
             text = str(chunk.get("text", "")).strip()
             if not text:
                 continue
-            chunk_language = infer_language(detected_language, text)
+            chunk_language = infer_language(detected_language, text, explicit=forced_language)
             timestamps = chunk.get("timestamp") or (None, None)
             start, end = timestamps
             if start is None:
@@ -143,16 +145,28 @@ class Probe:
         return hypotheses
 
 
-def infer_language(reported: str, text: str) -> str:
-    """Recover common Whisper omissions without overriding an explicit locale."""
+def infer_language(reported: str, text: str, *, explicit: bool = False) -> str:
+    """Resolve Whisper language with a script contradiction guard.
+
+    Auto Whisper can label short sung Latin text as Japanese. A forced locale
+    is authoritative; auto mode is not, so a strong script contradiction may
+    replace the model label. This is still conservative: Latin text is only
+    promoted to English when the conflicting label is one of the common
+    non-Latin misclassifications we support.
+    """
     normalized = reported.strip().lower()
-    if normalized not in {"", "auto", "und", "unknown", "none"}:
-        if normalized in {"japanese", "日本語"}:
-            return "ja"
+    if normalized in {"japanese", "日本語"}:
+        normalized = "ja"
+    if explicit and normalized not in {"", "auto", "und", "unknown", "none"}:
         return normalized
-    # Hiragana/Katakana are a stronger Japanese signal than generic CJK text.
-    if any(("\u3040" <= char <= "\u309f") or ("\u30a0" <= char <= "\u30ff") for char in text):
+    has_japanese = any(("\u3040" <= char <= "\u309f") or ("\u30a0" <= char <= "\u30ff") for char in text)
+    has_latin = sum(char.isalpha() and char.isascii() for char in text) >= 3
+    if has_japanese:
         return "ja"
+    if has_latin and normalized in {"ja", "ko", "zh", "cmn", "und", "auto", "unknown", "none", ""}:
+        return "en"
+    if normalized not in {"", "auto", "und", "unknown", "none"}:
+        return normalized
     return reported or "und"
 
 

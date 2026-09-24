@@ -58,6 +58,20 @@ assert english[0]["startSec"] == 4.0
 assert english[0]["endSec"] == 5.0
 
 
+class MisclassifiedEnglish:
+    def __call__(self, *_args, **_kwargs):
+        return {"text": "the woman walks in the rain", "language": "ja", "chunks": []}
+
+
+auto_english_probe = module.Probe("fake", "cpu", None, MisclassifiedEnglish())
+auto_english = auto_english_probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 4.0)
+assert auto_english[0]["language"] == "en"
+
+forced_japanese_probe = module.Probe("fake", "cpu", "ja", MisclassifiedEnglish())
+forced_japanese = forced_japanese_probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 4.0)
+assert forced_japanese[0]["language"] == "ja"
+
+
 class OpenChunk:
     def __call__(self, *_args, **_kwargs):
         return {"language": "ja", "chunks": [{"text": "雨", "timestamp": (0.2, None)}]}
