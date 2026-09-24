@@ -178,6 +178,19 @@ the authoritative transition contract for a future stateful renderer backend.
 This separation follows the persistent-content/temporal-realization pattern
 described in the repository's [academic research note](research/persistent-world-realization-research.md).
 
+### Persistent color and lighting
+
+`WorldState.visualIdentity` now carries structured `ColorState` and
+`LightingState` alongside the legacy `Look`. The current compiler derives
+these values deterministically from the existing palette ramp, so the current
+procedural shader and sidecar remain compatible. Audio can modulate the
+compiled realization continuously, but a frame-level audio event does not
+replace the persistent color or lighting intent.
+
+This is an intentional migration seam: later semantic direction can update
+color/lighting fields directly, while renderer adapters can continue consuming
+the legacy `Look` until they support richer conditioning.
+
 ## Checkpoint realization (browser decides, sidecar renders)
 
 - **What:** the director runs on section boundaries, or at most every 30 s.

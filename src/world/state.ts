@@ -1,4 +1,5 @@
 import type { Look, Scene } from '../stream/scenes';
+import { colorStateFromLook, lightingStateFromLook, type ColorState, type LightingState } from './visual';
 
 export interface WorldEntity {
   id: string;
@@ -14,7 +15,7 @@ export interface WorldState {
   relation: string | null;
   action: string;
   camera: string;
-  visualIdentity: { look: Look; source: Scene['source'] };
+  visualIdentity: { look: Look; source: Scene['source']; color: ColorState; lighting: LightingState };
   time: { section: number; positionSec: number };
   provenance: { meaningRevision: number | null; confidence: number };
 }
@@ -48,7 +49,12 @@ export function worldStateFromScene(scene: Scene, section: number, positionSec =
     relation: semantic?.relation ?? null,
     action: semantic?.action ?? 'abstain',
     camera: semantic?.camera ?? scene.continuityContract.camera,
-    visualIdentity: { look: scene.look, source: scene.source },
+    visualIdentity: {
+      look: scene.look,
+      source: scene.source,
+      color: colorStateFromLook(scene.look),
+      lighting: lightingStateFromLook(scene.look),
+    },
     time: { section, positionSec },
     provenance: {
       meaningRevision: semantic?.meaningRevision ?? null,
@@ -122,13 +128,20 @@ function cloneVisualIdentity(identity: WorldState['visualIdentity']): WorldState
       ...identity.look,
       palette: identity.look.palette.map((rgb) => [...rgb] as [number, number, number]) as WorldState['visualIdentity']['look']['palette'],
     },
+    color: { ...identity.color },
+    lighting: { ...identity.lighting },
   };
 }
 
 function emptyWorld(): WorldState {
   return {
     entities: [], environment: [], relation: null, action: 'abstain', camera: 'abstain',
-    visualIdentity: { look: { palette: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], organic: 0, warp: 0, fold: 0, seed: 0 }, source: 'abstract-fallback' },
+    visualIdentity: {
+      look: { palette: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], organic: 0, warp: 0, fold: 0, seed: 0 },
+      source: 'abstract-fallback',
+      color: { dominantHue: 0, accentHue: 0, scheme: 'monochromatic', saturation: 0, contrast: 0, temperature: 0.5, luminance: 0, accentWeight: 0 },
+      lighting: { keyIntensity: 0, fillIntensity: 0, shadowDensity: 1, warmth: 0.5, atmosphere: 0, direction: 'ambient' },
+    },
     time: { section: 0, positionSec: 0 }, provenance: { meaningRevision: null, confidence: 0 },
   };
 }

@@ -23,6 +23,7 @@ import { LiveMeaningClient } from './director/live-client';
 import type { LiveLyricUpdate } from './director/live';
 import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-accumulator';
 import { meaningFromLive } from './director/live-meaning';
+import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -137,8 +138,21 @@ export class VisualizerApp {
         if (this.#knobs) {
           const targets = this.#knobs.decide(plan, ctx);
           this.#targets = targets;
-          if (targets.cut) this.#scheduler.cut({ ...scene, look: targets.look });
-          else this.#scheduler.setScene({ ...scene, look: targets.look }); // only the initial keyframe uses it
+          const knobScene = {
+            ...scene,
+            look: targets.look,
+            world: {
+              ...scene.world,
+              visualIdentity: {
+                ...scene.world.visualIdentity,
+                look: targets.look,
+                color: colorStateFromLook(targets.look),
+                lighting: lightingStateFromLook(targets.look, plan.intensity / 4),
+              },
+            },
+          };
+          if (targets.cut) this.#scheduler.cut(knobScene);
+          else this.#scheduler.setScene(knobScene); // only the initial keyframe uses it
           this.#stream?.sendBlend(targets.prompts, targets.weights, targets.tauSec);
           if (!targets.cut) this.#scene.setLook(targets.look, targets.tauSec);
         } else {

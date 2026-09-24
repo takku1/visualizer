@@ -284,16 +284,17 @@ test('world diffs preserve stable subjects while changing action', () => {
 
 test('world diff reducer preserves identity and reconstructs the proposed state', () => {
   const first = sceneFromPlan(initialPlan(), {}, 0);
-  const next = sceneFromPlan(initialPlan(), {}, 1);
   const prior = {
     ...first.world,
     entities: [{ id: 'woman', label: 'woman', kind: 'person', attributes: ['red coat'], confidence: 0.9 }],
   };
-  const proposed = { ...next.world, entities: prior.entities, action: 'walks toward the platform' };
+  const proposed = { ...prior, action: 'walks toward the platform' };
   const diff = diffWorldState(prior, proposed);
   const committed = applySceneDiff(prior, diff);
   assert.deepEqual(committed, proposed);
   assert.equal(committed.entities[0]?.id, prior.entities[0]?.id);
+  assert.equal(committed.visualIdentity.color.scheme, 'custom');
+  assert.equal(typeof committed.visualIdentity.lighting.keyIntensity, 'number');
   committed.entities[0]?.attributes.push('runtime mutation');
   assert.equal(prior.entities[0]?.attributes.includes('runtime mutation'), false);
 });
