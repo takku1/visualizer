@@ -1,9 +1,15 @@
 import type { Scene } from './scenes';
+import { diffWorldState, type SceneDiff, type WorldState } from '../world/state';
+import type { Shot } from '../world/shot';
 
 /** A small, deterministic seam for future alternate-shot generation. */
 export interface ShotNode {
   id: string;
   scene: Scene;
+  /** Structured state is the graph's real subject; Scene is compatibility output. */
+  world: WorldState;
+  shot: Shot;
+  worldDiff: SceneDiff | null;
   durationSec: number;
 }
 
@@ -35,7 +41,7 @@ export interface ShotGraph {
 
 export function compileShotGraph(scene: Scene, durationSec = 8): ShotGraph {
   return {
-    nodes: [{ id: 'current', scene, durationSec: Math.max(0.1, durationSec) }],
+    nodes: [{ id: 'current', scene, world: scene.world, shot: scene.shot, worldDiff: null, durationSec: Math.max(0.1, durationSec) }],
     edges: [],
   };
 }
@@ -44,7 +50,14 @@ export function addShotCandidate(graph: ShotGraph, id: string, scene: Scene, dur
   if (graph.nodes.some((node) => node.id === id)) throw new Error(`duplicate shot id: ${id}`);
   const from = graph.nodes[graph.nodes.length - 1];
   return {
-    nodes: [...graph.nodes, { id, scene, durationSec: Math.max(0.1, durationSec) }],
+    nodes: [...graph.nodes, {
+      id,
+      scene,
+      world: scene.world,
+      shot: scene.shot,
+      worldDiff: diffWorldState(from?.world ?? null, scene.world),
+      durationSec: Math.max(0.1, durationSec),
+    }],
     edges: [...graph.edges, {
       from: from?.id ?? 'current', to: id,
       transition: scene.continuityContract.transition,

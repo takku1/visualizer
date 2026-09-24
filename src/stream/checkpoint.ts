@@ -2,7 +2,7 @@ import type { FeatureFrame } from '../types';
 import type { Scene } from './scenes';
 import { hash } from './scenes';
 import { applySceneDiff, diffWorldState, type SceneDiff, type WorldState } from '../world/state';
-import type { RealizationRequest } from '../realization/backend';
+import { ZERO_FORCES, type ContinuousForces, type RealizationRequest } from '../realization/backend';
 
 export type CheckpointReason = 'initial' | 'scene' | 'reseed' | 'stagnant';
 
@@ -16,20 +16,12 @@ export interface CheckpointRequest extends Scene {
 }
 
 /** Compile the current checkpoint wire object into the backend-neutral seam. */
-export function realizationRequestFromCheckpoint(request: CheckpointRequest): RealizationRequest {
+export function realizationRequestFromCheckpoint(request: CheckpointRequest, continuousForces: ContinuousForces = ZERO_FORCES): RealizationRequest {
   return {
     world: request.world,
     shot: request.shot,
     diff: request.worldDiff,
-    continuousForces: {
-      bass: 0,
-      treble: 0,
-      energy: 0,
-      flux: 0,
-      beatImpulse: 0,
-      huePressure: 0,
-      motionMagnitude: 0,
-    },
+    continuousForces,
     legacy: {
       prompt: request.prompt,
       look: request.look,

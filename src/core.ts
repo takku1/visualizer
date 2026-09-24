@@ -24,6 +24,7 @@ import type { LiveLyricUpdate } from './director/live';
 import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-accumulator';
 import { meaningFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
+import { continuousForcesFrom } from './realization/backend';
 
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
@@ -364,7 +365,7 @@ export class VisualizerApp {
         // A knob-mode session's first blend may have gone out before the
         // socket was up; re-send the current targets with each keyframe.
         if (this.#targets) stream.sendBlend(this.#targets.prompts, this.#targets.weights, this.#targets.tauSec);
-        stream.requestCheckpoint(request);
+        stream.requestCheckpoint(request, continuousForcesFrom(frame, control));
         this.#checkpoints++;
         console.log(`[checkpoint] ${request.id} ${request.reason} splice=${request.spliceFrames}f continuity=${request.continuity}`);
         this.#config.log?.(checkpointLine(frame.t, request));

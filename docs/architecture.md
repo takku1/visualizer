@@ -203,6 +203,13 @@ current StreamDiffusion transport can continue consuming the legacy bundle;
 future adapters can consume references, masks, depth, pose, or temporal
 conditioning without changing the director/world interfaces.
 
+Live audio now compiles into bounded `ContinuousForces` (`bass`, `treble`,
+`energy`, `flux`, beat impulse, hue pressure, and motion magnitude). These are
+sent with checkpoint transport as physical pressure only; they do not create
+entities or rewrite semantic identity. `ShotGraph` nodes likewise carry their
+structured world, shot, and world diff, with `Scene` retained as a compatibility
+projection.
+
 ## Checkpoint realization (browser decides, sidecar renders)
 
 - **What:** the director runs on section boundaries, or at most every 30 s.

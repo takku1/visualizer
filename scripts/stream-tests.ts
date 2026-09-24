@@ -412,6 +412,9 @@ test('shot graph keeps alternate candidates explicit and ordered', () => {
   assert.equal(nextShots(graph)[0]!.to, 'next');
   assert.equal(nextShots(graph)[0]!.prefetch, true);
   assert.equal(runtime.prefetchCandidates()[0]!.id, 'next');
+  assert.equal(runtime.prefetchCandidates()[0]!.world, graph.nodes[1]!.world);
+  assert.equal(runtime.prefetchCandidates()[0]!.shot.id, graph.nodes[1]!.shot.id);
+  assert.ok(runtime.prefetchCandidates()[0]!.worldDiff);
   assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: false }), null);
   assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: true })?.id, 'next');
   assert.equal(runtime.cancel(), 1);

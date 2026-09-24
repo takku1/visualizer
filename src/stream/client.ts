@@ -1,7 +1,8 @@
 import type { SamplerControl } from './control';
-import type { CheckpointRequest, StreamObservation } from './checkpoint';
+import { realizationRequestFromCheckpoint, type CheckpointRequest, type StreamObservation } from './checkpoint';
 import type { SongMeaning } from '../director/semantic';
 import { isLiveLyricUpdate, type LiveLyricUpdate } from '../director/live';
+import type { ContinuousForces } from '../realization/backend';
 
 /** Per-frame header the sidecar prepends to each JPEG. */
 export interface StreamMeta {
@@ -217,9 +218,14 @@ export class StreamClient {
     this.#ws!.send(JSON.stringify({ type: 'track', trackId, title, artist }));
   }
 
-  requestCheckpoint(r: CheckpointRequest): void {
+  requestCheckpoint(r: CheckpointRequest, continuousForces?: ContinuousForces): void {
     if (!this.connected) return;
-    this.#ws!.send(JSON.stringify({ type: 'checkpoint', ...r }));
+    this.#ws!.send(JSON.stringify({
+      type: 'checkpoint',
+      ...r,
+      continuousForces,
+      realization: continuousForces ? realizationRequestFromCheckpoint(r, continuousForces) : undefined,
+    }));
   }
 
   async #receive(buf: ArrayBuffer): Promise<void> {
