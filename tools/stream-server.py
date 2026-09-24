@@ -75,6 +75,26 @@ def _clamp(v: float, lo: float, hi: float) -> float:
     return lo if v < lo else hi if v > hi else v
 
 
+def normalize_realization_request(msg: dict) -> dict | None:
+    """Validate the additive structured realization envelope.
+
+    The legacy checkpoint fields remain the compatibility wire contract. A
+    malformed or absent envelope is ignored rather than taking down the live
+    stream, which lets older browser builds continue to drive this sidecar.
+    """
+    raw = msg.get("realization")
+    if not isinstance(raw, dict):
+        return None
+    if not all(isinstance(raw.get(key), dict) for key in ("world", "shot", "diff", "legacy", "continuousForces")):
+        return None
+    legacy = raw["legacy"]
+    if not isinstance(legacy.get("prompt"), str):
+        return None
+    if not isinstance(legacy.get("look"), dict):
+        return None
+    return raw
+
+
 @dataclass
 class Control:
     """Sampling physics for one fast frame. Mirrors SamplerControl in src/stream/control.ts."""
@@ -394,6 +414,7 @@ class Engine:
         self.pending: dict | None = None
         self.last_key: dict = {"id": None, "ms": 0}
         self.last_world_diff: dict | None = None
+        self.last_realization: dict = {"structured": False}
         self._emb_cache: dict[str, torch.Tensor] = {}
         self.control = Control()
         self.source_np: np.ndarray | None = None  # latest procedural frame (RGB uint8), set by the socket thread
@@ -601,6 +622,29 @@ class Engine:
         # realization decision needed by this backend. An identity break must
         # not accidentally reuse the current latent through the procedural
         # source path. Action/camera-only changes preserve the live substrate.
+        realization = normalize_realization_request(msg)
+        if realization is not None:
+            # Structured state is authoritative for this backend's transition
+            # metadata. Prompt/look remain compiled compatibility artifacts.
+            legacy = realization["legacy"]
+            msg = {
+                **msg,
+                "prompt": legacy.get("prompt", msg.get("prompt", "")),
+                "look": legacy.get("look", msg.get("look")),
+                "seed": legacy.get("seed", msg.get("seed", 0)),
+                "continuity": legacy.get("continuity", msg.get("continuity", 0.0)),
+                "spliceFrames": legacy.get("spliceFrames", msg.get("spliceFrames", 24)),
+                "worldDiff": realization["diff"],
+            }
+            self.last_realization = {
+                "structured": True,
+                "worldRevision": realization["shot"].get("worldRevision"),
+                "shotId": realization["shot"].get("id"),
+                "grammar": realization["shot"].get("grammar"),
+                "continuousForces": realization["continuousForces"],
+            }
+        else:
+            self.last_realization = {"structured": False}
         diff = msg.get("worldDiff")
         if isinstance(diff, dict):
             self.last_world_diff = {
@@ -765,6 +809,7 @@ class Engine:
             "progress": (job.step / len(job.timesteps) * 0.5 + (job.splice_pos / job.splice_frames) * 0.5) if job else 1.0,
             "keyMs": self.last_key["ms"],
             "worldDiff": self.last_world_diff,
+            "realization": self.last_realization,
             "strength": round(c.strength, 3),
             "change": round(change, 4),
             "jitter": round(jitter, 4),

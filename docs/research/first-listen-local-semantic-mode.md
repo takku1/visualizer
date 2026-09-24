@@ -2,7 +2,8 @@
 
 Status: local ASR transport and promotion path implemented and enabled by the
 default Electron launcher; model quality and language coverage remain
-evaluation work.
+evaluation work. Set `MEANING_ASR_LANGUAGE=ja` when automatic language
+detection is unreliable for Japanese vocals.
 
 ## The honest constraint
 

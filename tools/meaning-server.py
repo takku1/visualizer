@@ -31,6 +31,7 @@ import websockets
 class Probe:
     model_name: str
     device: str
+    language: str | None = None
     pipe: object | None = None
 
     def load(self) -> None:
@@ -47,18 +48,27 @@ class Probe:
     def transcribe(self, samples: np.ndarray, sample_rate: int, offset_sec: float) -> list[dict]:
         if self.pipe is None:
             return []
+        generate_kwargs = {"task": "transcribe"}
+        if self.language and self.language.lower() not in {"auto", "und"}:
+            generate_kwargs["language"] = self.language
         result = self.pipe(
             {"raw": samples, "sampling_rate": sample_rate},
             return_timestamps=True,
-            generate_kwargs={"task": "transcribe"},
+            generate_kwargs=generate_kwargs,
         )
         hypotheses: list[dict] = []
-        detected_language = str(result.get("language", "und"))
+        detected_language = str(result.get("language") or self.language or "und")
         for index, chunk in enumerate(result.get("chunks", [])):
             text = str(chunk.get("text", "")).strip()
             timestamps = chunk.get("timestamp") or (None, None)
             start, end = timestamps
-            if not text or start is None or end is None or end <= start:
+            if not text or start is None:
+                continue
+            # Singing, especially in non-Latin scripts, can produce a text
+            # chunk without a terminal timestamp. Keep the evidence bounded
+            # to the current window rather than dropping the entire phrase.
+            end = end if end is not None and end > start else len(samples) / sample_rate
+            if end <= start:
                 continue
             hypotheses.append({
                 "id": f"asr-{int((offset_sec + start) * 1000)}-{index}",
@@ -74,6 +84,21 @@ class Probe:
                 "status": "provisional",
                 "source": "live-asr",
             })
+        if not hypotheses:
+            text = str(result.get("text", "")).strip()
+            duration = len(samples) / sample_rate
+            if text and duration > 0:
+                hypotheses.append({
+                    "id": f"asr-window-{int(offset_sec * 1000)}",
+                    "text": text,
+                    "language": detected_language,
+                    "startSec": round(offset_sec, 3),
+                    "endSec": round(offset_sec + duration, 3),
+                    "confidence": float(result.get("confidence", 0.7)),
+                    "stability": 0.0,
+                    "status": "provisional",
+                    "source": "live-asr",
+                })
         return hypotheses
 
 
@@ -126,11 +151,13 @@ async def main() -> None:
     parser.add_argument("--port", type=int, default=int(os.environ.get("MEANING_PORT", "8772")))
     parser.add_argument("--model", default=os.environ.get("MEANING_ASR_MODEL", "openai/whisper-small"))
     parser.add_argument("--device", default=os.environ.get("MEANING_ASR_DEVICE", "cpu"))
+    parser.add_argument("--language", default=os.environ.get("MEANING_ASR_LANGUAGE"))
     args = parser.parse_args()
 
     started = time.perf_counter()
-    probe = Probe(args.model, args.device)
-    print(f"[meaning] loading {args.model} on {args.device}", flush=True)
+    probe = Probe(args.model, args.device, args.language)
+    language = args.language or "auto"
+    print(f"[meaning] loading {args.model} on {args.device} language={language}", flush=True)
     await asyncio.to_thread(probe.load)
     print(f"[meaning] ready in {time.perf_counter() - started:.1f}s ws://{args.host}:{args.port}", flush=True)
     server = Server(probe)
