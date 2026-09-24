@@ -310,8 +310,11 @@ long evaluation campaigns. Rotated parts remain ordinary JSONL with their own
 ## Known limits
 
 - **Song narrative is not automatically extracted.** The runtime has a local
-  evidence-bearing manifest seam and explicit abstention. Lyric or
-  audio-language extraction remains unbuilt and must be evaluated separately.
+  evidence-bearing manifest seam, explicit abstention, and an opt-in local
+  Whisper path for provisional multilingual hypotheses. Only repeated,
+  timestamp-bounded hypotheses are promoted into semantic state; licensed
+  lyrics, translation, broad language quality, and visual semantic validation
+  remain separate unproven capabilities.
 
 - **Resolution:** 576×320, upscaled with an unsharp mask. There is no
   budget for AI upscaling on this GPU.

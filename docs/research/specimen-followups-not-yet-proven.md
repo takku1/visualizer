@@ -24,9 +24,11 @@ proposal:
 This changes the status of the seam from `unbuilt` to **implemented, not yet
 validated visually**. It does not establish that the manifest improves visual
 quality, that identity survives checkpoints, or that the generated action matches
-a song. `npm run typecheck`, `npm test` (35 tests), and the production build pass
-on 2026-09-24. The initial restricted-shell esbuild access error was an environment
-issue; no semantic runtime quality result is promoted here.
+a song. At the time of this note's original implementation snapshot,
+`npm run typecheck`, `npm test` (35 tests), and the production build passed on
+2026-09-24. The current suite has since grown to 63 tests; no semantic runtime
+quality result is promoted here. The initial restricted-shell esbuild access
+error was an environment issue.
 
 ## 1. Formalize the director input `q`
 

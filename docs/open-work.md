@@ -34,7 +34,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 ## Still deliberately deferred
 
 - Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR and timed imports are available, but neither is a universal catalog solution.
-- Reference-image identity conditioning and a ground-truth visual identity/action evaluator remain deferred; the current sidecar now consumes continuity intent but cannot claim true object memory.
+- Reference-image conditioning inside the real-time sidecar and a ground-truth visual identity/action evaluator remain deferred. The offline evaluator now supports optional reference-image diagnostics, adjacent temporal consistency, and explicit capture preflight; it cannot claim true object memory from CLIP scores alone.
 - TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.
 
 The evaluator's `identityVerified` and `actionVerified` fields remain false until an actual visual evaluator is connected.
