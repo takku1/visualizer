@@ -76,14 +76,14 @@ export interface ContinuityContract {
  * the local engine's answer render through the same table.
  */
 const PALETTE: Record<PaletteId, string> = {
-  ember: 'molten ember orange and deep crimson glow',
-  ice: 'glacial ice blue and white light',
-  ultraviolet: 'ultraviolet violet and magenta neon',
-  chlorophyll: 'lush chlorophyll greens',
-  sodium: 'sodium-vapor amber light',
-  oxide: 'rusted copper oxide and teal patina',
+  ember: 'deep crimson shadows, ember orange body, and cyan edge highlights used together',
+  ice: 'navy shadows, glacial ice blue body, and coral-white highlights used together',
+  ultraviolet: 'indigo shadows, ultraviolet violet body, and warm magenta-amber accents used together',
+  chlorophyll: 'deep blue-green shadows, chlorophyll body, and living amber highlights used together',
+  sodium: 'plum-blue shadows, sodium-vapor amber body, and turquoise reflections used together',
+  oxide: 'deep violet shadows, rusted copper body, and teal patina highlights used together',
   monochrome: 'monochrome black and white, stark contrast',
-  spectral: 'iridescent spectral rainbow colors',
+  spectral: 'simultaneous cyan, violet, amber, and rose spectral accents across the frame',
 };
 
 const TEXTURE: Record<TextureId, string> = {
@@ -113,12 +113,12 @@ const SYMMETRY: Record<SymmetryId, string> = {
 };
 
 const PALETTE_RGB: Record<PaletteId, [Rgb, Rgb, Rgb]> = {
-  ember: [[0.12, 0.02, 0.02], [0.85, 0.25, 0.05], [1.0, 0.8, 0.4]],
-  ice: [[0.02, 0.05, 0.12], [0.3, 0.6, 0.9], [0.9, 0.97, 1.0]],
-  ultraviolet: [[0.05, 0.0, 0.12], [0.55, 0.1, 0.85], [1.0, 0.4, 0.9]],
-  chlorophyll: [[0.0, 0.07, 0.03], [0.15, 0.6, 0.2], [0.8, 1.0, 0.5]],
-  sodium: [[0.08, 0.04, 0.0], [0.95, 0.55, 0.1], [1.0, 0.9, 0.6]],
-  oxide: [[0.07, 0.03, 0.02], [0.6, 0.25, 0.12], [0.3, 0.75, 0.7]],
+  ember: [[0.12, 0.015, 0.035], [0.9, 0.2, 0.045], [0.05, 0.8, 0.85]],
+  ice: [[0.015, 0.035, 0.14], [0.18, 0.65, 0.95], [1.0, 0.72, 0.62]],
+  ultraviolet: [[0.035, 0.0, 0.14], [0.52, 0.08, 0.9], [1.0, 0.28, 0.58]],
+  chlorophyll: [[0.0, 0.035, 0.09], [0.12, 0.65, 0.2], [0.95, 0.72, 0.12]],
+  sodium: [[0.08, 0.015, 0.12], [0.95, 0.48, 0.08], [0.05, 0.75, 0.7]],
+  oxide: [[0.08, 0.02, 0.14], [0.68, 0.22, 0.08], [0.12, 0.78, 0.72]],
   monochrome: [[0.02, 0.02, 0.02], [0.45, 0.45, 0.45], [0.95, 0.95, 0.95]],
   spectral: [[0.05, 0.0, 0.1], [0.1, 0.7, 0.8], [1.0, 0.5, 0.2]],
 };
@@ -188,7 +188,7 @@ function perceptualFallback(plan: VisualPlan, cue?: ProvisionalPerceptualCue): s
   const cueText = cue
     ? ` A provisional low-risk cue suggests behavior ${cue.behavior.join(', ')}${cue.materiality.length ? ` and material ${cue.materiality.join(', ')}` : ''}; treat it as pressure, not as a literal subject or event.`
     : '';
-  return `Music-video realization under uncertainty: no literal subject, event, or location is asserted. Discover an emergent world from these perceptual constraints: form ${form}; behavior ${behavior}; space ${space}; material ${material}; motion ${motion}; tension ${tension}.${cueText} Preserve the dominant visual form and its identity across frames; let music modulate existing motion, light, and atmosphere without inventing a new story, text, logo, or object. ${visualTreatment(plan, false)}`;
+  return `Music-video realization under uncertainty: no literal subject, event, or location is asserted. Discover an emergent world from these perceptual constraints: form ${form}; behavior ${behavior}; space ${space}; material ${material}; motion ${motion}; tension ${tension}.${cueText} Preserve the dominant visual form and its identity across frames; let music modulate existing motion, light, and atmosphere without inventing a new story, text, logo, or object. Avoid simple geometric primitives, flat single-color fills, isolated icon-like objects, and abrupt scene replacement. Use the full palette simultaneously with distinct shadow, body, and highlight regions. ${visualTreatment(plan, false)}`;
 }
 
 export function sceneFromPlan(

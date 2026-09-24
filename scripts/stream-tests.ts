@@ -15,7 +15,7 @@ import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from '../
 import { emergentWorldFromTelemetry, resonanceFrom, ZERO_FORCES } from '../src/realization/backend';
 import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { CachedLyricsProvider, LocalTimedLyricsProvider, LrclibLyricsProvider, LyricsProviderChain, MemoryLyricsCache, StorageLyricsCache, lyricsCacheKey, meaningFromLyrics, parseLrc } from '../src/director/lyrics';
-import { ProceduralScene } from '../src/render/procedural';
+import { DEFAULT_LOOK, ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
 import { StructureMemory } from '../src/structure/memory';
@@ -318,6 +318,19 @@ test('abstaining fallback scenes preserve identity while allowing perceptual cha
   assert.equal(b.look.fold, 0);
 });
 
+test('abstaining fallback guidance rejects flat geometry and monochrome output', () => {
+  const scene = sceneFromPlan(initialPlan(), { trackId: 'unknown-song' }, 0);
+  assert.match(scene.prompt, /Avoid simple geometric primitives/);
+  assert.match(scene.prompt, /full palette simultaneously/);
+});
+
+test('director palettes contain distinct shadow, body, and highlight colors', () => {
+  const look = lookFromPlan(initialPlan(), 0);
+  const distinct = new Set(look.palette.map((rgb) => rgb.map((v) => v.toFixed(3)).join(',')));
+  assert.equal(distinct.size, 3);
+  assert.ok(look.palette[1]![0] !== look.palette[1]![1] || look.palette[1]![1] !== look.palette[1]![2]);
+});
+
 test('procedural fallback looks can make a strong chapter transition without a checkpoint', () => {
   const scene = new ProceduralScene();
   const calm = { ...CALM, rotate: 0 };
@@ -330,6 +343,14 @@ test('procedural fallback looks can make a strong chapter transition without a c
   assert.notDeepEqual(after.colA, before.colA);
   assert.equal(after.fold, 6);
   assert.equal(after.seed, 0.91);
+});
+
+test('procedural scene glides its noise seed during a look transition', () => {
+  const scene = new ProceduralScene();
+  scene.update(frame({ dt: 1 / 60 }), CALM, 0, 0.5);
+  scene.setLook({ ...DEFAULT_LOOK, seed: 0.99 }, 2);
+  const mid = scene.update(frame({ dt: 1 }), CALM, 0, 0.5);
+  assert.ok(mid.seed > DEFAULT_LOOK.seed && mid.seed < 0.99, `seed ${mid.seed}`);
 });
 
 test('live lyric updates are versioned and track-scoped', () => {
@@ -985,7 +1006,7 @@ test('shot graph waits for a downbeat on trusted structure and falls back to bea
   assert.deepEqual(shotGraphBoundary(0.5, 0.6, false, false, 0.2), { eligible: false, downbeat: false });
 });
 
-test('a new director scene lands on a downbeat, spliced over one bar', () => {
+test('a gliding director scene lands on a downbeat, spliced over two bars', () => {
   const s = new CheckpointScheduler({ minGapSec: 0 });
   s.setScene(sceneFromPlan(initialPlan(), {}, 0));
   drive(s, 1, live);
@@ -995,7 +1016,18 @@ test('a new director scene lands on a downbeat, spliced over one bar', () => {
   assert.equal(r.length, 1);
   assert.equal(r[0]!.reason, 'scene');
   assert.ok(Math.abs(r[0]!.t - 2) < 0.05, `expected the t=2s downbeat, got ${r[0]!.t}`);
-  assert.equal(r[0]!.spliceFrames, 24); // one 2 s bar at 12 fps
+  assert.equal(r[0]!.spliceFrames, 48); // two 2 s bars at 12 fps
+});
+
+test('an explicit hard cut still lands immediately', () => {
+  const s = new CheckpointScheduler({ minGapSec: 0 });
+  s.setScene(sceneFromPlan(initialPlan(), {}, 0));
+  drive(s, 1, live);
+  const changed = sceneFromPlan({ ...initialPlan(), hardCut: 1 }, {}, 1);
+  s.setScene({ ...changed, fingerprint: { ...changed.fingerprint, action: 101 } });
+  const r = drive(s, 4, live, 1.3);
+  assert.equal(r.length, 1);
+  assert.equal(r[0]!.spliceFrames, 1);
 });
 
 test('the same scene is re-seeded after N bars (drift bound)', () => {

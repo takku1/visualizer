@@ -61,8 +61,8 @@ export class ProceduralScene {
 
   /**
    * A new director scene. Continuous parameters crossfade; the discrete ones
-   * (fold, seed) switch at once - they land together with the
-   * keyframe paint-in, which covers the change.
+ * (fold) remains discrete, while the noise seed glides with the rest of the
+ * look so a scene transition cannot jump to a wholly unrelated field.
    */
   setLook(look: Look, fadeSec = this.#fadeSec): void {
     this.#from = this.#blend();
@@ -111,7 +111,7 @@ export class ProceduralScene {
       organic: a.organic + (b.organic - a.organic) * t,
       warp: a.warp + (b.warp - a.warp) * t,
       fold: b.fold,
-      seed: b.seed,
+      seed: a.seed + (b.seed - a.seed) * t,
     };
   }
 }

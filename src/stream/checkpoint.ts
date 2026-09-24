@@ -195,7 +195,13 @@ export class CheckpointScheduler {
     const scene = reason === 'scene'
       ? this.#scene
       : { ...this.#scene, seed: hash(`${this.#scene.seed}:${this.#count}`), continuity: Math.max(this.#scene.continuity, 0.6) };
-    return this.#emit(reason, f, s, scene, reason === 'scene' ? 1 : 2,
+    // A normal director revision is a glide, not a one-bar image swap. Give
+    // the sidecar two bars to paint the new state in. Explicit hard cuts keep
+    // their immediate landing semantics; reseeds still use two bars.
+    const transitionBars = reason === 'scene'
+      ? scene.continuityContract.transition === 'glide' ? 2 : 0
+      : 2;
+    return this.#emit(reason, f, s, scene, transitionBars,
       this.#waitingSince >= 0 && f.t - this.#waitingSince >= 2);
   }
 
