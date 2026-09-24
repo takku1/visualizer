@@ -51,9 +51,10 @@ def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
             sequences.setdefault(str(row["sequenceGroup"]), []).append(index)
 
     missing_group_references = sorted(group for group in groups if group not in references_manifest)
-    frame_paths = {str(row["file"]) for row in rows}
+    frame_paths = {(root / str(row["file"])).resolve() for row in rows}
     reference_frame_collisions = sorted(
-        str(path) for path in references_manifest.values() if str(path) in frame_paths
+        str(path) for path in references_manifest.values()
+        if (root / str(path)).resolve() in frame_paths
     )
     multi_frame_identity_groups = {
         group: indices for group, indices in groups.items() if len(indices) >= 2

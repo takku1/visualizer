@@ -56,6 +56,10 @@ with tempfile.TemporaryDirectory() as directory:
     assert colliding_reference["identityReady"] is False
     assert colliding_reference["referenceFrameCollisions"] == ["a.jpg"]
 
+    normalized_collision = module.validate_manifest({**base, "references": {"form-a": "./a.jpg"}}, root)
+    assert normalized_collision["identityReady"] is False
+    assert normalized_collision["referenceFrameCollisions"] == ["./a.jpg"]
+
     one_action = module.validate_manifest({**base, "frames": [base["frames"][0], {**base["frames"][1], "action": None}]}, root)
     assert one_action["identityReady"] is True
     assert one_action["actionReady"] is False
