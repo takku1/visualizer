@@ -52,3 +52,12 @@ For a meaningful experiment, compare at least:
 Do not optimize only for CLIP similarity. A system can increase prompt
 similarity while losing temporal coherence, motion plausibility, diversity, or
 audio timing.
+
+This separation follows the capabilities of the underlying representations:
+CLIP is trained for transferable image-text alignment, not temporal
+correspondence ([Radford et al., 2021](https://arxiv.org/abs/2103.00020));
+self-supervised visual features such as DINOv2 are a stronger future candidate
+for appearance retrieval, but still require annotated correspondence and
+independent evaluation ([Oquab et al., 2023](https://arxiv.org/abs/2304.07193)).
+Therefore this project treats embedding scores as diagnostics and keeps
+identity/action verification outside the renderer hot path.
