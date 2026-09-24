@@ -58,6 +58,7 @@ class Probe:
         result = self.pipe(
             {"raw": samples, "sampling_rate": sample_rate},
             return_timestamps=True,
+            clean_up_tokenization_spaces=False,
             generate_kwargs=generate_kwargs,
         )
         hypotheses: list[dict] = []

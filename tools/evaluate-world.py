@@ -1,8 +1,10 @@
 """Opt-in frame-level identity/action evaluator.
 
 Manifest format: {"frames": [{"file": "frame.jpg", "identity": "...",
-"action": "..."}]}. It measures annotated captures and never feeds scores
-back into the real-time loop.
+"identityGroup": "alice", "action": "..."}]}. It measures annotated
+captures and never feeds scores back into the real-time loop. `identityGroup`
+groups frames that are expected to show the same persistent entity; if omitted,
+the identity text is used as the group key.
 """
 from __future__ import annotations
 
@@ -48,6 +50,28 @@ def main() -> None:
             "std": float(np.std(values)) if values else None,
             "aboveThreshold": float(np.mean(np.array(values) >= args.threshold)) if values else None,
         }
+    groups: dict[str, list[int]] = {}
+    for index, row in enumerate(rows):
+        if row.get("identity"):
+            group = str(row.get("identityGroup") or row["identity"])
+            groups.setdefault(group, []).append(index)
+    consistency: dict[str, object] = {}
+    for group, indices in groups.items():
+        pairwise = [
+            float(scores[a, text_index[rows[a]["identity"]]] * 0 + image_features[a] @ image_features[b])
+            for offset, a in enumerate(indices)
+            for b in indices[offset + 1:]
+        ]
+        consistency[group] = {
+            "frames": len(indices),
+            "pairs": len(pairwise),
+            "meanPairwiseImageCosine": float(np.mean(pairwise)) if pairwise else None,
+            "minPairwiseImageCosine": float(np.min(pairwise)) if pairwise else None,
+        }
+    report["identityConsistency"] = {
+        "groups": consistency,
+        "note": "Pairwise image embedding similarity is a diagnostic, not proof of identity.",
+    }
     print(json.dumps(report, indent=2))
 
 
