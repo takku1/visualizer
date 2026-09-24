@@ -20,6 +20,10 @@ base = {
 }
 
 assert module.normalize_realization_request({"realization": base}) == base
+compiled = module.compile_structured_prompt(base)
+assert "woman" in compiled
+assert "shot grammar: follow" in compiled
+assert "woman walking" in compiled
 assert module.normalize_realization_request({"realization": {**base, "legacy": {"look": {}}}}) is None
 assert module.normalize_realization_request({}) is None
 print("realization contract ok")

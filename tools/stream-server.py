@@ -95,6 +95,50 @@ def normalize_realization_request(msg: dict) -> dict | None:
     return raw
 
 
+def compile_structured_prompt(realization: dict) -> str:
+    """Compile authoritative world/shot state into this backend's text control.
+
+    Text remains a compatibility artifact for the current SD-Turbo adapter, but
+    it is now derived from the structured request instead of silently ignoring
+    world and shot fields. Future adapters can replace this compiler with
+    references, masks, depth, or temporal conditioning.
+    """
+    legacy = realization.get("legacy", {})
+    world = realization.get("world", {})
+    shot = realization.get("shot", {})
+    diff = realization.get("diff", {})
+    parts = [str(legacy.get("prompt", "")).strip()]
+    entities = []
+    for entity in world.get("entities", []) if isinstance(world.get("entities"), list) else []:
+        if not isinstance(entity, dict):
+            continue
+        label = str(entity.get("label", "")).strip()
+        attributes = ", ".join(str(item) for item in entity.get("attributes", [])[:3])
+        if label:
+            entities.append(f"{label}{', ' + attributes if attributes else ''}")
+    if entities:
+        parts.append("persistent subjects/objects: " + "; ".join(entities[:6]))
+    environment = world.get("environment", [])
+    if isinstance(environment, list) and environment:
+        parts.append("persistent environment: " + ", ".join(str(item) for item in environment[:6]))
+    for key, label in (("action", "current action"), ("camera", "camera")):
+        value = world.get(key)
+        if value:
+            parts.append(f"{label}: {value}")
+    if shot.get("grammar"):
+        parts.append(f"shot grammar: {shot['grammar']}")
+    if shot.get("framing"):
+        parts.append(f"framing: {shot['framing']}")
+    additions = diff.get("add", []) if isinstance(diff, dict) else []
+    if additions:
+        labels = [str(item.get("label")) for item in additions if isinstance(item, dict) and item.get("label")]
+        if labels:
+            parts.append("introduce only at this transition: " + ", ".join(labels[:4]))
+    if diff.get("identityBreak"):
+        parts.append("intentional identity replacement at this checkpoint")
+    return ", ".join(part for part in parts if part)
+
+
 @dataclass
 class Control:
     """Sampling physics for one fast frame. Mirrors SamplerControl in src/stream/control.ts."""
@@ -627,9 +671,10 @@ class Engine:
             # Structured state is authoritative for this backend's transition
             # metadata. Prompt/look remain compiled compatibility artifacts.
             legacy = realization["legacy"]
+            structured_prompt = compile_structured_prompt(realization)
             msg = {
                 **msg,
-                "prompt": legacy.get("prompt", msg.get("prompt", "")),
+                "prompt": structured_prompt or legacy.get("prompt", msg.get("prompt", "")),
                 "look": legacy.get("look", msg.get("look")),
                 "seed": legacy.get("seed", msg.get("seed", 0)),
                 "continuity": legacy.get("continuity", msg.get("continuity", 0.0)),
@@ -643,6 +688,7 @@ class Engine:
                 "grammar": realization["shot"].get("grammar"),
                 "continuousForces": realization["continuousForces"],
                 "resonance": realization.get("resonance"),
+                "conditioning": "structured-world-v1",
             }
         else:
             self.last_realization = {"structured": False}
