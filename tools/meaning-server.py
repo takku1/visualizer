@@ -55,13 +55,17 @@ class Probe:
 
     def _sanitize_generation_params(self) -> None:
         """Keep tokenizer post-processing kwargs out of Whisper.generate()."""
-        params = getattr(self.pipe, "_forward_params", None)
-        if not isinstance(params, dict):
-            return
-        params.pop("clean_up_tokenization_spaces", None)
-        nested = params.get("generate_kwargs")
-        if isinstance(nested, dict):
-            nested.pop("clean_up_tokenization_spaces", None)
+        # Transformers has moved pipeline call parameters between these
+        # buckets across releases.  The option belongs to tokenizer decoding,
+        # not Whisper.generate(), so remove it from every supported bucket.
+        for name in ("_preprocess_params", "_forward_params", "_postprocess_params"):
+            params = getattr(self.pipe, name, None)
+            if not isinstance(params, dict):
+                continue
+            params.pop("clean_up_tokenization_spaces", None)
+            nested = params.get("generate_kwargs")
+            if isinstance(nested, dict):
+                nested.pop("clean_up_tokenization_spaces", None)
 
     def transcribe(self, samples: np.ndarray, sample_rate: int, offset_sec: float) -> list[dict]:
         if self.pipe is None:

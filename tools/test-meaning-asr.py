@@ -30,8 +30,15 @@ probe.pipe._forward_params = {
     "clean_up_tokenization_spaces": True,
     "generate_kwargs": {"clean_up_tokenization_spaces": True},
 }
+probe.pipe._preprocess_params = {"clean_up_tokenization_spaces": True}
+probe.pipe._postprocess_params = {
+    "clean_up_tokenization_spaces": True,
+    "generate_kwargs": {"clean_up_tokenization_spaces": True},
+}
 probe._sanitize_generation_params()
 assert probe.pipe._forward_params == {"generate_kwargs": {}}
+assert probe.pipe._preprocess_params == {}
+assert probe.pipe._postprocess_params == {"generate_kwargs": {}}
 hypotheses = probe.transcribe(np.full(16000, 0.1, dtype=np.float32), 16000, 12.0)
 assert hypotheses[0]["language"] == "ja"
 assert hypotheses[0]["startSec"] == 12.0

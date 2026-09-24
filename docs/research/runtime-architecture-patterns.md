@@ -115,3 +115,33 @@ contention, not a renderer regression.
 The academic basis remains the persistent-world and emergent-intent notes:
 object-centric temporal memory requires correspondence and state, while
 prompt text alone does not provide object permanence.
+
+## Research-backed design constraint
+
+The current evidence supports a deliberately modest claim: one continuous
+realization session is the right runtime contract, but the current SD-Turbo
+adapter is not yet an object-persistent world model. That distinction matters.
+
+Ha and Schmidhuber's *World Models* treats a learned compressed spatial and
+temporal representation as the substrate for predicting an environment, which
+supports keeping a realization state above individual prompts
+([arXiv:1803.10122](https://arxiv.org/abs/1803.10122)). Locatello et al.'s
+*Object-Centric Learning with Slot Attention* provides the complementary
+principle that persistent entities require representations that can bind to
+objects rather than only a distributed whole-image embedding
+([arXiv:2006.15055](https://arxiv.org/abs/2006.15055)).
+
+For this repository, the practical consequence is:
+
+```text
+perceptual intent -> persistent realization state -> renderer conditioning
+audio forces      -> bounded dynamics on that state
+observation       -> correspondence/evaluation evidence
+```
+
+It is not justified to claim object permanence from a stable prompt, adjacent
+frame cosine, or optical-flow magnitude alone. Those are useful diagnostics,
+not identity proof. The next renderer milestone should therefore be a
+correspondence-aware or reference/depth-conditioned adapter, measured against
+the existing one-session baseline, rather than a larger prompt vocabulary or
+unbounded semantic scene authoring.
