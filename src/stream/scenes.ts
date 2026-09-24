@@ -43,6 +43,11 @@ export interface Scene {
   provisionalCue?: ProvisionalPerceptualCue;
 }
 
+export interface SceneCompilationOptions {
+  /** Knob mode deliberately owns procedural structure and may retain folds. */
+  preserveProceduralStructure?: boolean;
+}
+
 export type SceneSource = 'semantic-manifest' | 'metadata-fallback' | 'abstract-fallback';
 
 export interface SceneFingerprint {
@@ -138,6 +143,17 @@ export function lookFromPlan(plan: VisualPlan, seed: number): Look {
   };
 }
 
+/**
+ * In abstaining/emergent mode the procedural layer supplies motion and
+ * material pressure, not the visual ontology. Repeating folds are a legacy
+ * content generator, so do not let them contradict the perceptual contract's
+ * persistent asymmetric form. Semantic scenes may still request symmetry.
+ */
+function emergentLookFromPlan(plan: VisualPlan, seed: number): Look {
+  const look = lookFromPlan(plan, seed);
+  return { ...look, fold: 0 };
+}
+
 function mood(intensity: number): string {
   if (intensity < 1) return 'serene, minimal, soft light';
   if (intensity < 2) return 'atmospheric, cinematic';
@@ -175,7 +191,13 @@ function perceptualFallback(plan: VisualPlan, cue?: ProvisionalPerceptualCue): s
   return `Music-video realization under uncertainty: no literal subject, event, or location is asserted. Discover an emergent world from these perceptual constraints: form ${form}; behavior ${behavior}; space ${space}; material ${material}; motion ${motion}; tension ${tension}.${cueText} Preserve the dominant visual form and its identity across frames; let music modulate existing motion, light, and atmosphere without inventing a new story, text, logo, or object. ${visualTreatment(plan, false)}`;
 }
 
-export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number, ledger?: MotifLedger): Scene {
+export function sceneFromPlan(
+  plan: VisualPlan,
+  ctx: TrackContext,
+  index: number,
+  ledger?: MotifLedger,
+  options: SceneCompilationOptions = {},
+): Scene {
   const semantic = ctx.meaning ? compileSemanticScene(ctx.meaning, ctx.sectionIndex ?? 0, PALETTE[plan.palette.top], ledger) : null;
   const subject = ctx.concepts?.length ? ctx.concepts.join(' and ') : '';
   const source: SceneSource = semantic ? 'semantic-manifest' : subject ? 'metadata-fallback' : 'abstract-fallback';
@@ -233,7 +255,9 @@ export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number
         confidence: continuityContract.confidence,
       },
     },
-    look: lookFromPlan(plan, seed),
+    look: semantic || options.preserveProceduralStructure
+      ? lookFromPlan(plan, seed)
+      : emergentLookFromPlan(plan, seed),
     provisionalCue: ctx.provisionalCue,
     semantic: semantic ?? undefined,
     fingerprint: {

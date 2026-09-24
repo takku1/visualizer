@@ -144,7 +144,7 @@ export class KnobDirector {
   }
 
   #anchor(plan: VisualPlan, ctx: TrackContext): Anchor {
-    const scene = sceneFromPlan(plan, ctx, this.#index++);
+    const scene = sceneFromPlan(plan, ctx, this.#index++, undefined, { preserveProceduralStructure: true });
     return { prompt: scene.prompt, labels: labelsOf(plan), look: scene.look, starved: 0 };
   }
 

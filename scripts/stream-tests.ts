@@ -220,6 +220,8 @@ test('abstaining fallback scenes keep one visual identity across director plan r
   const a = sceneFromPlan(first, { trackId: 'unknown-song' }, 0);
   const b = sceneFromPlan(second, { trackId: 'unknown-song' }, 1);
   assert.deepEqual(b.fingerprint, a.fingerprint);
+  assert.equal(a.look.fold, 0);
+  assert.equal(b.look.fold, 0);
 });
 
 test('procedural fallback looks can make a strong chapter transition without a checkpoint', () => {
