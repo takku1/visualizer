@@ -54,7 +54,7 @@ export function meaningFromLyrics(result: LyricsResult, revision = 1): SongMeani
     ...line,
     index,
     motifs: groundMotifs(line.text, result.language ?? 'und', result.confidence, `lyric-line-${index}`, 'lyrics'),
-    action: groundedAction(line.text),
+    action: groundedAction(line.text, result.language ?? 'und'),
   }));
   const motifs = groundedLines.slice(0, 8).flatMap((line) => line.motifs);
   if (!motifs.length) return null;

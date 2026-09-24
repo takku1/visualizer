@@ -57,7 +57,7 @@ export class LiveLyricAccumulator {
       };
       this.#candidates.set(key, candidate);
       const rapidJapaneseConfirmation = candidate.hypothesis.language === 'ja'
-        && hasRecognizedLiveCue(candidate.hypothesis.text);
+        && hasRecognizedLiveCue(candidate.hypothesis.text, candidate.hypothesis.language);
       const requiredObservations = rapidJapaneseConfirmation ? 2 : 3;
       if (candidate.observations >= requiredObservations
         && candidate.hypothesis.confidence >= 0.65

@@ -17,6 +17,7 @@ import { applySceneDiff, diffWorldState } from '../src/world/state';
 import { meaningFromLyrics, parseLrc } from '../src/director/lyrics';
 import { ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
+import { groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
 
 let passed = 0;
 function test(name: string, fn: () => void): void {
@@ -441,6 +442,26 @@ test('Japanese grounding accepts common inflections without widening abstention'
     provisional: [],
     committed: [{ id: 'ja-2', text: 'らららふわふわ', language: 'ja', startSec: 1, endSec: 2, confidence: 0.9, stability: 0.9, status: 'committed', source: 'live-asr' }],
   }, 1, 0)?.abstained, true);
+});
+
+test('grounding is language-gated and unsupported languages remain symbols', () => {
+  assert.deepEqual(groundMotifs('여자가 걷는다', 'ko', 0.9, 'ko-1', 'audio').map((motif) => motif.kind), ['symbol']);
+  assert.equal(groundedAction('여자가 걷는다', 'ko'), null);
+});
+
+test('validated language adapters plug into the shared cue contract', () => {
+  const adapter: GroundingAdapter = {
+    id: 'test-ko-v1',
+    supports: (language) => language.toLowerCase() === 'ko',
+    ground: (text, language, confidence, idPrefix, source) => ({
+      motifs: [{ id: `${idPrefix}-person`, kind: 'person', label: 'person', attributes: [text], confidence, source }],
+      action: 'walks through the environment',
+      cues: [{ kind: 'person', canonical: 'person', sourceLanguage: language, evidence: text, confidence }],
+    }),
+  };
+  registerGroundingAdapter(adapter);
+  assert.deepEqual(groundMotifs('여자가 걷는다', 'ko', 0.9, 'ko-2', 'audio').map((motif) => motif.kind), ['person']);
+  assert.equal(groundedAction('여자가 걷는다', 'ko'), 'walks through the environment');
 });
 
 test('unknown committed live wording remains a symbol instead of inventing a world', () => {

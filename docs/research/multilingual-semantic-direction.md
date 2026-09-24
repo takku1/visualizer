@@ -105,13 +105,17 @@ current source-evidence boundary, not automatic semantic promotion
 The current implementation slice supports manifests authored in any language,
 local Whisper ASR windows, explicit language forcing (including `ja`), bounded
 timestamps, script-based Japanese recovery when Whisper reports `und`, and a
-bounded English/Japanese lexical adapter. That adapter is only the first
-implementation of the language-neutral contract above; it is not the product's
-language model. It does not translate or infer arbitrary lyric meaning. It
-preserves source evidence and keeps provisional hypotheses separate from
-committed meaning. Unsupported languages therefore remain symbols until a
-validated adapter is installed, rather than silently receiving English or
-Japanese interpretations.
+language-adapter registry. The first registered adapter is a bounded
+English/Japanese lexical adapter, but it is only an implementation of the
+language-neutral contract above; it is not the product's language model. It
+does not translate or infer arbitrary lyric meaning. It preserves source
+evidence and keeps provisional hypotheses separate from committed meaning.
+Unsupported languages therefore remain symbols until a validated adapter is
+installed, rather than silently receiving English or Japanese interpretations.
+An adapter must declare its language support and emit the same `GroundedCue`
+ontology, so the director and renderer remain independent of the source
+language. This makes broader coverage an evaluated plug-in decision rather than
+an ever-growing multilingual regex table.
 Automatic translation is still intentionally absent from `sceneFromPlan`:
 translation would move uncertain, expensive work into the director/render path
 and violate the project's timescale separation.
@@ -130,9 +134,9 @@ recognition, not a claim that Whisper confidence is calibrated for singing.
 
 Implemented now: optional `language` on `SongMeaning`, propagation to
 `SemanticScene`, explicit scene-source telemetry, local multilingual ASR,
-language forcing, bounded live evidence, and the first conservative lexical
-adapter. Timed lyric acquisition/providers, a validated multilingual semantic
-adapter, translation, broad language coverage, calibrated transcription
-quality, and cross-language visual evaluation remain deferred. A connected ASR
-worker or a language label alone must not be claimed as semantic or visual
-understanding.
+language forcing, bounded live evidence, and a language-gated adapter registry
+with the first conservative lexical adapter. Timed lyric acquisition/providers,
+validated production adapters beyond English/Japanese, translation, broad
+language coverage, calibrated transcription quality, and cross-language visual
+evaluation remain deferred. A connected ASR worker or a language label alone
+must not be claimed as semantic or visual understanding.

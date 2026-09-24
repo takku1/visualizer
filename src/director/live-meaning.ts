@@ -33,7 +33,7 @@ export function liveEvidenceSummary(state: LiveMeaningState): LiveEvidenceSummar
     const grounded = groundMotifs(item.text, item.language, item.confidence, `live-0-${item.id}`, 'audio')
       .some((motif) => motif.kind !== 'symbol');
     if (grounded) groundedMotifs++;
-    else if (groundedAction(item.text)) actionOnly++;
+    else if (groundedAction(item.text, item.language)) actionOnly++;
     else symbolsOnly++;
   }
   return {
@@ -51,7 +51,8 @@ export function perceptualCueFromLive(state: LiveMeaningState): ProvisionalPerce
     .slice(-4);
   if (!candidates.length) return null;
   const text = candidates.map((item) => item.text).join(' ');
-  const action = groundedAction(text);
+  const language = candidates[0]?.language ?? 'und';
+  const action = groundedAction(text, language);
   const weather = /\b(rain|rainy|snow|wind|fog|mist|fire|wave|water)\b/iu.test(text)
     || /雨|雪|風|霧|煙|火|波|水/u.test(text);
   if (!action && !weather) return null;
@@ -76,7 +77,7 @@ export function meaningFromLive(state: LiveMeaningState, revision: number, secti
   if (!committed.length) return null;
   const motifs = committed.slice(-4).flatMap((item, index) => groundMotifs(item.text, item.language, item.confidence, `live-${index}-${item.id}`, 'audio'));
   const confidence = committed.reduce((sum, item) => sum + item.confidence, 0) / committed.length;
-  const extractedAction = committed.map((item) => groundedAction(item.text)).find(Boolean);
+  const extractedAction = committed.map((item) => groundedAction(item.text, item.language)).find(Boolean);
   const action = extractedAction ?? 'the vocal motif moves through the frame';
   const hasGroundedMotif = motifs.some((motif) => motif.kind !== 'symbol');
   return {
@@ -114,6 +115,6 @@ export function meaningFromLive(state: LiveMeaningState, revision: number, secti
  * contains a vocabulary/action cue that this compiler can ground; unknown
  * lyrics still require the normal three observations.
  */
-export function hasRecognizedLiveCue(text: string): boolean {
-  return hasGroundedCue(text);
+export function hasRecognizedLiveCue(text: string, language = 'und'): boolean {
+  return hasGroundedCue(text, language);
 }
