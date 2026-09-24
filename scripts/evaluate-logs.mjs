@@ -94,6 +94,12 @@ const summary = {
     streamBuildHashes: [...new Set(telemetry.map((row) => row.stream?.buildHash).filter(Boolean))],
     meaningWorkerBuildHashes: [...new Set(telemetry.map((row) => row.meaning?.workerBuildHash).filter(Boolean))],
   },
+  streamHealth: {
+    samples: telemetry.length,
+    zeroFpsSamples: telemetry.filter((row) => typeof row.streamFps === 'number' && row.streamFps <= 0).length,
+    disconnectedSamples: telemetry.filter((row) => row.stream?.connected === false).length,
+    maxDropped: telemetry.length ? Math.max(...telemetry.map((row) => row.stream?.dropped ?? 0)) : 0,
+  },
   evidence: {
     semanticDecisions: decisions.filter((row) => row.scene.source === 'semantic-manifest').length,
     identityVerified: false,
@@ -109,5 +115,8 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `Fingerprint changes: ${JSON.stringify(summary.fingerprintChanges)}`,
   `Timing receipts: ${summary.timing.receipts}; fallback rate: ${summary.timing.fallbackRate == null ? 'n/a' : `${(summary.timing.fallbackRate * 100).toFixed(1)}%`}`,
   `World transitions: ${summary.worldTransitions.receipts}; identity breaks: ${summary.worldTransitions.identityBreaks}; keyframes required: ${summary.worldTransitions.keyframeRequired}`,
+  `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
+  `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
+  `Stream health: telemetry=${summary.streamHealth.samples}; zeroFpsSamples=${summary.streamHealth.zeroFpsSamples}; disconnected=${summary.streamHealth.disconnectedSamples}; maxDropped=${summary.streamHealth.maxDropped}`,
   `Evidence-backed decisions: ${summary.evidence.semanticDecisions}; visual verification: deferred`,
 ].join('\n'));
