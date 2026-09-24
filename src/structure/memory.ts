@@ -36,6 +36,7 @@ interface TickSample {
 
 const MAX_TICKS = 512;
 const MIN_REPEAT_LAG = 8;
+const MIN_SEGMENT_TICKS = 16;
 const REPEAT_FLOOR = 0.82;
 const NOVELTY_FLOOR = 0.3;
 const UNTRUSTED_TICK_SEC = 0.5;
@@ -46,6 +47,7 @@ export class StructureMemory {
   #segmentId = 'A';
   #segmentCount = 0;
   #repeatActive = false;
+  #ticksSinceBoundary = MIN_SEGMENT_TICKS;
   #lastSnapshot: StructureSnapshot = emptySnapshot();
 
   get snapshot(): StructureSnapshot {
@@ -58,6 +60,7 @@ export class StructureMemory {
     this.#segmentId = 'A';
     this.#segmentCount = 0;
     this.#repeatActive = false;
+    this.#ticksSinceBoundary = MIN_SEGMENT_TICKS;
     this.#lastSnapshot = emptySnapshot();
   }
 
@@ -90,7 +93,9 @@ export class StructureMemory {
       this.#repeatActive = repeat;
     }
 
-    const boundary = this.#ticks.length >= MIN_REPEAT_LAG && novelty >= NOVELTY_FLOOR;
+    const boundary = this.#ticks.length >= MIN_REPEAT_LAG
+      && this.#ticksSinceBoundary >= MIN_SEGMENT_TICKS
+      && novelty >= NOVELTY_FLOOR;
     if (boundary) {
       this.#segmentId = nextSegment(this.#segmentId);
       this.#segmentCount++;
@@ -98,15 +103,17 @@ export class StructureMemory {
       if (repeat) causes.push('repeat-start');
       events.push({ kind: 'boundary', t: frame.t, confidence: clamp(Math.max(novelty, bestSimilarity - 0.5), 0, 1), causes, lateByTicks: 0 });
       events.push({ kind: 'segment', t: frame.t, segmentId: this.#segmentId, repeatCount: repeat ? 1 : 0, confidence: clamp(Math.max(novelty, bestSimilarity), 0, 1) });
+      this.#ticksSinceBoundary = 0;
     }
 
     this.#ticks.push({ t: frame.t, vector, segmentId: this.#segmentId });
+    this.#ticksSinceBoundary++;
     if (this.#ticks.length > MAX_TICKS) this.#ticks.shift();
     this.#lastSnapshot = {
       segmentId: this.#segmentId,
       segmentOccurrence: this.#segmentCount,
       repeatCount: repeat ? 1 : 0,
-      confidence: clamp(frame.hasStructure ? frame.confidence : frame.rhythmConfidence, 0, 1),
+      confidence: clamp(frame.hasStructure ? frame.confidence : frame.rhythmConfidence * 0.75, 0, 1),
       predictedBoundaryAt: null,
       chorusHint: false,
       patternId: null,

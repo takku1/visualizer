@@ -51,7 +51,7 @@ test('System 0 observes a conservative repeat without changing section state', (
   const memory = new StructureMemory();
   let snapshot = memory.snapshot;
   const events = [] as ReturnType<StructureMemory['observe']>['events'];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 18; i++) {
     snapshot = memory.observe(frame({ t: i * 0.5, chroma: new Float32Array([1, ...new Array(11).fill(0)]) }));
     events.push(...snapshot.events);
   }
@@ -63,15 +63,16 @@ test('System 0 observes a conservative repeat without changing section state', (
 
 test('System 0 exposes novelty as evidence rather than driving onSection', () => {
   const memory = new StructureMemory();
-  for (let i = 0; i < 10; i++) {
+  const events = [] as ReturnType<StructureMemory['observe']>['events'];
+  for (let i = 0; i < 18; i++) {
     const chroma = new Float32Array(12);
     chroma[i % 12] = 1;
-    memory.observe(frame({ t: i * 0.5, chroma }));
+    events.push(...memory.observe(frame({ t: i * 0.5, chroma })).events);
   }
   const snapshot = memory.snapshot;
   assert.equal(snapshot.source, 'system0');
   assert.ok(snapshot.novelty > 0);
-  assert.ok(snapshot.events.some((event) => event.kind === 'boundary'));
+  assert.ok(events.some((event) => event.kind === 'boundary'));
 });
 
 test('silence yields the calm operating point', () => {
