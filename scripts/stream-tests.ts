@@ -284,6 +284,27 @@ test('live meaning stabilizes short Japanese lyric chunks', () => {
   assert.equal(state.committed.length, 1);
 });
 
+test('recognized Japanese entity/action cues can commit after two windows', () => {
+  const accumulator = new LiveLyricAccumulator();
+  const make = (revision: number, text: string): LiveLyricHypothesis => ({
+    ...liveHypothesis,
+    id: `ja-grounded-${revision}`,
+    text,
+    language: 'ja',
+    confidence: 0.8,
+    stability: 0.8,
+    startSec: 2.1,
+    endSec: 6.0,
+  });
+  accumulator.update('ja-grounded', 1, [make(1, '雨の駅で歩く')]);
+  const state = accumulator.update('ja-grounded', 2, [make(2, '雨の駅で歩いている')]);
+  assert.equal(state.committed.length, 1);
+
+  const unknown = new LiveLyricAccumulator();
+  unknown.update('ja-unknown', 1, [make(1, 'ララララ')]);
+  assert.equal(unknown.update('ja-unknown', 2, [make(2, 'ララララ')]).committed.length, 0);
+});
+
 test('live meaning tolerates a bounded missing ASR window before expiry', () => {
   const accumulator = new LiveLyricAccumulator();
   const hypothesis = (revision: number): LiveLyricHypothesis => ({

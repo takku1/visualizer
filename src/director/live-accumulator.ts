@@ -1,4 +1,5 @@
 import type { LiveLyricHypothesis } from './live';
+import { hasRecognizedLiveCue } from './live-meaning';
 
 export interface LiveMeaningState {
   trackId: string | null;
@@ -55,7 +56,12 @@ export class LiveLyricAccumulator {
         missedRevisions: 0,
       };
       this.#candidates.set(key, candidate);
-      if (candidate.observations >= 3 && candidate.hypothesis.confidence >= 0.65 && candidate.hypothesis.stability >= 0.6) {
+      const rapidJapaneseConfirmation = candidate.hypothesis.language === 'ja'
+        && hasRecognizedLiveCue(candidate.hypothesis.text);
+      const requiredObservations = rapidJapaneseConfirmation ? 2 : 3;
+      if (candidate.observations >= requiredObservations
+        && candidate.hypothesis.confidence >= 0.65
+        && candidate.hypothesis.stability >= 0.6) {
         this.#committed.set(key, { ...candidate.hypothesis, status: 'committed' });
       }
     }
@@ -80,7 +86,8 @@ export class LiveLyricAccumulator {
       const prior = candidate.hypothesis;
       if (prior.language !== hypothesis.language || !overlaps(prior, hypothesis)) continue;
       const score = textSimilarity(key, normalized);
-      if (score >= 0.62 && (!best || score > best.score)) best = { key, score };
+      const threshold = containsJapanese(key) || containsJapanese(normalized) ? 0.5 : 0.62;
+      if (score >= threshold && (!best || score > best.score)) best = { key, score };
     }
     return best?.key ?? normalized;
   }
@@ -117,12 +124,43 @@ function textSimilarity(a: string, b: string): number {
   if (Math.min(leftChars.length, rightChars.length) < 4) {
     return shortScriptSimilarity(leftChars, rightChars);
   }
+  // Japanese ASR commonly revises inflectional endings while preserving the
+  // content-bearing kanji/kana sequence. Compare character multisets before
+  // the Latin-oriented n-gram path so "歩く" and "歩いている" can share one
+  // evidence candidate without treating unrelated lyrics as identical.
+  if (containsJapanese(a) || containsJapanese(b)) {
+    return Math.max(characterMultisetSimilarity(leftChars, rightChars), orderedPrefixSimilarity(leftChars, rightChars));
+  }
   if (a.includes(b) || b.includes(a)) return Math.min(a.length, b.length) / Math.max(a.length, b.length);
   const left = new Set(ngrams(leftChars));
   const right = new Set(ngrams(rightChars));
   const intersection = [...left].filter((gram) => right.has(gram)).length;
   const jaccard = intersection / Math.max(1, new Set([...left, ...right]).size);
   return Math.max(jaccard, 1 - editDistance(leftChars, rightChars) / Math.max(leftChars.length, rightChars.length));
+}
+
+function containsJapanese(value: string): boolean {
+  return /[\u3040-\u30ff\u3400-\u9fff]/u.test(value);
+}
+
+function characterMultisetSimilarity(a: string[], b: string[]): number {
+  const counts = new Map<string, number>();
+  for (const char of a) counts.set(char, (counts.get(char) ?? 0) + 1);
+  let shared = 0;
+  for (const char of b) {
+    const count = counts.get(char) ?? 0;
+    if (count > 0) {
+      shared++;
+      counts.set(char, count - 1);
+    }
+  }
+  return shared / Math.max(a.length, b.length);
+}
+
+function orderedPrefixSimilarity(a: string[], b: string[]): number {
+  let shared = 0;
+  while (shared < a.length && shared < b.length && a[shared] === b[shared]) shared++;
+  return shared / Math.max(a.length, b.length);
 }
 
 function shortScriptSimilarity(a: string[], b: string[]): number {

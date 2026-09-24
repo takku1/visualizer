@@ -123,3 +123,14 @@ function actionFor(text: string, _language: string): string | null {
     || /開く|開いて|閉じる|閉じて|ほどける|ほどけて/u.test(text)) return 'reveals or conceals space';
   return null;
 }
+
+/**
+ * Evidence gate helper shared with the rolling ASR accumulator. A Japanese
+ * phrase may only use the shorter two-window confirmation path when it
+ * contains a vocabulary/action cue that this compiler can ground; unknown
+ * lyrics still require the normal three observations.
+ */
+export function hasRecognizedLiveCue(text: string): boolean {
+  return Object.values(VOCAB).some((entries) => entries.some(([pattern]) => pattern.test(text)))
+    || actionFor(text, 'ja') !== null;
+}
