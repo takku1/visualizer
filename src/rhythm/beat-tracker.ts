@@ -221,7 +221,20 @@ export class BeatTracker {
     const c = comb[bestLag + 1] ?? 0;
     const denom = a - 2 * b + c;
     const refined = bestLag + (denom < 0 ? clamp(0.5 * (a - c) / denom, -0.5, 0.5) : 0);
-    const period = refined / this.rate;
+    let period = refined / this.rate;
+
+    // Autocorrelation cannot, by itself, distinguish a beat from a strong
+    // subdivision or its double-time interpretation.  On the live Queen
+    // trace this appeared as a confident 157 -> 78 BPM flip, which made the
+    // same song feel like it had suddenly changed metre.  Once a stable grid
+    // exists, keep octave-related candidates on that grid; a genuine tempo
+    // change still has to leave the octave neighbourhood before it is
+    // accepted.  This is metrical hysteresis, not a hard 120 BPM prior.
+    if (this.#period > 0 && this.#confidence > 0.45) {
+      const ratio = period / this.#period;
+      if (ratio > 1.82 && ratio < 2.2) period *= 0.5;
+      else if (ratio > 0.455 && ratio < 0.55) period *= 2;
+    }
 
     this.#recentPeriods.push(period);
     if (this.#recentPeriods.length > 8) this.#recentPeriods.shift();

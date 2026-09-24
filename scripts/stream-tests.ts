@@ -70,6 +70,19 @@ test('causal beat tracker locks to a steady 120 BPM pulse', () => {
   assert.ok(estimate.confidence > 0.2, `confidence ${estimate.confidence}`);
 });
 
+test('causal beat tracker resists a strong half-time subdivision', () => {
+  const tracker = new BeatTracker(100);
+  for (let i = 0; i < 1600; i++) {
+    // The extra onset halfway through each beat is intentionally stronger
+    // than the beat for a while: autocorrelation should not relabel the
+    // established 120 BPM world clock as 60 BPM.
+    const pulse = i % 50 === 0 ? 0.7 : i % 25 === 0 ? 1 : 0;
+    tracker.push(i / 100, pulse, pulse);
+  }
+  const estimate = tracker.estimate(16);
+  assert.ok(estimate.tempo >= 105 && estimate.tempo <= 135, `tempo ${estimate.tempo}`);
+});
+
 test('FeatureBus exposes confident tracker beats to structural consumers', () => {
   const bus = new FeatureBus().add({
     name: 'synthetic-tracker',
