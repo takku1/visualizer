@@ -322,6 +322,21 @@ test('committed English live audio extracts person, place, force, and action', (
   assert.equal(meaning?.sections[0]?.action, 'walks through the environment');
 });
 
+test('live action extraction recognizes bounded environmental motion in English and Japanese', () => {
+  const english = meaningFromLive({
+    trackId: 'track-en-flow', provisional: [], committed: [{
+      ...liveHypothesis, id: 'en-flow-1', text: 'the curtains sway and the lights gather', language: 'en', status: 'committed',
+    }],
+  }, 4, 0);
+  const japanese = meaningFromLive({
+    trackId: 'track-ja-flow', provisional: [], committed: [{
+      ...liveHypothesis, id: 'ja-flow-1', text: '空間が開く', language: 'ja', status: 'committed',
+    }],
+  }, 5, 0);
+  assert.equal(english?.sections[0]?.action, 'moves with a flowing motion');
+  assert.equal(japanese?.sections[0]?.action, 'reveals or conceals space');
+});
+
 test('unknown committed live wording remains a symbol instead of inventing a world', () => {
   const meaning = meaningFromLive({
     trackId: 'track-unknown', provisional: [], committed: [{

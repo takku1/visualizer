@@ -81,5 +81,11 @@ function actionFor(text: string, _language: string): string | null {
   if (/\b(look|see|watch|gaze)\b/iu.test(text) || /見る|見て|見える|眺める/u.test(text)) return 'looks toward the scene';
   if (/\b(cry|crying|laugh|laughing)\b/iu.test(text) || /泣く|泣いて|笑う|笑って/u.test(text)) return 'expresses an emotional change';
   if (/\b(fall|falling|rise|rising)\b/iu.test(text) || /落ちる|落ちて|昇る|上がる/u.test(text)) return 'changes vertical position';
+  if (/\b(sway|swaying|sways|flow|flowing|flows|drift|drifting|drifts|float|floating)\b/iu.test(text)
+    || /揺れる|揺れて|揺らぐ|流れる|流れて|漂う|漂って/u.test(text)) return 'moves with a flowing motion';
+  if (/\b(gather|gathering|gathers|meet|meeting|meets|converge|converging|cross|crossing|crosses)\b/iu.test(text)
+    || /集まる|集まって|出会う|出会って|交差する|交差して/u.test(text)) return 'converges with another form';
+  if (/\b(open|opening|opens|close|closing|closes|unfold|unfolding)\b/iu.test(text)
+    || /開く|開いて|閉じる|閉じて|ほどける|ほどけて/u.test(text)) return 'reveals or conceals space';
   return null;
 }
