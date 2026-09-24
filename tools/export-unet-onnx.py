@@ -28,13 +28,14 @@ def main() -> int:
     model_dir = Path(args.model)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dtype = torch.float16 if device.type == "cuda" else torch.float32
     variant = "fp16" if dtype == torch.float16 and any((model_dir / "unet").glob("*.fp16.safetensors")) else None
-    unet = UNet2DConditionModel.from_pretrained(model_dir / "unet", variant=variant, torch_dtype=dtype).eval()
+    unet = UNet2DConditionModel.from_pretrained(model_dir / "unet", variant=variant, torch_dtype=dtype).to(device).eval()
     latent_h, latent_w = args.height // 8, args.width // 8
-    sample = torch.zeros((1, 4, latent_h, latent_w), dtype=dtype)
-    timestep = torch.tensor([500], dtype=torch.int64)
-    hidden = torch.zeros((1, 77, int(unet.config.cross_attention_dim)), dtype=dtype)
+    sample = torch.zeros((1, 4, latent_h, latent_w), dtype=dtype, device=device)
+    timestep = torch.tensor([500], dtype=torch.int64, device=device)
+    hidden = torch.zeros((1, 77, int(unet.config.cross_attention_dim)), dtype=dtype, device=device)
 
     class Wrapper(torch.nn.Module):
         def __init__(self, inner: torch.nn.Module) -> None:
@@ -63,6 +64,7 @@ def main() -> int:
         "shape": [1, 4, latent_h, latent_w],
         "conditioning": [1, 77, int(unet.config.cross_attention_dim)],
         "dtype": str(dtype),
+        "device": str(device),
         "opset": args.opset,
         "bender": False,
     }, sort_keys=True))
