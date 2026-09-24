@@ -642,9 +642,10 @@ test('timed lyric import preserves evidence and rejects untimed results', () => 
 
 test('LRCLIB provider preserves synced evidence and rejects duration mismatches', async () => {
   let calls = 0;
-  const provider = new LrclibLyricsProvider(async (url) => {
+  const provider = new LrclibLyricsProvider(async (url, init) => {
     calls++;
     assert.match(url, /duration=213/u);
+    assert.equal((init?.headers as Record<string, string>)['X-User-Agent'], 'system1-visualizer/0.1.0 (https://github.com/takku1/visualizer)');
     return {
       ok: true,
       status: 200,

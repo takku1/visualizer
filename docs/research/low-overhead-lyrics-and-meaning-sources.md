@@ -31,7 +31,8 @@ LRCLIB documents `GET /api/get` with `track_name`, `artist_name`, optional
 
 - requires title and artist;
 - includes album and rounded duration when available;
-- rejects a returned duration more than 2.5 seconds from the local track;
+- sends the documented client-identification header and rejects a returned
+  duration more than 2 seconds from the local track;
 - parses synced LRC lines into the existing `LyricsResult` evidence contract;
 - preserves provider identity, retrieval time, and source URL;
 - returns `rights: "unknown"` because community availability is not a license;
@@ -47,6 +48,11 @@ decide whether unknown-rights development data may affect committed meaning.
 When a source omits a language tag, the adapter recovers Japanese or Korean
 only from their distinctive scripts; it does not infer an arbitrary language
 from Latin text.
+
+The verified source note [`lyrics-and-meaning-sources-verified.md`](lyrics-and-meaning-sources-verified.md)
+records the primary-source checks, including LRCLIB's `X-User-Agent`/rate-limit
+requirements, the absence of a lyric-data license, and the fact that Windows
+SMTC does not expose a local file path or ISRC.
 
 ## Cache identity
 

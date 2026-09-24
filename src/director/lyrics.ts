@@ -139,10 +139,16 @@ export class LrclibLyricsProvider implements LyricsProvider {
   readonly id = 'lrclib';
   #fetcher: LyricsFetcher;
   #baseUrl: string;
+  #clientId: string;
 
-  constructor(fetcher: LyricsFetcher = (url, init) => fetch(url, init), baseUrl = 'https://lrclib.net/api') {
+  constructor(
+    fetcher: LyricsFetcher = (url, init) => fetch(url, init),
+    baseUrl = 'https://lrclib.net/api',
+    clientId = 'system1-visualizer/0.1.0 (https://github.com/takku1/visualizer)',
+  ) {
     this.#fetcher = fetcher;
     this.#baseUrl = baseUrl.replace(/\/$/u, '');
+    this.#clientId = clientId;
   }
 
   async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
@@ -152,7 +158,9 @@ export class LrclibLyricsProvider implements LyricsProvider {
     if (Number.isFinite(query.durationSec) && (query.durationSec ?? 0) > 0) params.set('duration', String(Math.round(query.durationSec!)));
     let response: LyricsHttpResponse;
     try {
-      response = await this.#fetcher(`${this.#baseUrl}/get?${params.toString()}`, { headers: { accept: 'application/json' } });
+      response = await this.#fetcher(`${this.#baseUrl}/get?${params.toString()}`, {
+        headers: { accept: 'application/json', 'X-User-Agent': this.#clientId },
+      });
     } catch {
       return null;
     }
@@ -161,7 +169,7 @@ export class LrclibLyricsProvider implements LyricsProvider {
     try { raw = await response.json(); } catch { return null; }
     if (!isRecord(raw)) return null;
     const duration = numberValue(raw.duration);
-    if (Number.isFinite(query.durationSec) && duration !== null && Math.abs(duration - query.durationSec!) > 2.5) return null;
+    if (Number.isFinite(query.durationSec) && duration !== null && Math.abs(duration - query.durationSec!) > 2) return null;
     const synced = typeof raw.syncedLyrics === 'string' ? raw.syncedLyrics : '';
     const lines = synced ? parseLrc(synced) : [];
     const plain = typeof raw.plainLyrics === 'string' && raw.plainLyrics.trim().length > 0;
@@ -230,7 +238,7 @@ function languageFromEvidence(hint: string | undefined, text: string): string | 
 function matchConfidence(query: LyricsLookup, raw: Record<string, unknown>, duration: number | null): number {
   let score = 0.55;
   if (query.album && stringValue(raw.albumName)?.toLocaleLowerCase() === query.album.toLocaleLowerCase()) score += 0.12;
-  if (duration !== null && Number.isFinite(query.durationSec) && Math.abs(duration - query.durationSec!) <= 2.5) score += 0.18;
+  if (duration !== null && Number.isFinite(query.durationSec) && Math.abs(duration - query.durationSec!) <= 2) score += 0.18;
   return Math.min(0.9, score);
 }
 
