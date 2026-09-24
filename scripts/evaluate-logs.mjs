@@ -89,6 +89,11 @@ for (const row of checkpoints) {
   previous = current;
 }
 const avg = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+const resonanceSamples = telemetry.map((row) => row.stream?.meta?.resonance).filter((value) => value && typeof value === 'object');
+const maxFinite = (values) => {
+  const finite = values.filter((value) => Number.isFinite(value));
+  return finite.length ? Math.max(...finite) : null;
+};
 const summary = {
   file,
   checkpoints: checkpoints.length,
@@ -151,6 +156,14 @@ const summary = {
     conditioningVersions: [...new Set(telemetry.map((row) => row.stream?.meta?.realization?.conditioning).filter(Boolean))],
     streamBuildHashes: [...new Set(telemetry.map((row) => row.stream?.buildHash).filter(Boolean))],
     meaningWorkerBuildHashes: [...new Set(telemetry.map((row) => row.meaning?.workerBuildHash).filter(Boolean))],
+    resonance: {
+      samples: resonanceSamples.length,
+      maxMotion: maxFinite(resonanceSamples.map((value) => value.motion)),
+      maxCameraImpulse: maxFinite(resonanceSamples.map((value) => value.cameraImpulse)),
+      maxLightPulse: maxFinite(resonanceSamples.map((value) => value.lightPulse)),
+      weatherSamples: resonanceSamples.filter((value) => value.weatherIntensity != null).length,
+      note: 'Resonance telemetry proves transport/application of bounded channels, not visual identity or action correctness.',
+    },
   },
   streamHealth: {
     samples: telemetry.length,
@@ -182,7 +195,7 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `World transitions: ${summary.worldTransitions.receipts}; identity breaks: ${summary.worldTransitions.identityBreaks}; keyframes required: ${summary.worldTransitions.keyframeRequired}`,
   `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} grounded<=${summary.liveMeaning.maxGroundedMotifs} actionOnly<=${summary.liveMeaning.maxActionOnlyEvidence} symbolsOnly<=${summary.liveMeaning.maxSymbolOnlyEvidence} abstainedSamples=${summary.liveMeaning.abstainedEvidenceSamples} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
   `Live meaning by track: ${JSON.stringify(summary.liveMeaningByTrack)}`,
-  `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
+  `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; resonanceSamples=${summary.realization.resonance.samples}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
   `Continuity: ${summary.realization.latestControlPlane ? `${summary.realization.latestControlPlane.mode}; direction refreshes=${summary.realization.latestControlPlane.directionDecisions}; committed checkpoints=${summary.realization.latestControlPlane.checkpoints}; last=${summary.realization.latestControlPlane.lastCheckpointReason ?? 'none'}` : 'no control-plane telemetry'}`,
   `Stream health: telemetry=${summary.streamHealth.samples}; zeroFps=${summary.streamHealth.zeroFpsSamples} (connected=${summary.streamHealth.zeroFpsWhileConnected}); disconnected=${summary.streamHealth.disconnectedSamples}; maxDropped=${summary.streamHealth.maxDropped}`,
   `ShotGraph: ${summary.shotGraph.latest ? `staged=${summary.shotGraph.latest.staged} prefetched=${summary.shotGraph.latest.prefetched} selected=${summary.shotGraph.latest.selected} pending=${summary.shotGraph.latest.pending}` : 'no runtime telemetry'}`,
