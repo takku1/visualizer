@@ -1,12 +1,7 @@
 import type { VisualPlan, Weighted } from '../types';
 import type { TrackContext, WindowedFeatures } from '../director/director';
-import { buildPerceptualState, type PerceptualState } from '../perception/state';
-import type { WorldProjection, WorldState } from '../world/model';
-import { motionFromWorld, type WorldMotion } from '../world/motion';
-import type { WorldIdentity } from '../world/identity';
-import { identityFromContext } from '../world/identity';
-import type { WorldDelta } from '../world/delta';
-import { deltaFromDecision } from '../world/delta';
+import type { Scene } from '../stream/scenes';
+import type { CheckpointRequest } from '../stream/checkpoint';
 
 /**
  * One decision, fully instrumented for the real-music validation pass.
@@ -18,6 +13,7 @@ import { deltaFromDecision } from '../world/delta';
 export interface DecisionRecord {
   t: number;
   track: {
+    id: string | null;
     title: string | null;
     artist: string | null;
     artwork: { colorRgb: [number, number, number]; luminance: number; saturation: number; contrast: number } | null;
@@ -59,15 +55,8 @@ export interface DecisionRecord {
    */
   source: { capturing: boolean; hasStructure: boolean };
 
-  /** Versioned Phase 1 perception input; learned is null until an adapter is installed. */
-  perception: PerceptualState;
-
-  /** World projection at the moment this semantic decision committed. */
-  world: WorldProjection;
-  worldState: WorldState;
-  worldMotion: WorldMotion;
-  identity: WorldIdentity;
-  delta: WorldDelta;
+  /** The realization scene this decision compiled to (what the checkpoint renders). */
+  scene: Scene;
 
   /** Full calibrated distributions, not just the argmax. */
   system1: {
@@ -115,17 +104,12 @@ export function buildRecord(
   features: WindowedFeatures,
   ctx: TrackContext,
   capturing: boolean,
-  world: WorldProjection,
-  worldState: WorldState,
-  perception?: PerceptualState,
-  worldMotion?: WorldMotion,
-  identity?: WorldIdentity,
-  delta?: WorldDelta,
+  scene: Scene,
 ): DecisionRecord {
-  const resolvedMotion = worldMotion ?? motionFromWorld(worldState);
   return {
     t: Math.round(features.t * 100) / 100,
     track: {
+      id: ctx.trackId ?? null,
       title: ctx.title ?? null,
       artist: ctx.artist ?? null,
       artwork: ctx.artwork
@@ -164,12 +148,7 @@ export function buildRecord(
       keySource: ctx.key != null && ctx.mode != null ? 'spotify' : 'local_estimate',
     },
     source: { capturing, hasStructure: features.hasStructure },
-    perception: perception ?? buildPerceptualState(features, ctx),
-    world,
-    worldState,
-    worldMotion: resolvedMotion,
-    identity: identity ?? identityFromContext(ctx, worldState),
-    delta: delta ?? deltaFromDecision(system1, features, ctx, worldState, resolvedMotion),
+    scene,
     system1: {
       engine: system1.origin,
       latencyMs: Math.round(system1.latencyMs),
@@ -204,31 +183,24 @@ export function recordLine(
   features: WindowedFeatures,
   ctx: TrackContext,
   capturing: boolean,
-  world: WorldProjection,
-  worldState: WorldState,
-  perception?: PerceptualState,
-  worldMotion?: WorldMotion,
-  identity?: WorldIdentity,
-  delta?: WorldDelta,
+  scene: Scene,
 ): string {
-  return JSON.stringify(buildRecord(system1, baseline, features, ctx, capturing, world, worldState, perception, worldMotion, identity, delta));
+  return JSON.stringify(buildRecord(system1, baseline, features, ctx, capturing, scene));
 }
 
-export function telemetryLine(event: {
-  t: number;
-  fps?: number;
-  frameMs?: number;
-  world: WorldProjection;
-  motion?: WorldMotion;
-  sim?: { meanU: number; meanV: number; hasNaN: boolean } | null;
-  renderer?: ReturnType<import('../render/renderer').Renderer['telemetry']>;
-  audio?: { onBeat: boolean; onSection: boolean; level: number; flux: number; bassFlux: number };
-  beatsSinceLast?: number;
-  sectionsSinceLast?: number;
-  substrate?: { requests: number; successes: number; failures: number; lastMs: number; lastSource: string; lastContinuity: string };
-  perception?: { configured: boolean; requests: number; successes: number; failures: number; lastMs: number; lastModel: string; lastVectorLength: number };
-}): string {
+/** One checkpoint realization request, with why it fired. */
+export function checkpointLine(t: number, request: CheckpointRequest): string {
+  return JSON.stringify({ _checkpoint: true, t: r2(t), ...request });
+}
+
+/** Periodic health: display fps, stream fps/latency, splice activity, audio. */
+export function telemetryLine(event: { t: number } & Record<string, unknown>): string {
   return JSON.stringify({ _telemetry: true, ...event });
+}
+
+/** Compact one-hertz state sample for phrase-scale analysis. */
+export function stateLine(t: number, state: Record<string, unknown>): string {
+  return JSON.stringify({ _state: true, t: r2(t), ...state });
 }
 
 const r2 = (n: number): number => Math.round(n * 100) / 100;

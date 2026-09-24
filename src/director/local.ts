@@ -57,10 +57,10 @@ export class LocalSystemOne implements DecisionEngine {
       return { type: 'score', score: round2(raw), confidence: 0.6 + 0.3 * s.evidence };
     }
 
-    if (q.type === 'noul') {
+    if (q.type === 'binary') {
       // A hard cut is earned by a sharp change, not by the clock.
       const p = clamp01(s.onsetDensity * 0.7 + Math.max(0, s.energy - 0.65) * 0.9);
-      return { type: 'noul', noul: round2(p), probabilities: { true: round2(p), false: round2(1 - p) }, confidence: 0.55 };
+      return { type: 'binary', binary: round2(p), probabilities: { true: round2(p), false: round2(1 - p) }, confidence: 0.55 };
     }
 
     return this.#choose(id, q, s);

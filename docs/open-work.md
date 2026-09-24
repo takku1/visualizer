@@ -1,23 +1,18 @@
-# Open work
+# Implementation status
 
-| Status | Work | Evidence needed |
-| --- | --- | --- |
-| ready | Phase 0 baseline comparison | Fresh real-track capture with current telemetry. |
-| active | Multimodal perception | Non-null learned audio, artwork, lyrics, metadata, and structure records. |
-| active | World identity | Stable track-scale scene bible represented as typed state, not prompt text. |
-| active | WorldDelta / WorldMotion | Bounded `WorldMotion` projection and intervention probe now pass; entity-aware semantic edits and learned `VisualPlan` replacement remain. |
-| next | Spatial scene prototype | One entity with masks/depth/pose and independently moving regions. |
-| compatibility | Raster substrate | Keep Tiny-SD/img2img for A/B and fallback only. |
-| next | Stateful world sidecar | `/v1/world/start`, `update`, `state`, `reset`; revision and continuity checks. |
-| later | Supported model adapters | Depth, segmentation, pose, reference-image, and motion controls. |
-| deferred | Learned semantic adapter | Requires stable explicit controls and intervention traces. |
-| gated | Video/temporal backend | Only after local structured motion has a measured limitation. |
-| deferred | Visual self-perception | Requires stable one-way dynamics and delayed-feedback evaluation. |
-| active | Dynamic lyrics | `off`/`overlay`, lifecycle reload, typed cue events, and seed-preserving world participation pass; world-region raster realization remains after entity state. |
+This is the evidence boundary for the specimen: a concept is marked implemented only when it has a runtime seam and a test or measurable log output.
 
-## Current evidence
+## Implemented in this pass
 
-TypeScript typecheck passes. Existing logs show local System One/baseline
-divergence and causality infrastructure, but do not yet prove semantic quality
-or multimodal track identity. The image path still lacks authoritative depth,
-mask, entity, and pose state.
+- Typed scene continuity contracts accompany the legacy scalar `continuity` field.
+- Checkpoint timing receipts record source, confidence, requested beat, commit time, phase error, and timeout fallback.
+- A deterministic shot-graph seam supports candidate shots, weighted transitions, and prefetch intent.
+- `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
+
+## Still deliberately deferred
+
+- Lyrics providers, first-listen ASR/audio-language models, and CLAP-style semantic embeddings: the local manifest seam exists, but no model/provider is configured.
+- Reference-image identity conditioning and a ground-truth visual identity/action evaluator: telemetry can expose the seam, but cannot claim visual correctness.
+- TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.
+
+The evaluator's `identityVerified` and `actionVerified` fields remain false until an actual visual evaluator is connected.

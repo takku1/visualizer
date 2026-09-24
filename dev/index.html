@@ -11,31 +11,9 @@
     font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     color: rgba(255, 255, 255, .8);
   }
-  #gate {
-    position: fixed; inset: 0; display: grid; place-content: center;
-    gap: 18px; text-align: center; padding: 24px;
-  }
-  h1 { font-size: 15px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
-  p { margin: 0; max-width: 42ch; color: rgba(255, 255, 255, .5); }
-  button {
-    font: inherit; padding: 10px 22px; cursor: pointer; justify-self: center;
-    color: #000; background: #fff; border: 0; border-radius: 2px;
-    letter-spacing: .04em;
-  }
-  button:disabled { opacity: .5; cursor: default; }
-  kbd {
-    font: inherit; padding: 1px 5px; border-radius: 3px;
-    background: rgba(255, 255, 255, .12);
-  }
 </style>
 </head>
 <body>
-  <div id="gate">
-    <h1>System One Visualizer</h1>
-    <p id="hint"></p>
-    <button id="start">Start</button>
-    <p>Play something first. <kbd>H</kbd> toggles the HUD.</p>
-  </div>
   <script src="./harness.js"></script>
 </body>
 </html>

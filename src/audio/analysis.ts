@@ -8,6 +8,7 @@ export interface AnalysisTrackInfo {
   mode?: number;
   loudness?: number;
   sectionLabel?: string;
+  sectionIndex?: number;
 }
 
 /**
@@ -81,6 +82,7 @@ export class AnalysisSource implements AudioSource {
       mode: section?.mode ?? a.track?.mode,
       loudness: section?.loudness ?? a.track?.loudness,
       sectionLabel: this.#sectionIndex >= 0 ? `section_${this.#sectionIndex}` : undefined,
+      sectionIndex: this.#sectionIndex >= 0 ? this.#sectionIndex : undefined,
     };
   }
 

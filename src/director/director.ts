@@ -4,15 +4,14 @@ import { MOTION, PALETTE, TEXTURE, GEOMETRY, SYMMETRY, FEEDBACK, criteriaOf } fr
 import { type Answer, type SystemOneRequest } from './jev';
 import type { DecisionEngine } from './engine';
 import { LocalSystemOne } from './local';
-import { buildPerceptualState } from '../perception/state';
-import type { LearnedAudioPerception } from '../perception/adapter';
-import type { AudioWindow } from '../audio/source';
-import type { PerceptualState } from '../perception/state';
+import type { SongMeaning } from './semantic';
 
 /** Musical context the director reports to Jev alongside the live features. */
 export interface TrackContext {
   /** Playback position in seconds for timed realization branches. */
   position?: number;
+  /** Stable host track identifier (Spotify URI when available). */
+  trackId?: string;
   title?: string;
   artist?: string;
   /** Spotify genre tags, when the client exposes them. */
@@ -25,8 +24,14 @@ export interface TrackContext {
   loudness?: number;
   /** 'intro' | 'verse' | ... when we can infer it; otherwise the index. */
   sectionLabel?: string;
-  /** Optional lyric context, capped by the conditioning adapter before transport. */
-  lyrics?: string;
+  sectionIndex?: number;
+  /**
+   * Non-narrative metadata concepts supplied by the stream sidecar. They may
+   * help diagnostics or future style selection, but never establish story.
+   */
+  concepts?: string[];
+  /** Versioned evidence-bearing meaning; optional until a lyric/local extractor supplies it. */
+  meaning?: SongMeaning;
   /** Album-art visual DNA (see src/audio/artwork.ts). Spicetify build only. */
   artwork?: { color: [number, number, number]; luminance: number; saturation: number; contrast: number };
 }
@@ -52,12 +57,8 @@ export interface DirectorOptions {
    * side and ask whether the engine is doing anything a pile of thresholds
    * would not, rather than assuming it from `plan` alone.
    */
-  onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState) => void;
+  onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan) => void;
   onError?: (err: Error) => void;
-  /** Optional learned perception, sampled only when a semantic decision runs. */
-  perception?: LearnedAudioPerception;
-  /** Optional recent PCM supplied to audio-native perception adapters. */
-  audioWindow?: () => AudioWindow | null;
 }
 
 /** What a decision was actually made from: the window plus its dynamic range. */
@@ -82,10 +83,8 @@ export class Director {
   #fallback: DecisionEngine;
   #minInterval: number;
   #maxInterval: number;
-  #onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState) => void;
+  #onPlan?: (plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan) => void;
   #onError?: (err: Error) => void;
-  #perception?: LearnedAudioPerception;
-  #audioWindow?: () => AudioWindow | null;
 
   #lastAskAt = 0;
   #inFlight = false;
@@ -101,8 +100,6 @@ export class Director {
     this.#maxInterval = opts.maxIntervalMs ?? 30000;
     this.#onPlan = opts.onPlan;
     this.#onError = opts.onError;
-    this.#perception = opts.perception;
-    this.#audioWindow = opts.audioWindow;
     this.#plan = initialPlan();
   }
 
@@ -156,15 +153,7 @@ export class Director {
     // or reproducing what a threshold rule already would have.
     const baseline = offlinePlan(windowed, this.#plan);
 
-    let learned = null;
-    if (this.#perception?.configured) {
-      try {
-        learned = await this.#perception.embed(buildPerceptualState(windowed, ctx), this.#audioWindow?.() ?? null);
-      } catch (err) {
-        this.#onError?.(err as Error);
-      }
-    }
-    const req = buildRequest(windowed, ctx, this.#plan, this.#history, learned);
+    const req = buildRequest(windowed, ctx, this.#plan, this.#history);
     const primary = this.#engine.configured ? this.#engine : this.#fallback;
 
     this.#inFlight = true;
@@ -172,7 +161,7 @@ export class Director {
     try {
       const res = await primary.ask(req);
       this.#consecutiveFailures = 0;
-      this.#record(planFromAnswers(res.answers, performance.now() - started, primary.name), windowed, ctx, baseline, buildPerceptualState(windowed, ctx, learned));
+      this.#record(planFromAnswers(res.answers, performance.now() - started, primary.name), windowed, ctx, baseline);
     } catch (err) {
       this.#consecutiveFailures++;
       this.#onError?.(err as Error);
@@ -180,24 +169,24 @@ export class Director {
       // same way, but if it somehow does we keep the plan we already had.
       try {
         const res = await this.#fallback.ask(req);
-        this.#record(planFromAnswers(res.answers, 0, this.#fallback.name), windowed, ctx, baseline, buildPerceptualState(windowed, ctx, learned));
+        this.#record(planFromAnswers(res.answers, 0, this.#fallback.name), windowed, ctx, baseline);
       } catch {
-        this.#commit(offlinePlan(windowed, this.#plan), windowed, ctx, baseline, buildPerceptualState(windowed, ctx, learned));
+        this.#commit(offlinePlan(windowed, this.#plan), windowed, ctx, baseline);
       }
     } finally {
       this.#inFlight = false;
     }
   }
 
-  #record(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState): void {
+  #record(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan): void {
     this.#history.push(`${plan.motion.top}/${plan.palette.top}`);
     if (this.#history.length > 8) this.#history.shift();
-    this.#commit(plan, features, ctx, baseline, perception);
+    this.#commit(plan, features, ctx, baseline);
   }
 
-  #commit(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan, perception: PerceptualState): void {
+  #commit(plan: VisualPlan, features: WindowedFeatures, ctx: TrackContext, baseline: VisualPlan): void {
     this.#plan = plan;
-    this.#onPlan?.(plan, features, ctx, baseline, perception);
+    this.#onPlan?.(plan, features, ctx, baseline);
   }
 }
 
@@ -264,7 +253,6 @@ function buildRequest(
   ctx: TrackContext,
   prev: VisualPlan,
   history: string[],
-  learned: ReturnType<typeof buildPerceptualState>['learned'] = null,
 ): SystemOneRequest {
   /**
    * State is a structured snapshot rather than prose. System One takes objects
@@ -278,6 +266,7 @@ function buildRequest(
   const keyFromCtx = ctx.key != null && ctx.mode != null;
   const state = {
     track: {
+      id: ctx.trackId ?? null,
       title: ctx.title ?? null,
       artist: ctx.artist ?? null,
       genres: ctx.genres?.slice(0, 5) ?? [],
@@ -336,7 +325,7 @@ function buildRequest(
   };
 
   return {
-    state: { ...state, perception: buildPerceptualState(f, ctx, learned) },
+    state,
     questions: {
       motion: {
         type: 'choice',
@@ -380,7 +369,7 @@ function buildRequest(
         criteria: SCORE_LEVELS,
       },
       hard_cut: {
-        type: 'noul',
+        type: 'binary',
         instructions:
           'Should the visuals cut instantly to the new look rather than crossfading into it over several seconds?',
         criteria: {
@@ -401,7 +390,7 @@ function planFromAnswers(answers: Record<string, Answer>, latencyMs: number, eng
     symmetry: weighted<SymmetryId>(answers['symmetry'], SYMMETRY, 'none'),
     feedback: weighted<FeedbackId>(answers['feedback'], FEEDBACK, 'trail'),
     intensity: clamp(answers['intensity']?.score ?? 2, 0, SCORE_LEVELS.length - 1),
-    hardCut: clamp(answers['hard_cut']?.noul ?? 0, 0, 1),
+    hardCut: clamp(answers['hard_cut']?.binary ?? 0, 0, 1),
     origin: engine,
     latencyMs,
   };

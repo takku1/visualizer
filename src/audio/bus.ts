@@ -173,11 +173,12 @@ class FallbackBeatClock {
     }
 
     if (this.#intervals.length >= 6) {
-      const sorted = [...this.#intervals].sort((a, b) => a - b);
-      const median = sorted[sorted.length >> 1];
-      if (median && median > 0) {
-        this.tempo = clamp(60 / median, 60, 200);
-        this.confidence = Math.min(this.#intervals.length / 24, 1) * 0.6;
+      const estimate = estimateTempoFromOnsetGaps(this.#intervals);
+      if (estimate) {
+        // Avoid tempo flicker from one onset while allowing a genuine change
+        // to settle over a few windows.
+        this.tempo += (estimate.tempo - this.tempo) * 0.2;
+        this.confidence = estimate.confidence * Math.min(this.#intervals.length / 24, 1);
       }
     }
 
@@ -193,6 +194,34 @@ class FallbackBeatClock {
     this.beatPhase = this.#phase;
     this.barPhase = (this.#bar + this.#phase) / 4;
   }
+}
+
+/**
+ * Estimate a pulse from onset gaps while folding subdivisions and double-time
+ * interpretations into the same 60..180 BPM range. A small histogram is more
+ * robust than taking the median gap when a track contains both kick and hat
+ * onsets.
+ */
+export function estimateTempoFromOnsetGaps(gaps: readonly number[]): { tempo: number; confidence: number } | null {
+  const valid = gaps.filter((gap) => Number.isFinite(gap) && gap > 0.3 && gap < 1.0);
+  if (valid.length < 3) return null;
+  const bins = new Map<number, number>();
+  for (const gap of valid) {
+    let bpm = 60 / gap;
+    while (bpm < 60) bpm *= 2;
+    while (bpm > 180) bpm /= 2;
+    const centre = Math.round(bpm * 2) / 2;
+    for (let offset = -2; offset <= 2; offset++) {
+      const bin = centre + offset * 0.5;
+      const distance = Math.abs(bin - bpm);
+      bins.set(bin, (bins.get(bin) ?? 0) + Math.exp(-(distance * distance) / 2));
+    }
+  }
+  const ranked = [...bins.entries()].sort((a, b) => b[1] - a[1]);
+  const top = ranked[0];
+  if (!top) return null;
+  const total = [...bins.values()].reduce((sum, value) => sum + value, 0);
+  return { tempo: clamp(top[0], 60, 180), confidence: clamp(top[1] / Math.max(total, 1e-6) * 8, 0, 1) };
 }
 
 const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n));

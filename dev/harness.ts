@@ -1,8 +1,4 @@
-import { VisualizerApp } from '../src/core';
-import { SidecarSubstrateProvider } from '../src/world/substrate';
-import { SidecarAudioPerception } from '../src/perception/adapter';
-import { FixtureLyricSource } from '../src/lyrics/fixture';
-import { LyricsRuntime } from '../src/lyrics/runtime';
+import { VisualizerApp, type TrackContext } from '../src/core';
 
 /**
  * Standalone dev harness. Runs in a plain browser tab, or - unmodified - as
@@ -19,10 +15,41 @@ declare global {
     s1Log?: { append: (line: string) => void };
     /** Present only inside the Electron shell, via electron/preload.cjs. */
     s1Key?: { getKey: () => Promise<string | null> };
+    /** Present only inside the Electron shell: Windows media session now-playing. */
+    s1Media?: { subscribe: (callback: (info: MediaInfo) => void) => () => void };
   }
 }
 
 const params = new URLSearchParams(location.search);
+
+/** One line from scripts/media-session.ps1. */
+interface MediaInfo {
+  ok: boolean;
+  app?: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  playing?: boolean;
+  /** Seconds, as of `lastUpdated`. */
+  position?: number;
+  duration?: number;
+  /** Unix ms. */
+  lastUpdated?: number;
+}
+
+let media: MediaInfo | null = null;
+
+/**
+ * Track metadata for the director and scene compiler. Position is
+ * extrapolated between media-session updates while playing (players update
+ * the timeline only every few seconds).
+ */
+function trackContext(): TrackContext {
+  if (!media?.ok || !media.title) return {};
+  const elapsed = media.playing && media.lastUpdated ? Math.max(0, (Date.now() - media.lastUpdated) / 1000) : 0;
+  const position = Math.min((media.position ?? 0) + elapsed, media.duration || Infinity);
+  return { trackId: `${media.artist ?? ''}|${media.title}`, title: media.title, artist: media.artist, position };
+}
 
 /**
  * TypeSafe key precedence: `?key=` URL override first (handy for a quick
@@ -40,61 +67,53 @@ async function resolveApiKey(): Promise<string | undefined> {
   }
 }
 
+function storedPaint(): string | null {
+  try { return localStorage.getItem('s1:paint'); } catch { return null; }
+}
+
 async function main(): Promise<void> {
   const app: VisualizerApp = new VisualizerApp({
     apiKey: await resolveApiKey(),
     proxyUrl: params.get('proxy') ?? undefined,
-    renderScale: Number(params.get('scale') ?? 0.85),
-    // The checkpoint is an output-side realization. Disable with
-    // ?substrate=off for a procedural-only A/B run.
-    substrateProvider: params.get('substrate') === 'off'
-      ? undefined
-      : new SidecarSubstrateProvider(params.get('substrate') ?? 'http://127.0.0.1:8766/v1/substrate'),
-    substrate: { strength: 0.9, mode: 'replace' },
-    perception: params.get('perception') ? new SidecarAudioPerception(params.get('perception')!) : undefined,
-    lyrics: new LyricsRuntime(
-      params.get('lyrics') === 'fixture' ? { enabled: true, mode: 'overlay' } : undefined,
-      params.get('lyrics') === 'fixture' ? new FixtureLyricSource() : undefined,
-    ),
+    renderScale: Number(params.get('scale') ?? 1),
+    // The stream sidecar is the product path; `?stream=off` runs the fallback
+    // field alone, `?stream=ws://host:port` points elsewhere.
+    streamUrl: params.get('stream') === 'off' ? undefined : params.get('stream') ?? 'ws://127.0.0.1:8771',
+    paint: Number(params.get('paint') ?? storedPaint() ?? 0.85),
+    keyframes: params.get('keyframes') !== 'off',
+    direction: params.get('direction') === 'knobs' ? 'knobs' : 'splice',
+    context: trackContext,
     status: (): string[] => ['', app.loopback.capturing ? 'capture   ok' : 'capture   off (no spectrum)'],
     // Real decision logging for the evaluation pass, when Electron's preload
     // has exposed a sink. Absent in a plain browser tab - nothing changes there.
     log: window.s1Log ? (line) => window.s1Log!.append(line) : undefined,
   });
 
-  const button = document.getElementById('start') as HTMLButtonElement | null;
-  const hint = document.getElementById('hint');
-
-  button?.addEventListener('click', async () => {
-    button.disabled = true;
-    button.textContent = 'starting…';
-    await app.start();
-    document.getElementById('gate')?.remove();
+  // A new track resets the per-track audio statistics and asks the director
+  // for a decision now, rather than on the old track's leftover clock (the
+  // Spicetify build does the same from its songchange event).
+  window.s1Media?.subscribe((info) => {
+    const before = trackContext().trackId;
+    media = info;
+    const after = trackContext().trackId;
+    if (after && after !== before) {
+      console.log(`[media] now playing: ${info.title}${info.artist ? ` - ${info.artist}` : ''} (${info.app ?? '?'})`);
+      app.bus.resetTrackStats();
+      if (app.running) void app.director.refresh(app.bus.frame, trackContext());
+    }
   });
 
-  // Deterministic visual capture mode. It uses the same Electron/Chromium
-  // renderer but skips the interaction gate; audio capture may remain off.
-  if (params.get('autostart') === '1') {
-    await app.start();
-    document.getElementById('gate')?.remove();
-  }
-
-  // `mediaDevices` is undefined outside a secure context, so this is a real
-  // runtime check despite the DOM types insisting the method always exists.
-  const canCapture = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
-
-  if (hint) {
-    hint.textContent = canCapture
-      ? 'Pick a tab or your whole screen, and make sure "Share audio" is ticked.'
-      : 'No getDisplayMedia here (needs https or localhost). The visuals will run with no spectrum.';
-  }
+  // Electron is the supported runtime. Start immediately; audio capture is
+  // best-effort and the world remains visible if permission is unavailable.
+  await app.start();
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') app.overlay.toggleHud();
-    // Perf-isolation toggles for the validation pass, dev/Electron only - not
-    // part of the Spicetify build. Watch [perf] lines in the terminal for the
-    // fps delta each one makes.
-    if (e.key === '1') app.renderer?.toggleDebug('sim');
+    // Paint: how much of the procedural scene the diffusion stream paints over.
+    if (e.key === '[' || e.key === ']') {
+      app.paint += e.key === ']' ? 0.1 : -0.1;
+      try { localStorage.setItem('s1:paint', String(app.paint)); } catch { /* private window */ }
+    }
   });
 
   // Handy while tuning: __s1.app.director.refresh(...) forces a new decision.

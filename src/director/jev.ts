@@ -12,7 +12,7 @@
 
 import type { DecisionEngine } from './engine';
 
-export type QuestionType = 'noul' | 'choice' | 'score';
+export type QuestionType = 'binary' | 'choice' | 'score';
 
 export interface ChoiceQuestion {
   type: 'choice';
@@ -28,13 +28,13 @@ export interface ScoreQuestion {
   criteria: string[];
 }
 
-export interface NoulQuestion {
-  type: 'noul';
+export interface BinaryQuestion {
+  type: 'binary';
   instructions: string;
   criteria?: { true?: string; false?: string };
 }
 
-export type Question = ChoiceQuestion | ScoreQuestion | NoulQuestion;
+export type Question = ChoiceQuestion | ScoreQuestion | BinaryQuestion;
 
 export interface SystemOneRequest {
   state: unknown;
@@ -46,8 +46,8 @@ export interface SystemOneRequest {
 
 export interface Answer {
   type: QuestionType;
-  /** Present when type is 'noul'. Probability the statement is true, 0..1. */
-  noul?: number;
+  /** Present when type is 'binary'. Probability the statement is true, 0..1. */
+  binary?: number;
   /** Present when type is 'choice'. One of the criteria keys. */
   choice?: string;
   /** Present when type is 'score'. */

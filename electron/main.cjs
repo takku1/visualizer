@@ -8,7 +8,7 @@ const { app, BrowserWindow, session, desktopCapturer, Menu, ipcMain } = require(
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 
 // This is meant to feel like an app, not a repurposed browser tab - no
 // File/Edit/View menu bar.
@@ -31,23 +31,77 @@ function bundleFingerprint() {
 }
 const BUILD_HASH = bundleFingerprint();
 
-// One append-only log file per run, for the real-music evaluation pass. Lives
-// in the repo (not userData) so it is easy to find and read back afterward.
+// One JSONL log per run, for the real-music evaluation pass. Rotate sessions so
+// an overnight visualizer cannot create one unbounded file.
 // The hash in the filename means a directory listing alone tells you which
 // runs share a code state, before opening any of them.
 const LOG_DIR = path.join(__dirname, '..', 'logs');
 fs.mkdirSync(LOG_DIR, { recursive: true });
-const LOG_PATH = path.join(
-  LOG_DIR,
-  `session-${new Date().toISOString().replace(/[:.]/g, '-')}-${BUILD_HASH}.jsonl`,
-);
-const logStream = fs.createWriteStream(LOG_PATH, { flags: 'a' });
-// A non-decision header line, so the hash is visible from the file's content
-// too, not only its name - the name can get renamed or copied.
-logStream.write(JSON.stringify({ _meta: true, buildHash: BUILD_HASH, startedAt: new Date().toISOString() }) + '\n');
+const LOG_MAX_BYTES = positiveEnv('S1_LOG_MAX_BYTES', 16 * 1024 * 1024);
+const LOG_MAX_FILES = positiveEnv('S1_LOG_MAX_FILES', 64);
+const LOG_MAX_TOTAL_BYTES = positiveEnv('S1_LOG_MAX_TOTAL_BYTES', 512 * 1024 * 1024);
+const LOG_STEM = `session-${new Date().toISOString().replace(/[:.]/g, '-')}-${BUILD_HASH}`;
+let logPart = 0;
+let logPath;
+let logStream;
+let logBytes = 0;
+
+function positiveEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function logPathFor(part) {
+  return path.join(LOG_DIR, part === 0 ? `${LOG_STEM}.jsonl` : `${LOG_STEM}.part-${String(part).padStart(3, '0')}.jsonl`);
+}
+
+function openLogPart() {
+  logPath = logPathFor(logPart);
+  logStream = fs.createWriteStream(logPath, { flags: 'a' });
+  const header = JSON.stringify({ _meta: true, buildHash: BUILD_HASH, startedAt: new Date().toISOString(), part: logPart }) + '\n';
+  logStream.write(header);
+  logBytes = Buffer.byteLength(header);
+}
+
+function pruneLogs() {
+  const files = fs.readdirSync(LOG_DIR)
+    .filter((name) => /^session-.*\.jsonl$/.test(name))
+    .map((name) => {
+      const full = path.join(LOG_DIR, name);
+      const stat = fs.statSync(full);
+      return { name, full, size: stat.size, mtime: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtime - a.mtime);
+  let total = files.reduce((sum, file) => sum + file.size, 0);
+  for (let i = files.length - 1; i >= 0; i--) {
+    if (i === 0 || (files.length - i <= LOG_MAX_FILES && total <= LOG_MAX_TOTAL_BYTES)) break;
+    const file = files[i];
+    try {
+      fs.unlinkSync(file.full);
+      total -= file.size;
+    } catch (error) {
+      console.warn(`[electron] could not prune log ${file.name}: ${error.message}`);
+    }
+  }
+}
+
+pruneLogs();
+openLogPart();
+
+function appendLog(line) {
+  const text = line + '\n';
+  const bytes = Buffer.byteLength(text);
+  if (logBytes + bytes > LOG_MAX_BYTES && logBytes > 0) {
+    logStream.end();
+    logPart++;
+    openLogPart();
+  }
+  logStream.write(text);
+  logBytes += bytes;
+}
 
 ipcMain.on('log-append', (_event, line) => {
-  logStream.write(line + '\n');
+  appendLog(line);
 });
 
 // TypeSafe API key, resolved once per run and never logged. Precedence:
@@ -91,6 +145,44 @@ ipcMain.handle('s1-get-key', async () => {
   return cachedKey === false ? null : cachedKey;
 });
 
+// What is playing, from the Windows media session (Spotify, browsers, most
+// players): title, artist, position. One long-lived PowerShell helper streams
+// JSON lines; PowerShell's ~300 ms startup rules out spawning it per poll.
+// Local only - it reads the OS media session and makes no network calls.
+let mediaHelper = null;
+let lastMedia = null;
+function startMediaSession(win) {
+  if (process.platform !== 'win32') return;
+  mediaHelper = spawn(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, '..', 'scripts', 'media-session.ps1')],
+    { windowsHide: true },
+  );
+  let buffer = '';
+  mediaHelper.stdout.on('data', (chunk) => {
+    buffer += chunk.toString('utf8');
+    let nl;
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      try {
+        lastMedia = JSON.parse(line);
+        if (!win.isDestroyed()) win.webContents.send('s1-media', lastMedia);
+      } catch { /* partial or non-JSON line */ }
+    }
+  });
+  mediaHelper.on('exit', (code) => {
+    mediaHelper = null;
+    // Restart unless the app is quitting; a crashed helper just means no
+    // track info for a few seconds.
+    if (!win.isDestroyed()) setTimeout(() => startMediaSession(win), 3000);
+    console.log(`[electron] media session helper exited (${code}); restarting`);
+  });
+}
+ipcMain.handle('s1-media-now', () => lastMedia);
+app.on('before-quit', () => mediaHelper?.kill());
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -119,6 +211,7 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'dist', 'dev', 'index.html'));
+  startMediaSession(win);
   return win;
 }
 
@@ -141,7 +234,7 @@ app.whenReady().then(() => {
     });
   });
 
-  console.log(`[electron] ready, build ${BUILD_HASH}, logging decisions to ${LOG_PATH}`);
+  console.log(`[electron] ready, build ${BUILD_HASH}, logging decisions to ${logPath} (max ${LOG_MAX_BYTES} bytes/file)`);
   createWindow();
 
   app.on('activate', () => {

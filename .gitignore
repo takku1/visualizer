@@ -17,3 +17,7 @@ dev/tmp_*.py
 *.png
 .playwright-mcp/
 logs/
+models/
+output/
+.playwright-cli/
+__pycache__/

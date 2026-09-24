@@ -1,78 +1,44 @@
-# Implementation roadmap
+# Roadmap
 
-The roadmap is ordered by evidence, not by model novelty.
+## Phase 0 — prompt-free-physics prototype ✅ (2026-09-23)
 
-## Phase 0 — runtime truth
+The fast loop is steered only by audio physics, the slow loop is seeded by
+the director, and checkpoints are spliced on downbeats. It is measured on the
+target GPU and covered by unit tests plus a live metamorphic smoke test.
 
-Log the active director, perception providers, track context, world revision,
-realization revision, continuity mode, renderer path, latency, FPS, and memory.
+## Phase 1 — feel pass (next)
 
-**Exit:** a fresh real-track session proves which inputs and models are active.
+- Run real music for a few sessions and read `logs/`. Check whether
+  `change` / `drift` track the music, and whether reseeds land musically.
+- Tune the mapper curves in `src/stream/control.ts`. Each curve is one line,
+  and `npm test` guards the monotonic relations.
+- Try 448×256 on AC for more fps against less detail
+  (`STREAM_WIDTH=448 STREAM_HEIGHT=256`).
+- Optional: per-scene negative/style anchors if the look still drifts
+  toward illustration.
 
-## Phase 1 — multimodal identity
+## Phase 2 — speed
 
-Connect learned audio, artwork, lyrics, metadata, and structure. Construct a
-stable `WorldIdentity` before the first section.
+- TensorRT for the UNet (StreamDiffusion's path), estimated at 2–3× over
+  CUDA graphs. Needs a separate venv.
+- Stream-batch denoising (StreamDiffusion's pipelined multi-step) for
+  quality at the same fps.
 
-**Exit:** repeated runs produce the same track identity and meaningful section
-deltas with provenance and confidence.
+## Phase 3 — the research piece: FiLM audio adapter
 
-## Phase 2 — structured world
+A tiny MLP maps about 8 audio features to per-block scale/shift
+modulations in the UNet, trained LoRA-scale on the distilled model. The
+objective is contrastive audio–image alignment (CLAP-style) as a proxy
+reward. This lets the model "feel" the music in its weights, not only in its
+noise. It is unbuilt anywhere, as far as we know.
 
-Replace learned-world dependence on `VisualPlan` with `WorldIdentity`,
-`WorldDelta`, `SpatialScene`, `WorldMotion`, entities, regions, and lifecycle.
-Keep `VisualPlan` for fallback comparison.
+## Phase 4 — wildcard
 
-**Exit:** fixed audio/seed plus a single semantic intervention changes the
-predicted entity, region, or motion policy without changing unrelated state.
-
-## Phase 3 — region-aware browser prototype
-
-Use deterministic masks/depth/pose proxies if necessary. Render at least one
-persistent entity and one environment layer independently. Apply event impulses
-to selected regions.
-
-**Exit:** a motif or person persists while its local surroundings move
-independently; no global swirl is required.
-
-## Phase 4 — stateful realization sidecar
-
-Replace `/v1/substrate` with `/v1/world/*`. Retain prior material/latent state,
-accept semantic deltas, reject stale updates, and return aligned material,
-depth, masks, motion hints, and continuity evidence.
-
-**Exit:** accepted updates are descendants of the same world and rejected
-updates do not replace the current result.
-
-## Phase 5 — supported model controls
-
-Add reference-image, depth, segmentation, pose, and motion-module controls
-through model-supported adapters. Cache track-level conditioning and keep the
-large checkpoint frozen initially.
-
-**Exit:** identity and spatial structure survive controlled changes better than
-prompt-only continuation.
-
-## Phase 6 — learned semantic adapter
-
-Train a small adapter from `WorldState`, audio context, and memory into the
-chosen model's supported conditioning space. Start by imitating the explicit
-motion adapter, then test causal interventions and motif survival.
-
-## Phase 7 — temporal/video backend
-
-Evaluate AnimateDiff, streaming diffusion, or another temporal model behind the
-same realization interface only if the structured and persistent image paths
-cannot provide adequate local motion.
-
-**Exit:** the temporal backend materially improves continuity/music alignment
-while meeting target latency, VRAM, and failure-recovery budgets.
+Masked-token canvas (MAR/HMAR-class): a persistent token lattice where audio
+chooses which tokens are unmasked each tick. It needs real training. Higher
+risk, higher ceiling.
 
 ## Non-goals
 
-- per-frame LLM, diffusion, or video inference;
-- arbitrary semantic-vector tensor reshaping;
-- crossfading unrelated images as the main continuity mechanism;
-- making the video model the source of truth for identity;
-- adding shaders to compensate for missing perception or scene structure.
-
+- Per-frame semantics or prompts driven by audio.
+- A second resident model on the 6 GB card.

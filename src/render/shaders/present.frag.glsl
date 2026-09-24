@@ -1,47 +1,47 @@
-#version 300 es
-precision highp float;
-
-/** Output pass: HDR accumulation buffer to a displayable image. */
+// Display pass at 60 Hz: the procedural scene, painted over by the diffusion
+// stream in proportion to uPaint. Prepended with #version and procedural.glsl
+// by the renderer.
+//
+// The stream arrives at 10-20 fps; between frames the last two are
+// crossfaded, and a display-side kick lands beats on the exact frame.
 
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform sampler2D uScene;
-uniform sampler2D uBloom;
-uniform sampler2D uBlueNoise;
-uniform vec2 uResolution;
-uniform vec2 uBlueNoiseSize;
-uniform float uTime;
-uniform float uExposure;
-uniform float uGrain;
-uniform float uVignette;
-uniform float uBloomStrength;
-uniform float uImagePrimary;
+uniform sampler2D uPrev;
+uniform sampler2D uCurr;
+uniform float uBlend;        // 0 = prev, 1 = curr
+uniform float uHasStream;
+uniform float uPaint;        // 0 = pure procedural, 1 = fully painted
+uniform float uSourceAspect;
+uniform vec2 uTexel;         // 1 / stream size
+uniform float uKick;         // beat-push envelope, 0..1
 
-vec3 aces(vec3 x) {
-  const float a = 2.51;
-  const float b = 0.03;
-  const float c = 2.43;
-  const float d = 0.59;
-  const float e = 0.14;
-  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
-
-float blueNoise(vec2 fragCoord) {
-  vec2 rot = vec2(fract(uTime * 0.61803399), fract(uTime * 0.41421356)) * uBlueNoiseSize;
-  vec2 co = mod(fragCoord + rot, uBlueNoiseSize);
-  return texture(uBlueNoise, co / uBlueNoiseSize).r;
+vec3 sharpSample(sampler2D tex, vec2 uv) {
+  // Light unsharp mask: the stream is upscaled ~3x, and bilinear alone reads soft.
+  vec3 c = texture(tex, uv).rgb;
+  vec3 n = texture(tex, uv + vec2(uTexel.x, 0.0)).rgb + texture(tex, uv - vec2(uTexel.x, 0.0)).rgb
+         + texture(tex, uv + vec2(0.0, uTexel.y)).rgb + texture(tex, uv - vec2(0.0, uTexel.y)).rgb;
+  return clamp(c + (c - n * 0.25) * 0.35, 0.0, 1.0);
 }
 
 void main() {
-  vec3 c = texture(uScene, vUv).rgb;
-  c += texture(uBloom, vUv).rgb * uBloomStrength;
-  // Learned material gets a clean display path. The procedural fallback keeps
-  // ACES/HDR styling, but image-primary mode should not turn the checkpoint
-  // into a bloom-treated demo effect.
-  c = uImagePrimary > 0.5 ? clamp(c * uExposure, 0.0, 1.0) : aces(c * uExposure);
-  float d = length(vUv - 0.5) * 1.414;
-  c *= mix(1.0, smoothstep(1.0, 0.35, d), clamp(uVignette, 0.0, 1.0));
-  c += (blueNoise(gl_FragCoord.xy) - 0.5) * uGrain;
-  fragColor = vec4(max(c, 0.0), 1.0);
+  vec2 uv = (vUv - 0.5) * (1.0 - 0.035 * uKick) + 0.5;
+  vec3 procedural = proceduralScene(uv);
+
+  vec3 color = procedural;
+  if (uHasStream > 0.5 && uPaint > 0.0) {
+    // Cover-fit the stream: fill the canvas, crop the longer axis.
+    vec2 s = uv;
+    float r = uAspect / uSourceAspect;
+    if (r > 1.0) s.y = (s.y - 0.5) / r + 0.5;
+    else s.x = (s.x - 0.5) * r + 0.5;
+    s.y = 1.0 - s.y; // image rows are top-down
+    vec3 painted = mix(sharpSample(uPrev, s), sharpSample(uCurr, s), uBlend);
+    color = mix(procedural, painted, uPaint);
+  }
+
+  vec2 v = vUv - 0.5;
+  color *= 1.0 - dot(v, v) * 0.6;
+  fragColor = vec4(color, 1.0);
 }

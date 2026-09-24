@@ -27,3 +27,11 @@ interpretation. Feel is an estimate, not a replacement for measured timing.
 **Rhythmic structure is evidence-backed.** Every inferred property must retain
 its source and confidence, and the renderer must degrade gracefully when only
 coarse onset or spectrum evidence is available.
+
+## Semantic direction
+
+Song meaning follows the same evidence rule. `SongMeaning` is an optional,
+versioned manifest of motifs, relations, section actions, and evidence. The
+motif ledger preserves anchors; the scene compiler produces a typed shot and
+fingerprint. Missing or abstained meaning falls back to metadata concepts or
+abstract visual direction, never an invented narrative presented as fact.

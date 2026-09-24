@@ -1,5 +1,4 @@
 import type { FeatureFrame, VisualPlan } from '../types';
-import type { LyricsFrame } from '../lyrics/types';
 
 /**
  * Fullscreen canvas plus a diagnostic HUD.
@@ -7,8 +6,8 @@ import type { LyricsFrame } from '../lyrics/types';
  * The HUD is not decoration. When the picture looks wrong, the question is
  * always the same - is the audio dead, or did the director pick badly? - and
  * the answer is only visible if the live distributions are on screen. It also
- * shows which engine produced the plan, which is the whole point when two
- * engines speak the same protocol.
+ * shows which engine produced the plan, and the stream's sampler physics and
+ * checkpoint state, so a frozen or collapsing picture can be read directly.
  */
 export class Overlay {
   readonly root: HTMLDivElement;
@@ -16,7 +15,6 @@ export class Overlay {
   #hud: HTMLDivElement;
   #toggle: HTMLDivElement;
   #detail: HTMLDivElement;
-  #lyrics: HTMLDivElement;
   #hudVisible = true;
   /** Collapsed by default: a one-line strip, not a wall of numbers over the art. */
   #expanded = false;
@@ -54,16 +52,8 @@ export class Overlay {
     this.#detail = document.createElement('div');
     this.#detail.style.cssText = 'display:none;pointer-events:none;margin-top:4px';
 
-    this.#lyrics = document.createElement('div');
-    this.#lyrics.style.cssText = [
-      'position:absolute', 'left:12%', 'right:12%', 'bottom:12%',
-      'text-align:center', 'font:600 clamp(18px,3vw,42px)/1.2 system-ui,sans-serif',
-      'letter-spacing:.02em', 'color:white', 'text-shadow:0 2px 12px rgba(0,0,0,.85)',
-      'pointer-events:none', 'opacity:0', 'transition:opacity .12s linear',
-    ].join(';');
-
     this.#hud.append(this.#toggle, this.#detail);
-    this.root.append(this.canvas, this.#lyrics, this.#hud);
+    this.root.append(this.canvas, this.#hud);
   }
 
   mount(): void {
@@ -96,12 +86,6 @@ export class Overlay {
     this.#detail.style.cssText = 'display:block;pointer-events:none;margin-top:0';
     this.#hud.style.cssText += ';left:50%;bottom:50%;transform:translate(-50%,50%);text-align:center';
     this.#detail.textContent = text;
-  }
-
-  setLyrics(frame: LyricsFrame): void {
-    const readable = frame.mode === 'overlay' || frame.mode === 'hybrid';
-    this.#lyrics.textContent = readable ? frame.cue?.text ?? '' : '';
-    this.#lyrics.style.opacity = readable && frame.cue ? String(frame.opacity) : '0';
   }
 
   update(f: FeatureFrame, plan: VisualPlan, extra: string[] = [], track?: { title?: string; artist?: string }): void {

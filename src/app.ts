@@ -1,11 +1,7 @@
 import { VisualizerApp } from './core';
 import { AnalysisSource } from './audio/analysis';
 import { analyzeArtwork, type ArtworkDNA } from './audio/artwork';
-import { SidecarSubstrateProvider } from './world/substrate';
-import { SidecarAudioPerception } from './perception/adapter';
 import type { TrackContext } from './director/director';
-import { LyricsRuntime } from './lyrics/runtime';
-import { SidecarLyricSource } from './lyrics/sidecar';
 
 /**
  * Spicetify entry point.
@@ -23,13 +19,10 @@ interface Settings {
   /** Local System One sidecar, e.g. a Laya server on http://127.0.0.1:8765. */
   proxyUrl?: string;
   renderScale?: number;
-  /** Optional localhost image-substrate sidecar, e.g. http://127.0.0.1:8766/v1/substrate. */
-  substrateUrl?: string;
-  /** Optional learned audio-perception sidecar. */
-  perceptionUrl?: string;
-  /** Optional rights-aware lyrics sidecar. Mode remains off unless configured. */
-  lyricsUrl?: string;
-  lyricsMode?: 'off' | 'overlay' | 'world' | 'hybrid';
+  /** Stream sidecar websocket. Defaults to ws://127.0.0.1:8771; '' disables it. */
+  streamUrl?: string;
+  /** Local first-listen ASR websocket, e.g. ws://127.0.0.1:8772. */
+  meaningUrl?: string;
 }
 
 function loadSettings(): Settings {
@@ -81,11 +74,13 @@ async function main(): Promise<void> {
     const info = analysis.info(pos);
     return {
       position: pos,
+      trackId: item?.uri,
       title: meta?.title,
       artist: meta?.artist_name,
       tempo: info.tempo,
       key: info.key,
       mode: info.mode,
+      sectionIndex: info.sectionIndex,
       loudness: info.loudness,
       sectionLabel: info.sectionLabel,
       artwork: artwork ?? undefined,
@@ -97,16 +92,9 @@ async function main(): Promise<void> {
   const app: VisualizerApp = new VisualizerApp({
     apiKey: settings.apiKey,
     proxyUrl: settings.proxyUrl,
-    renderScale: settings.renderScale ?? 0.85,
-    substrateProvider: settings.substrateUrl
-      ? new SidecarSubstrateProvider(settings.substrateUrl)
-      : undefined,
-    substrate: { strength: 0.9, mode: 'replace' },
-    perception: settings.perceptionUrl ? new SidecarAudioPerception(settings.perceptionUrl) : undefined,
-    lyrics: new LyricsRuntime(
-      settings.lyricsUrl ? { enabled: true, mode: settings.lyricsMode ?? 'overlay' } : undefined,
-      settings.lyricsUrl ? new SidecarLyricSource(settings.lyricsUrl) : undefined,
-    ),
+    renderScale: settings.renderScale ?? 1,
+    streamUrl: settings.streamUrl ?? 'ws://127.0.0.1:8771',
+    meaningUrl: settings.meaningUrl,
     context,
     status: (): string[] => [
       '',

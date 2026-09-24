@@ -1,0 +1,243 @@
+import type { SamplerControl } from './control';
+import type { CheckpointRequest, StreamObservation } from './checkpoint';
+import type { SongMeaning } from '../director/semantic';
+import { isLiveLyricUpdate, type LiveLyricUpdate } from '../director/live';
+
+/** Per-frame header the sidecar prepends to each JPEG. */
+export interface StreamMeta {
+  frame: number;
+  fps: number;
+  genMs: number;
+  phase: 'idle' | 'denoising' | 'splicing' | 'waiting' | 'error';
+  checkpoint: string | null;
+  progress: number;
+  keyMs: number;
+  strength: number;
+  change: number;
+  drift: number;
+  jitter: number;
+  /** Current prompt-blend weights (first 40 chars of each prompt), when a blend is active. */
+  blend: Record<string, number> | null;
+  /** What the loop is painting over: the browser's procedural frame, or the keyframe alone. */
+  input: 'procedural' | 'keyframe';
+  controlSeq: number;
+  width: number;
+  height: number;
+  error?: string;
+}
+
+export interface StreamInfo {
+  width: number;
+  height: number;
+  model: string;
+  device: string;
+  vramMB: number;
+}
+
+/**
+ * The browser end of tools/stream-server.py.
+ *
+ * Controls go out at most `controlHz` times a second and only the latest one
+ * matters, so nothing queues. Frames come back as `[u32 headerLen][json][jpeg]`;
+ * a frame that finishes decoding after a newer one is dropped. The sidecar
+ * reconnects are silent and backed off, so starting the app before the model
+ * has loaded is fine.
+ */
+export class StreamClient {
+  #url: string;
+  #ws: WebSocket | null = null;
+  #retryMs = 500;
+  #closed = false;
+  #retryTimer: number | null = null;
+  #lastControlAt = 0;
+  #seq = 0;
+  #newestShown = 0;
+  #controlInterval: number;
+  #sourceSentAt = 0;
+  #onFrame: (bitmap: ImageBitmap, meta: StreamMeta) => void;
+
+  info: StreamInfo | null = null;
+  /** Latest non-narrative metadata concepts from the sidecar; never song events. */
+  concepts: { trackId: string | null; words: string[] } | null = null;
+  /** Explicit local meaning manifest; absent means semantic direction abstains. */
+  meaning: { trackId: string | null; manifest: SongMeaning } | null = null;
+  /** Latest local-ASR update; never used as committed meaning by itself. */
+  liveLyrics: LiveLyricUpdate | null = null;
+  meta: StreamMeta | null = null;
+  framesReceived = 0;
+  framesDropped = 0;
+  /** Another client owns the sidecar; this one is waiting to take over. */
+  waiting = false;
+  /** Milliseconds the last procedural capture took (render + JPEG encode). */
+  captureMs = 0;
+
+  constructor(url: string, onFrame: (bitmap: ImageBitmap, meta: StreamMeta) => void, controlHz = 30) {
+    this.#url = url;
+    this.#onFrame = onFrame;
+    this.#controlInterval = 1000 / controlHz;
+  }
+
+  get connected(): boolean {
+    return this.#ws?.readyState === WebSocket.OPEN && this.info !== null;
+  }
+
+  get url(): string {
+    return this.#url;
+  }
+
+  observation(): StreamObservation {
+    return {
+      connected: this.connected,
+      fps: this.meta?.fps ?? 0,
+      phase: this.meta?.phase ?? 'waiting',
+      change: this.meta?.change ?? 1,
+    };
+  }
+
+  connect(): void {
+    if (this.#closed) return;
+    this.#closed = false;
+    if (this.#ws) return;
+    const ws = new WebSocket(this.#url);
+    ws.binaryType = 'arraybuffer';
+    this.#ws = ws;
+    ws.onmessage = (e) => {
+      if (typeof e.data === 'string') {
+        const raw = JSON.parse(e.data) as unknown;
+        if (isLiveLyricUpdate(raw)) {
+          if (!this.liveLyrics || raw.trackId !== this.liveLyrics.trackId || raw.revision >= this.liveLyrics.revision) {
+            this.liveLyrics = raw;
+          }
+          return;
+        }
+        const msg = raw as { type: string; trackId?: string | null; words?: string[]; meaning?: SongMeaning } & StreamInfo;
+        if (msg.type === 'concepts') {
+          this.concepts = { trackId: msg.trackId ?? null, words: msg.words ?? [] };
+          console.log(`[stream] song concepts: ${this.concepts.words.join(', ') || '(none)'}`);
+          return;
+        }
+        if (msg.type === 'meaning') {
+          if (msg.meaning) {
+            this.meaning = { trackId: msg.trackId ?? null, manifest: msg.meaning };
+            console.log(`[stream] local song meaning revision ${msg.meaning.revision}`);
+          } else {
+            this.meaning = null;
+            console.log('[stream] no local song meaning; story direction abstains and title concepts are withheld');
+          }
+          return;
+        }
+        if (msg.type === 'ready') {
+          this.info = msg;
+          this.waiting = false;
+          this.#retryMs = 500;
+          console.log(`[stream] connected: ${msg.model} ${msg.width}x${msg.height} on ${msg.device} (${msg.vramMB} MB)`);
+        }
+        return;
+      }
+      void this.#receive(e.data as ArrayBuffer);
+    };
+    ws.onclose = (e) => {
+      if (this.info) console.warn('[stream] disconnected');
+      this.#ws = null;
+      this.info = null;
+      this.concepts = null;
+      this.meaning = null;
+      this.liveLyrics = null;
+      if (this.#closed) return;
+      if (e.reason.startsWith('busy')) {
+        // The sidecar has one driver and it is someone else. Retry calmly:
+        // when that client leaves, this one takes over.
+        if (!this.waiting) console.warn('[stream] another client owns the sidecar; waiting');
+        this.waiting = true;
+        this.#scheduleRetry(3000);
+        return;
+      }
+      this.#scheduleRetry(this.#retryMs);
+      this.#retryMs = Math.min(this.#retryMs * 2, 5000);
+    };
+    ws.onerror = () => ws.close();
+  }
+
+  close(): void {
+    this.#closed = true;
+    if (this.#retryTimer !== null) {
+      clearTimeout(this.#retryTimer);
+      this.#retryTimer = null;
+    }
+    this.#ws?.close();
+    this.#ws = null;
+    this.info = null;
+    this.liveLyrics = null;
+  }
+
+  #scheduleRetry(delayMs: number): void {
+    if (this.#closed || this.#retryTimer !== null) return;
+    this.#retryTimer = window.setTimeout(() => {
+      this.#retryTimer = null;
+      if (!this.#closed) this.connect();
+    }, delayMs);
+  }
+
+  /** Send the latest sampler control; rate-limited, never queued. */
+  sendControl(c: SamplerControl, now: number): void {
+    if (!this.connected || now - this.#lastControlAt < this.#controlInterval) return;
+    this.#lastControlAt = now;
+    this.#ws!.send(JSON.stringify({ type: 'control', seq: ++this.#seq, ...c }));
+  }
+
+  /**
+   * Whether a new procedural source frame should be sent now. One in flight:
+   * the next goes out when a stream frame comes back (the sidecar consumed
+   * the last one) or after 250 ms, so a stall never wedges the pipeline.
+   */
+  wantsSource(now: number): boolean {
+    return this.connected && now - this.#sourceSentAt > 250;
+  }
+
+  /** Send the procedural scene frame (JPEG) the sidecar paints over. */
+  sendSource(jpeg: ArrayBuffer, now: number): void {
+    if (!this.connected) return;
+    this.#sourceSentAt = now;
+    this.#ws!.send(jpeg);
+  }
+
+  /**
+   * Continuous prompt travel: the sidecar glides its embedding toward this
+   * weighted mix of prompts with time constant `tauSec` (a live knob, not a
+   * keyframe splice). An empty list hands the prompt back to keyframes.
+   */
+  sendBlend(prompts: string[], weights: number[], tauSec: number): void {
+    if (!this.connected) return;
+    this.#ws!.send(JSON.stringify({ type: 'blend', prompts, weights, tau: tauSec }));
+  }
+
+  /** Ask the sidecar for this track's concepts (answered with a 'concepts' message). */
+  sendTrack(trackId: string, title: string, artist = ''): void {
+    if (!this.connected) return;
+    this.#ws!.send(JSON.stringify({ type: 'track', trackId, title, artist }));
+  }
+
+  requestCheckpoint(r: CheckpointRequest): void {
+    if (!this.connected) return;
+    this.#ws!.send(JSON.stringify({ type: 'checkpoint', ...r }));
+  }
+
+  async #receive(buf: ArrayBuffer): Promise<void> {
+    const view = new DataView(buf);
+    const headLen = view.getUint32(0, true);
+    const meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, headLen))) as StreamMeta;
+    this.meta = { ...this.meta, ...meta };
+    const jpeg = new Uint8Array(buf, 4 + headLen);
+    if (!jpeg.byteLength) return;
+    this.#sourceSentAt = 0; // the sidecar has taken the last source: send the next one
+    this.framesReceived++;
+    const bitmap = await createImageBitmap(new Blob([jpeg], { type: 'image/jpeg' }));
+    if (meta.frame <= this.#newestShown) {
+      this.framesDropped++;
+      bitmap.close();
+      return;
+    }
+    this.#newestShown = meta.frame;
+    this.#onFrame(bitmap, meta);
+  }
+}
