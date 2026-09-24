@@ -19,6 +19,21 @@ const electronUserData = process.env.S1_ELECTRON_USER_DATA || path.join(__dirnam
 fs.mkdirSync(electronUserData, { recursive: true });
 app.setPath('userData', electronUserData);
 
+// A second Electron tree sharing this profile can hold Chromium cache and GPU
+// cache files open after a launcher restart. Refuse duplicate app instances so
+// the realtime renderer has one owner of its profile and GPU context.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
+
 // This is meant to feel like an app, not a repurposed browser tab - no
 // File/Edit/View menu bar.
 Menu.setApplicationMenu(null);

@@ -75,9 +75,6 @@ class Probe:
         if rms < min_rms:
             return []
         self._sanitize_generation_params()
-        # Whisper's pipeline and generation config own suppression processors.
-        # Passing them again creates duplicate logits processors on newer
-        # Transformers versions, so only provide task/language here.
         generate_kwargs = {"task": "transcribe"}
         if self.language and self.language.lower() not in {"auto", "und"}:
             generate_kwargs["language"] = self.language
