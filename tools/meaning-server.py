@@ -44,6 +44,12 @@ class Probe:
             device=self.device,
             torch_dtype=torch_dtype,
         )
+        # Recent Transformers versions may forward pipeline call kwargs into
+        # Whisper.generate(). Configure the tokenizer once instead of passing
+        # this post-processing option through the generation call.
+        tokenizer = getattr(self.pipe, "tokenizer", None)
+        if tokenizer is not None and hasattr(tokenizer, "clean_up_tokenization_spaces"):
+            tokenizer.clean_up_tokenization_spaces = False
 
     def transcribe(self, samples: np.ndarray, sample_rate: int, offset_sec: float) -> list[dict]:
         if self.pipe is None:
@@ -58,7 +64,6 @@ class Probe:
         result = self.pipe(
             {"raw": samples, "sampling_rate": sample_rate},
             return_timestamps=True,
-            clean_up_tokenization_spaces=False,
             generate_kwargs=generate_kwargs,
         )
         hypotheses: list[dict] = []

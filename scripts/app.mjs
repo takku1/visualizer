@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import net from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,12 +19,36 @@ const meaningLanguage = meaningLanguageIndex >= 0 ? process.argv[meaningLanguage
 if (meaningLanguage && !meaningLanguage.startsWith('--')) process.env.MEANING_ASR_LANGUAGE = meaningLanguage;
 const children = new Set();
 let shuttingDown = false;
+const STREAM_PORT = 8771;
+const MEANING_PORT = 8772;
 
 function shutdown(code = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
-  for (const child of children) if (child.exitCode === null) child.kill();
+  for (const child of children) {
+    if (child.exitCode !== null) continue;
+    // Python workers can outlive node's soft signal on Windows. Kill only the
+    // exact process trees this launcher created; never sweep a shared port.
+    if (process.platform === 'win32' && child.pid) {
+      try { execFileSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' }); } catch { /* already gone */ }
+    } else {
+      child.kill();
+    }
+  }
   process.exitCode = code;
+}
+
+function portIsListening(port) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    const finish = (open) => {
+      socket.destroy();
+      resolve(open);
+    };
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+    socket.setTimeout(250, () => finish(false));
+  });
 }
 
 function start(command, args) {
@@ -51,18 +77,26 @@ try {
   await run(process.execPath, [join(projectRoot, 'build.mjs')]);
   if (withStream) {
     if (existsSync(join(projectRoot, 'models/sd-turbo/unet')) && existsSync(join(projectRoot, 'models/taesd'))) {
-      start(python, [join(projectRoot, 'tools/stream-server.py')]).once('error', (err) => console.error(`[app] stream sidecar: ${err.message}`));
+      if (await portIsListening(STREAM_PORT)) {
+        console.warn(`[app] stream sidecar already listening on ${STREAM_PORT}; reusing it`);
+      } else {
+        start(python, [join(projectRoot, 'tools/stream-server.py')]).once('error', (err) => console.error(`[app] stream sidecar: ${err.message}`));
+      }
     } else {
       console.warn('[app] models missing - run `npm run models` first. Starting without the stream.');
     }
   }
   if (withMeaning) {
     process.env.S1_MEANING_URL = 'ws://127.0.0.1:8772';
-    start(python, [join(projectRoot, 'tools/meaning-server.py')])
-      .once('error', (err) => console.error(`[app] meaning worker: ${err.message}`))
-      .once('exit', (code) => {
-        if (code !== 0 && !shuttingDown) console.warn(`[app] meaning worker exited (${code}); procedural/metadata mode remains available`);
-      });
+    if (await portIsListening(MEANING_PORT)) {
+      console.warn(`[app] meaning worker already listening on ${MEANING_PORT}; reusing it`);
+    } else {
+      start(python, [join(projectRoot, 'tools/meaning-server.py')])
+        .once('error', (err) => console.error(`[app] meaning worker: ${err.message}`))
+        .once('exit', (code) => {
+          if (code !== 0 && !shuttingDown) console.warn(`[app] meaning worker exited (${code}); procedural/metadata mode remains available`);
+        });
+    }
   }
   await run(process.execPath, [join(projectRoot, 'node_modules/electron/cli.js'), join(projectRoot, 'electron/main.cjs')]);
   shutdown(0);
