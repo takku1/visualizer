@@ -12,6 +12,7 @@ dev/tmp_*.py
 
 # regenerable tool caches / process locks
 .graphgraph/kv_cache.json*
+.cache/
 
 # local verification artifacts
 *.png

@@ -10,6 +10,15 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { execFile, spawn } = require('node:child_process');
 
+// Keep Chromium's network/GPU cache inside this checkout instead of sharing a
+// profile with unrelated Electron/Chrome processes. A stale profile lock was
+// producing repeated cache move failures and GPU cache creation errors during
+// normal `npm run app` restarts. The location is machine-local and ignored by
+// git; override it only when embedding the app elsewhere.
+const electronUserData = process.env.S1_ELECTRON_USER_DATA || path.join(__dirname, '..', '.cache', 'electron');
+fs.mkdirSync(electronUserData, { recursive: true });
+app.setPath('userData', electronUserData);
+
 // This is meant to feel like an app, not a repurposed browser tab - no
 // File/Edit/View menu bar.
 Menu.setApplicationMenu(null);
