@@ -6,26 +6,32 @@ The fast loop is steered only by audio physics, the slow loop is seeded by
 the director, and checkpoints are spliced on downbeats. It is measured on the
 target GPU and covered by unit tests plus a live metamorphic smoke test.
 
-## Phase 1 — feel pass (next)
+## Phase 1 — feel pass (substantially complete)
 
 - Run real music for a few sessions and read `logs/`. Check whether
   `change` / `drift` track the music, and whether reseeds land musically.
 - Tune the mapper curves in `src/stream/control.ts`. Each curve is one line,
   and `npm test` guards the monotonic relations.
+- ✅ The causal beat tracker resists metrical half/double-time flips, so a
+  confident 157→78 BPM relabel cannot move checkpoint timing mid-song.
+- ✅ Default Electron startup attempts cached LRCLIB lookup off the frame loop;
+  `?lyrics=off` disables it. Unknown-rights results remain evidence-only until
+  the explicit community-rights gate is enabled.
 - ✅ Measured 448×256 on AC: 68.2 ms median / 14.7 FPS versus 88.2 ms /
   11.3 FPS at 576×320, with nearly unchanged VRAM. It is now the default;
   576×320 remains the explicit quality profile.
 - Optional: per-scene negative/style anchors if the look still drifts
   toward illustration.
 
-## Phase 2 — speed
+## Phase 2 — speed (measurement-gated)
 
 - TensorRT for the UNet (StreamDiffusion's path), estimated at 2–3× over
-  CUDA graphs. Needs a separate venv.
+  CUDA graphs. Needs a separate venv and a clean A/B benchmark; the runtime
+  now exposes stage-level encode/UNet/decode timing for that decision.
 - Stream-batch denoising (StreamDiffusion's pipelined multi-step) for
   quality at the same fps.
 
-## Phase 3 — the research piece: FiLM audio adapter
+## Phase 3 — the research piece: FiLM audio adapter (not yet buildable)
 
 A tiny MLP maps about 8 audio features to per-block scale/shift
 modulations in the UNet, trained LoRA-scale on the distilled model. The

@@ -127,6 +127,12 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 
 ## Still deliberately deferred
 
+- The safe backlog pass is complete through the current SD-Turbo adapter:
+  typed log envelopes, stale-frame rejection before JPEG decode, stage-level
+  benchmark timing, metrical octave hysteresis, and default cached lyric
+  discovery are implemented and tested. These improve observability and
+  responsiveness but do not claim object-level visual identity.
+
 - System 0 structure memory now exists in shadow mode. It consumes existing
   beat/onset/chroma/timbre-proxy features and emits bounded novelty,
   repetition, and segment evidence without replacing the legacy 24-second
