@@ -77,7 +77,7 @@ export class FeatureBus {
       if (s.ready) s.sample(f, now);
     }
 
-    if (!f.hasStructure) this.#synthesize(f);
+    if (!f.hasStructure && f.beatSource !== 'tracker') this.#synthesize(f);
 
     this.#trackLevel.push(f.level);
     f.levelRelative = this.#trackLevel.zScore(f.level);
@@ -117,6 +117,7 @@ export class FeatureBus {
 /** Sources write a complete contribution each frame; absent sources must
  * not leave the previous track's spectrum driving the world indefinitely. */
 function resetAudio(f: FeatureFrame): void {
+  f.beatSource = undefined;
   f.bass = 0; f.lowMid = 0; f.mid = 0; f.highMid = 0; f.treble = 0;
   f.flux = 0; f.level = 0; f.spectralCentroid = 0; f.spectralFlatness = 0;
   f.spectralRolloff = 0; f.harmonicity = 0; f.transientness = 0;

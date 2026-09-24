@@ -1,5 +1,7 @@
 import type { FeatureFrame } from '../types';
 import { type AudioSource, type AudioWindow, BINS, AutoGain, smooth } from './source';
+import { onsetWorkletSource, type OnsetSample } from '../rhythm/onset';
+import { BeatTracker } from '../rhythm/beat-tracker';
 
 /**
  * Real spectrum, captured from whatever the machine is playing.
@@ -38,6 +40,12 @@ export class LoopbackSource implements AudioSource {
   #chroma = new Float32Array(12);
   /** Slower evidence accumulator; instantaneous chroma is chord-level, not song-key-level. */
   #keyChroma = new Float32Array(12);
+  #onsetNode: AudioWorkletNode | null = null;
+  #onsetSamples: OnsetSample[] = [];
+  #onsetClockOffset: number | null = null;
+  #beatTracker = new BeatTracker(100);
+  #lastTrackedBeat = -1;
+  #trackerActive = false;
 
   // Each band gets its own gain, tracking its own history. A single shared
   // peak (the earlier approach) is wrong for anything but the spectrum
@@ -130,6 +138,35 @@ export class LoopbackSource implements AudioSource {
     analyser.connect(analysisSink);
     analysisSink.connect(ctx.destination);
 
+    // Keep onset timing on the audio clock. The display loop may stall during
+    // JPEG/GPU work, so sampling onset flux only from requestAnimationFrame
+    // loses the exact events the beat tracker needs.
+    try {
+      const sourceText = onsetWorkletSource();
+      const moduleUrl = URL.createObjectURL(new Blob([sourceText], { type: 'application/javascript' }));
+      await ctx.audioWorklet.addModule(moduleUrl);
+      URL.revokeObjectURL(moduleUrl);
+      const onsetNode = new AudioWorkletNode(ctx, 's1-onset');
+      const onsetSink = ctx.createGain();
+      onsetSink.gain.value = 0;
+      source.connect(onsetNode);
+      onsetNode.connect(onsetSink);
+      onsetSink.connect(ctx.destination);
+      onsetNode.port.onmessage = (event: MessageEvent<OnsetSample[]>) => {
+        if (!Array.isArray(event.data)) return;
+        this.#onsetSamples.push(...event.data);
+        if (this.#onsetSamples.length > 1200) this.#onsetSamples.splice(0, this.#onsetSamples.length - 1200);
+      };
+      this.#onsetNode = onsetNode;
+      this.#trackerActive = true;
+    } catch (error) {
+      // Older Electron/WebView hosts may lack AudioWorklet. The analyser path
+      // remains a valid degraded fallback instead of blocking audio capture.
+      console.warn(`[audio] fixed-rate onset tracker unavailable: ${(error as Error).message}`);
+      this.#onsetNode = null;
+      this.#trackerActive = false;
+    }
+
     // Stereo width needs the two channels kept apart, which a plain analyser
     // never gives you - so a second, parallel tap splits them before either
     // one reaches an AnalyserNode. A mono source leaves the R tap silent,
@@ -157,6 +194,10 @@ export class LoopbackSource implements AudioSource {
     this.#audioRms = 0;
     this.#audioRing.fill(0);
     this.#keyChroma.fill(0);
+    this.#onsetSamples = [];
+    this.#onsetClockOffset = null;
+    this.#beatTracker.reset();
+    this.#lastTrackedBeat = -1;
     this.#ready = true;
   }
 
@@ -168,6 +209,13 @@ export class LoopbackSource implements AudioSource {
     this.#analyser = null;
     this.#analyserL = null;
     this.#analyserR = null;
+    this.#onsetNode?.disconnect();
+    this.#onsetNode = null;
+    this.#onsetSamples = [];
+    this.#onsetClockOffset = null;
+    this.#beatTracker.reset();
+    this.#lastTrackedBeat = -1;
+    this.#trackerActive = false;
     this.#audioWrite = 0;
     this.#audioCount = 0;
     this.#ready = false;
@@ -196,6 +244,7 @@ export class LoopbackSource implements AudioSource {
       this.#audioCount = Math.min(this.#audioCount + 1, this.#audioRing.length);
     }
     this.#audioRms = Math.sqrt(squareSum / Math.max(newSamples, 1));
+    if (this.#trackerActive) this.#applyTrackedBeat(frame);
     const dt = Math.max(frame.dt, 1 / 240);
     const nyquist = (this.#ctx?.sampleRate ?? 48000) / 2;
 
@@ -323,6 +372,25 @@ export class LoopbackSource implements AudioSource {
     frame.estimatedMode = mode;
     frame.keyConfidence = confidence;
     frame.spectrum = this.#norm;
+  }
+
+  #applyTrackedBeat(frame: FeatureFrame): void {
+    const pending = this.#onsetSamples;
+    if (pending.length) {
+      const first = pending[0];
+      if (first && this.#onsetClockOffset == null) this.#onsetClockOffset = frame.t - first.time;
+      const offset = this.#onsetClockOffset ?? 0;
+      for (const sample of pending.splice(0)) this.#beatTracker.push(sample.time + offset, sample.odf, sample.bassOdf);
+    }
+    const beat = this.#beatTracker.estimate(frame.t);
+    frame.beatSource = 'tracker';
+    frame.tempo = beat.tempo;
+    frame.beatPhase = beat.beatPhase;
+    frame.barPhase = beat.barPhase;
+    frame.beatIndex = beat.beatIndex;
+    frame.confidence = beat.confidence;
+    frame.onBeat = beat.beatIndex !== this.#lastTrackedBeat;
+    if (frame.onBeat) this.#lastTrackedBeat = beat.beatIndex;
   }
 
   /**

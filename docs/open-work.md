@@ -125,6 +125,15 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
   director transitions. See
   [`docs/research/system0-design-sketch.md`](research/system0-design-sketch.md)
   and the cited MIR literature there.
+- A causal beat-tracking slice now consumes fixed-rate AudioWorklet onset
+  batches and phase-locks an inferred grid on the CPU. It is used only when
+  the tracker reports confidence; the legacy analyser/onset clock remains the
+  host fallback. This follows the causal beat-tracking lineage cited by
+  `src/rhythm/beat-tracker.ts`, but live accuracy and audio-thread cost still
+  require measurement on representative tracks.
+- Local key estimation now accumulates several seconds of chroma evidence and
+  reports winner-versus-runner-up margin rather than an inflated absolute
+  profile fit. External track-analysis keys remain authoritative when present.
 
 - Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR and timed imports are available, but neither is a universal catalog solution.
 - Reference-image conditioning inside the real-time sidecar and a ground-truth visual identity/action evaluator remain deferred. The offline evaluator now supports optional reference-image diagnostics, adjacent temporal consistency, and explicit capture preflight; it cannot claim true object memory from CLIP scores alone.

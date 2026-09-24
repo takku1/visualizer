@@ -114,7 +114,8 @@ export class ControlMapper {
     // and pushes on a wrong grid read as stutter: trust the grid only when
     // it is measured or confident, and real bass onsets always.
     this.#push *= Math.exp(-dt / 0.15);
-    const gridTrusted = f.hasStructure || f.rhythmConfidence > 0.5;
+    const gridTrusted = f.hasStructure || f.rhythmConfidence > 0.5
+      || (f.beatSource === 'tracker' && f.confidence > 0.5);
     if (f.onBeat && gridTrusted) this.#push = Math.max(this.#push, 0.5 + 0.5 * f.bassFlux);
     if (f.bassFlux > 0.45) this.#push = Math.max(this.#push, f.bassFlux);
 

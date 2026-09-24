@@ -20,6 +20,7 @@ import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/ob
 import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
 import { StructureMemory } from '../src/structure/memory';
 import { estimateKey } from '../src/audio/loopback';
+import { BeatTracker } from '../src/rhythm/beat-tracker';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -55,6 +56,17 @@ test('local key confidence is a runner-up margin, not an inflated absolute fit',
   assert.equal(estimate.mode, 'major');
   assert.ok(estimate.confidence > 0.1 && estimate.confidence <= 1);
   assert.ok(estimate.confidence < 0.97 || estimate.key !== 6, `confidence was ${estimate.confidence}`);
+});
+
+test('causal beat tracker locks to a steady 120 BPM pulse', () => {
+  const tracker = new BeatTracker(100);
+  for (let i = 0; i < 1200; i++) {
+    const pulse = i % 50 === 0 ? 1 : 0;
+    tracker.push(i / 100, pulse, pulse);
+  }
+  const estimate = tracker.estimate(12);
+  assert.ok(estimate.tempo >= 110 && estimate.tempo <= 130, `tempo ${estimate.tempo}`);
+  assert.ok(estimate.confidence > 0.2, `confidence ${estimate.confidence}`);
 });
 
 test('System 0 observes a conservative repeat without changing section state', () => {
@@ -257,7 +269,7 @@ test('live lyric hypotheses require bounded evidence and timestamps', () => {
   assert.equal(isLiveLyricHypothesis({ ...liveHypothesis, source: 'lyrics' }), false);
 });
 
-test('abstaining fallback scenes keep one visual identity across director plan refreshes', () => {
+test('abstaining fallback scenes preserve identity while allowing perceptual chapters', () => {
   const first = initialPlan();
   const second = {
     ...first,
@@ -267,7 +279,8 @@ test('abstaining fallback scenes keep one visual identity across director plan r
   };
   const a = sceneFromPlan(first, { trackId: 'unknown-song' }, 0);
   const b = sceneFromPlan(second, { trackId: 'unknown-song' }, 1);
-  assert.deepEqual(b.fingerprint, a.fingerprint);
+  assert.equal(b.fingerprint.identity, a.fingerprint.identity);
+  assert.ok(b.fingerprint.action !== a.fingerprint.action || b.fingerprint.environment !== a.fingerprint.environment || b.fingerprint.look !== a.fingerprint.look || b.fingerprint.camera !== a.fingerprint.camera);
   assert.equal(a.look.fold, 0);
   assert.equal(b.look.fold, 0);
 });

@@ -92,7 +92,7 @@ async function main(): Promise<void> {
       ? new CachedLyricsProvider(new LrclibLyricsProvider(), new StorageLyricsCache(localStorage))
       : undefined,
     allowUnknownLyrics: params.get('lyrics-rights') === 'community',
-    paint: Number(params.get('paint') ?? storedPaint() ?? 0.85),
+    paint: Number(params.get('paint') ?? storedPaint() ?? 0.6),
     keyframes: params.get('keyframes') !== 'off',
     direction: params.get('direction') === 'knobs' ? 'knobs' : 'splice',
     context: trackContext,

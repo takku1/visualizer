@@ -44,7 +44,7 @@ export interface AppConfig {
   log?: LogSink;
   /** Stream sidecar (tools/stream-server.py). Omit to show the procedural scene alone. */
   streamUrl?: string;
-  /** 0 = pure procedural, 1 = fully painted by the diffusion stream. Default 0.85. */
+  /** 0 = pure procedural, 1 = fully painted by the diffusion stream. Default 0.6. */
   paint?: number;
   /** false: splice only the initial keyframe (see CheckpointScheduler). Default true. */
   keyframes?: boolean;
@@ -181,7 +181,7 @@ export class VisualizerApp {
 
   constructor(config: AppConfig = {}) {
     this.#config = config;
-    this.#paint = config.paint ?? 0.85;
+    this.#paint = config.paint ?? 0.6;
     const knobs = config.direction === 'knobs';
     this.#knobs = knobs ? new KnobDirector() : null;
     this.#scheduler = new CheckpointScheduler({
@@ -593,7 +593,7 @@ export class VisualizerApp {
           source: frame.structure.source,
           events: frame.structure.events,
         } : null,
-        audio: { level: frame.level, bass: frame.bass, mid: frame.mid, treble: frame.treble, flux: frame.flux, tempo: frame.tempo },
+        audio: { level: frame.level, bass: frame.bass, mid: frame.mid, treble: frame.treble, flux: frame.flux, tempo: frame.tempo, beatSource: frame.beatSource ?? null, confidence: frame.confidence, rhythmConfidence: frame.rhythmConfidence },
         scene: {
           prompt: (this.#scheduler.scene?.prompt ?? '').slice(0, 160),
           index: this.#sceneIndex,
@@ -660,7 +660,7 @@ export class VisualizerApp {
           checkpoints: this.#checkpoints,
           lastCheckpointReason: this.#lastCheckpointReason,
         },
-        audio: { level: frame.level, bass: frame.bass, flux: frame.flux, tempo: frame.tempo, hasStructure: frame.hasStructure },
+        audio: { level: frame.level, bass: frame.bass, flux: frame.flux, tempo: frame.tempo, hasStructure: frame.hasStructure, beatSource: frame.beatSource ?? null, confidence: frame.confidence, rhythmConfidence: frame.rhythmConfidence },
         structure: frame.structure ? {
           segmentId: frame.structure.segmentId,
           confidence: frame.structure.confidence,

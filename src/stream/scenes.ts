@@ -210,14 +210,15 @@ export function sceneFromPlan(
     environment: semantic.environment.join('|'),
     camera: semantic.camera,
   } : {
-    // Abstaining plans are intentionally not scene identities. The director
-    // still refreshes audio-driven motion and look choices, but without lyric
-    // or audio meaning those changes must not trigger a diffusion splice.
-    // Track identity keeps a real song change eligible for a new initial scene.
+    // Abstention preserves identity, but it does not mean the realization is
+    // frozen. The local director still has evidence-backed perceptual choices
+    // for motion/material/space; compile those into change classes so a
+    // meaningful fallback chapter can reach the ShotGraph without inventing a
+    // literal story.
     identity: `${ctx.trackId ?? ctx.title ?? 'session'}|abstaining`,
-    action: 'abstaining',
-    environment: 'abstaining',
-    camera: 'abstaining',
+    action: `${plan.motion.top}|${plan.feedback.top}|${Math.round(plan.intensity * 2)}`,
+    environment: `${plan.texture.top}|${plan.palette.top}`,
+    camera: `${plan.motion.top}|${plan.feedback.top}`,
   };
   const hardCut = plan.hardCut > 0.5;
   const continuityContract: ContinuityContract = semantic
@@ -264,7 +265,7 @@ export function sceneFromPlan(
       identity: hash(semanticParts.identity),
       action: hash(semanticParts.action),
       environment: hash(semanticParts.environment),
-      look: hash(semantic ? `${plan.palette.top}|${plan.texture.top}|${plan.motion.top}|${plan.symmetry.top}` : 'abstaining'),
+      look: hash(`${plan.palette.top}|${plan.texture.top}|${plan.motion.top}|${plan.symmetry.top}`),
       camera: hash(semanticParts.camera),
     },
   } as Scene;

@@ -66,6 +66,8 @@ export interface FeatureFrame {
   confidence: number;
   /** False when structure is synthesized rather than read from analysis. */
   hasStructure: boolean;
+  /** Which clock supplied beat phase when no external analysis exists. */
+  beatSource?: 'analysis' | 'tracker' | 'fallback';
   /** Inferred rhythm summary, 0..1, from RhythmAnalyzer. */
   rhythmConfidence: number;
   swing: number;
