@@ -46,6 +46,24 @@ model above `Scene`, while treating prompts, procedural uniforms, diffusion
 embeddings, and future reference conditioning as compiled realization
 artifacts.
 
+### Realization should accept more than text
+
+ControlNet demonstrates a diffusion adapter that accepts spatial controls such
+as edges, depth, segmentation, and pose alongside a pretrained text-to-image
+model. VideoComposer similarly treats textual, spatial, and temporal signals
+as composable conditions and introduces a spatio-temporal condition interface.
+
+Sources: Zhang, Rao, and Agrawala, *Adding Conditional Control to Text-to-Image
+Diffusion Models*, 2023, [arXiv](https://arxiv.org/abs/2302.05543); Wang et al.,
+*VideoComposer: Compositional Video Synthesis with Motion Controllability*,
+2023, [arXiv](https://arxiv.org/abs/2306.02018).
+
+Repository consequence: the world engine should send a renderer-neutral
+request containing world state, shot intent, diff, and continuous forces. The
+current adapter may compile those fields to prompt/look/checkpoint controls;
+future adapters can add references, depth, masks, pose, or motion fields
+without changing the director contract.
+
 ### Research does not justify an immediate text-to-video replacement
 
 These methods address representation and temporal consistency, not this

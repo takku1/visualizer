@@ -7,7 +7,7 @@ import { KnobDirector } from '../src/stream/knobs';
 import { CouplingController } from '../src/stream/coupling';
 import { estimateTempoFromOnsetGaps } from '../src/audio/bus';
 import { compileSemanticScene, type SongMeaning } from '../src/director/semantic';
-import { CheckpointScheduler, type StreamObservation } from '../src/stream/checkpoint';
+import { CheckpointScheduler, realizationRequestFromCheckpoint, type StreamObservation } from '../src/stream/checkpoint';
 import { addShotCandidate, compileShotGraph, nextShots, ShotGraphRuntime } from '../src/stream/shot-graph';
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
@@ -392,6 +392,17 @@ test('checkpoint commits the world diff from the prior committed world', () => {
   assert.equal(request?.worldDiff.action.from, 'abstain');
   assert.equal(request?.worldDiff.action.to, 'walks toward the platform');
   assert.equal(s.world?.action, 'walks toward the platform');
+});
+
+test('checkpoint compiles to a backend-neutral realization request', () => {
+  const s = new CheckpointScheduler();
+  s.setScene(sceneFromPlan(initialPlan(), {}, 0));
+  const request = s.update(frame({ t: 0, hasStructure: true }), live)!;
+  const realization = realizationRequestFromCheckpoint(request);
+  assert.equal(realization.world, request.world);
+  assert.equal(realization.shot.id, request.shot.id);
+  assert.equal(realization.diff, request.worldDiff);
+  assert.equal(realization.legacy.prompt, request.prompt);
 });
 
 test('shot graph keeps alternate candidates explicit and ordered', () => {

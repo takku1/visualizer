@@ -2,6 +2,7 @@ import type { VisualPlan, MotionId, PaletteId, TextureId, GeometryId, SymmetryId
 import type { TrackContext } from '../director/director';
 import { compileSemanticScene, type MotifLedger, type SemanticScene } from '../director/semantic';
 import { worldStateFromScene, type WorldState } from '../world/state';
+import type { Shot } from '../world/shot';
 
 export type Rgb = [number, number, number];
 
@@ -28,6 +29,8 @@ export interface Scene {
   continuity: number;
   /** Typed continuity policy; the scalar above remains the sidecar wire contract. */
   continuityContract: ContinuityContract;
+  /** Presentation intent compiled separately from authoritative world state. */
+  shot: Shot;
   look: Look;
   /** Compiled semantic realization, when evidence-backed meaning is present. */
   semantic?: SemanticScene;
@@ -211,6 +214,22 @@ export function sceneFromPlan(plan: VisualPlan, ctx: TrackContext, index: number
     seed,
     continuity: hardCut ? 0 : 0.5,
     continuityContract,
+    shot: {
+      id: `shot-${index}`,
+      worldRevision: semantic?.meaningRevision ?? null,
+      grammar: semantic?.shot ?? 'establish',
+      framing: semantic?.camera ?? continuityContract.camera,
+      camera: semantic?.camera ?? continuityContract.camera,
+      transition: semantic?.transition ?? continuityContract.transition,
+      durationSec: 8,
+      continuity: {
+        identity: continuityContract.identity,
+        action: continuityContract.action,
+        environment: continuityContract.environment,
+        camera: continuityContract.camera,
+        confidence: continuityContract.confidence,
+      },
+    },
     look: lookFromPlan(plan, seed),
     semantic: semantic ?? undefined,
     fingerprint: {

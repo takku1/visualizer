@@ -191,6 +191,18 @@ This is an intentional migration seam: later semantic direction can update
 color/lighting fields directly, while renderer adapters can continue consuming
 the legacy `Look` until they support richer conditioning.
 
+### Shot and realization backend seam
+
+`Shot` is now a typed presentation object containing framing, camera grammar,
+transition, duration, and continuity policy. It is carried alongside the
+world, rather than being inferred from prompt prose.
+
+`RealizationRequest` is the backend-neutral request containing `WorldState`,
+`Shot`, `SceneDiff`, continuous forces, and a legacy compilation bundle. The
+current StreamDiffusion transport can continue consuming the legacy bundle;
+future adapters can consume references, masks, depth, pose, or temporal
+conditioning without changing the director/world interfaces.
+
 ## Checkpoint realization (browser decides, sidecar renders)
 
 - **What:** the director runs on section boundaries, or at most every 30 s.
