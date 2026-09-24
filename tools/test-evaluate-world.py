@@ -30,10 +30,20 @@ with tempfile.TemporaryDirectory() as directory:
     assert valid["actionVerified"] is False
     assert valid["identityReady"] is True
     assert valid["actionReady"] is True
+    assert valid["nextSteps"] == ["run the model-backed diagnostic and review identity/action evidence"]
 
     missing_reference = module.validate_manifest({**base, "references": {}}, root)
     assert missing_reference["identityReady"] is False
     assert missing_reference["missingGroupReferences"] == ["form-a"]
+    assert "independent reference" in missing_reference["nextSteps"][0]
+
+    temporal_only = module.validate_manifest({
+        "frames": [
+            {"file": "a.jpg", "sequenceGroup": "track"},
+            {"file": "b.jpg", "sequenceGroup": "track"},
+        ],
+    }, root)
+    assert "identityGroup" in temporal_only["nextSteps"][0]
 
     colliding_reference = module.validate_manifest({**base, "references": {"form-a": "a.jpg"}}, root)
     assert colliding_reference["identityReady"] is False

@@ -71,6 +71,23 @@ def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
         and all(len(indices) >= 2 for indices in groups.values())
     )
     action_ready = identity_ready and any(len(indices) >= 2 for indices in action_groups.values())
+    next_steps: list[str] = []
+    if missing_frames:
+        next_steps.append("capture or restore every frame listed in missingFrames")
+    if missing_references or missing_group_references or reference_frame_collisions:
+        next_steps.append("add one independent reference image for each identity group")
+    if not sequences and not groups:
+        next_steps.append("add sequenceGroup labels for temporal diagnostics")
+    if sequences and not groups:
+        next_steps.append("annotate at least two frames with one identityGroup and add an independent reference")
+    if sequences and not temporal_ready:
+        next_steps.append("add at least two existing frames to one sequenceGroup")
+    if groups and not identity_ready:
+        next_steps.append("annotate at least two frames per identityGroup and provide independent references")
+    if identity_ready and not action_ready:
+        next_steps.append("label the intended action on at least two frames in one identityGroup")
+    if not next_steps:
+        next_steps.append("run the model-backed diagnostic and review identity/action evidence")
     return {
         "ready": temporal_ready or identity_ready,
         "evaluationMode": "diagnostic",
@@ -89,6 +106,7 @@ def validate_manifest(manifest: dict, root: Path) -> dict[str, object]:
         "multiFrameIdentityGroups": len(multi_frame_identity_groups),
         "actionAnnotatedFrames": sum(bool(row.get("action")) for row in rows),
         "actionGroups": {group: len(indices) for group, indices in action_groups.items() if indices},
+        "nextSteps": next_steps,
     }
 
 
