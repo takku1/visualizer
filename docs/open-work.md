@@ -9,6 +9,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - A deterministic shot-graph seam supports candidate shots, weighted transitions, and prefetch intent.
 - Scenes carry persistent `WorldState`; checkpoints expose renderer-independent `SceneDiff` data for future stateful backends.
 - The current sidecar consumes `SceneDiff` identity-break/preserve intent and reports the diff summary in stream telemetry.
+- Shot graphs now support guarded runtime selection, prefetch candidates, and cancellation epochs; GPU pre-rendering remains measurement-gated.
 - `npm run evaluate:logs -- <session.jsonl>` reports semantic source coverage, fingerprint changes, and timing fallback rate.
 - `npm run app` starts the local ASR worker by default; use `npm run app -- --no-meaning` only for performance isolation. Committed live hypotheses promote into `SongMeaning` without blocking procedural rendering.
 

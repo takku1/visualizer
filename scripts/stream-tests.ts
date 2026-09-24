@@ -8,7 +8,7 @@ import { CouplingController } from '../src/stream/coupling';
 import { estimateTempoFromOnsetGaps } from '../src/audio/bus';
 import { compileSemanticScene, type SongMeaning } from '../src/director/semantic';
 import { CheckpointScheduler, type StreamObservation } from '../src/stream/checkpoint';
-import { addShotCandidate, compileShotGraph, nextShots } from '../src/stream/shot-graph';
+import { addShotCandidate, compileShotGraph, nextShots, ShotGraphRuntime } from '../src/stream/shot-graph';
 import { isLiveLyricHypothesis, isLiveLyricUpdate } from '../src/director/live';
 import { LiveLyricAccumulator } from '../src/director/live-accumulator';
 import { meaningFromLive } from '../src/director/live-meaning';
@@ -325,9 +325,14 @@ test('checkpoint receipts record the timing source and commit phase', () => {
 
 test('shot graph keeps alternate candidates explicit and ordered', () => {
   const first = sceneFromPlan(initialPlan(), {}, 0);
-  const graph = addShotCandidate(compileShotGraph(first), 'next', { ...first, seed: 2 }, 4, 0.8);
+  const graph = addShotCandidate(compileShotGraph(first), 'next', { ...first, seed: 2 }, 4, 0.8, { section: 2, requiresDownbeat: true });
+  const runtime = new ShotGraphRuntime(graph);
   assert.equal(nextShots(graph)[0]!.to, 'next');
   assert.equal(nextShots(graph)[0]!.prefetch, true);
+  assert.equal(runtime.prefetchCandidates()[0]!.id, 'next');
+  assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: false }), null);
+  assert.equal(runtime.choose({ section: 2, confidence: 1, downbeat: true })?.id, 'next');
+  assert.equal(runtime.cancel(), 1);
 });
 
 test('a new director scene lands on a downbeat, spliced over one bar', () => {
