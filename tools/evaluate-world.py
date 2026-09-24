@@ -1,10 +1,12 @@
 """Opt-in frame-level identity/action evaluator.
 
 Manifest format: {"frames": [{"file": "frame.jpg", "identity": "...",
-"identityGroup": "alice", "action": "..."}]}. It measures annotated
+"identityGroup": "alice", "action": "..."}],
+"references": {"alice": "alice-reference.jpg"}}. It measures annotated
 captures and never feeds scores back into the real-time loop. `identityGroup`
 groups frames that are expected to show the same persistent entity; if omitted,
-the identity text is used as the group key.
+the identity text is used as the group key. Reference images are optional but
+provide a stronger identity diagnostic than text-only CLIP similarity.
 """
 from __future__ import annotations
 
@@ -35,10 +37,19 @@ def main() -> None:
     model = CLIPModel.from_pretrained(args.model).eval()
     processor = CLIPProcessor.from_pretrained(args.model)
     images = [Image.open(args.manifest.parent / row["file"]).convert("RGB") for row in rows]
+    references = {
+        str(group): Image.open(args.manifest.parent / path).convert("RGB")
+        for group, path in (manifest.get("references") or {}).items()
+        if path
+    }
     texts = sorted({row[key] for row in rows for key in ("identity", "action") if row.get(key)})
     with torch.inference_mode():
-        image_features = unit(model.get_image_features(**processor(images=images, return_tensors="pt")))
+        all_images = images + list(references.values())
+        all_features = unit(model.get_image_features(**processor(images=all_images, return_tensors="pt")))
         text_features = unit(model.get_text_features(**processor(text=texts, return_tensors="pt", padding=True, truncation=True)))
+    image_features = all_features[:len(images)]
+    reference_features = all_features[len(images):]
+    reference_index = {group: index for index, group in enumerate(references)}
     scores = image_features @ text_features.T
     text_index = {text: index for index, text in enumerate(texts)}
     report: dict[str, object] = {"frames": len(rows), "threshold": args.threshold}
@@ -71,6 +82,25 @@ def main() -> None:
     report["identityConsistency"] = {
         "groups": consistency,
         "note": "Pairwise image embedding similarity is a diagnostic, not proof of identity.",
+    }
+    reference_report: dict[str, object] = {}
+    for group, reference_index_value in reference_index.items():
+        indices = groups.get(group, [])
+        if not indices:
+            continue
+        scores_to_reference = [
+            float(image_features[index] @ reference_features[reference_index_value])
+            for index in indices
+        ]
+        reference_report[group] = {
+            "frames": len(scores_to_reference),
+            "meanReferenceImageCosine": float(np.mean(scores_to_reference)),
+            "minReferenceImageCosine": float(np.min(scores_to_reference)),
+            "aboveThreshold": float(np.mean(np.array(scores_to_reference) >= args.threshold)),
+        }
+    report["referenceIdentity"] = {
+        "groups": reference_report,
+        "note": "Reference-image cosine is a diagnostic for appearance similarity, not proof of temporal correspondence or identity.",
     }
     print(json.dumps(report, indent=2))
 
