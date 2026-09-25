@@ -26,6 +26,7 @@ import { LiveLyricAccumulator, type LiveMeaningState } from './director/live-acc
 import { liveEvidenceSummary, meaningFromLive, perceptualCueFromLive } from './director/live-meaning';
 import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
+import { appearanceSourceMode } from './realization/appearance';
 import { resonanceFrom } from './world/resonance';
 import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime, type ShotSelectionDiagnostic } from './stream/shot-graph';
 import { meaningFromLyrics, type LyricsProvider, type LyricsLookupTrace } from './director/lyrics';
@@ -609,7 +610,13 @@ export class VisualizerApp {
       const checkpointRequested = request !== null;
       if (this.#paint > 0 && !checkpointRequested && !this.#capturing && !this.#captureDisabledForTrack &&
           now >= this.#capturePausedUntil && stream.wantsSource(now) &&
-          sourceCaptureAllowed(stream.meta)) {
+          sourceCaptureAllowed(stream.meta) &&
+          appearanceSourceMode({
+            connected: stream.connected,
+            sidecarPhase: stream.meta?.phase ?? null,
+            captureDisabled: this.#captureDisabledForTrack,
+            transitionPending: false,
+          }) !== 'disabled') {
         void this.#sendSource(now);
       }
       if (!stream.connected && this.#renderer?.telemetry().stream) this.#renderer.clearStream();
