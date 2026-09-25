@@ -19,7 +19,7 @@ import { DEFAULT_LOOK, ProceduralScene } from '../src/render/procedural';
 import { applyEmergentObservations, EMPTY_EMERGENT_WORLD } from '../src/world/observation';
 import { effectiveLanguage, groundMotifs, groundedAction, registerGroundingAdapter, type GroundingAdapter } from '../src/director/grounding';
 import { StructureMemory } from '../src/structure/memory';
-import { estimateKey } from '../src/audio/loopback';
+import { estimateKey, KeyHysteresis } from '../src/audio/loopback';
 import { BeatTracker } from '../src/rhythm/beat-tracker';
 import { FeatureBus } from '../src/audio/bus';
 import { sourceCaptureAllowed } from '../src/stream/client';
@@ -59,6 +59,15 @@ test('local key confidence is a runner-up margin, not an inflated absolute fit',
   assert.equal(estimate.mode, 'major');
   assert.ok(estimate.confidence > 0.1 && estimate.confidence <= 1);
   assert.ok(estimate.confidence < 0.97 || estimate.key !== 6, `confidence was ${estimate.confidence}`);
+});
+
+test('local key hysteresis resists a short competing chroma winner', () => {
+  const keys = new KeyHysteresis();
+  const c = { key: 0, mode: 'major' as const, confidence: 0.65 };
+  const d = { key: 6, mode: 'major' as const, confidence: 0.82 };
+  assert.deepEqual(keys.update(c), c);
+  for (let i = 0; i < 29; i++) assert.equal(keys.update(d).key, 0);
+  assert.equal(keys.update(d).key, 6);
 });
 
 test('causal beat tracker locks to a steady 120 BPM pulse', () => {

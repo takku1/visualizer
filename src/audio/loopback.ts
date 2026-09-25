@@ -46,6 +46,7 @@ export class LoopbackSource implements AudioSource {
   #beatTracker = new BeatTracker(100);
   #lastTrackedBeat = -1;
   #trackerActive = false;
+  #keyHysteresis = new KeyHysteresis();
 
   // Each band gets its own gain, tracking its own history. A single shared
   // peak (the earlier approach) is wrong for anything but the spectrum
@@ -198,6 +199,7 @@ export class LoopbackSource implements AudioSource {
     this.#onsetClockOffset = null;
     this.#beatTracker.reset();
     this.#lastTrackedBeat = -1;
+    this.#keyHysteresis.reset();
     this.#ready = true;
   }
 
@@ -215,6 +217,7 @@ export class LoopbackSource implements AudioSource {
     this.#onsetClockOffset = null;
     this.#beatTracker.reset();
     this.#lastTrackedBeat = -1;
+    this.#keyHysteresis.reset();
     this.#trackerActive = false;
     this.#audioWrite = 0;
     this.#audioCount = 0;
@@ -330,7 +333,8 @@ export class LoopbackSource implements AudioSource {
     for (let i = 0; i < 12; i++) {
       this.#keyChroma[i] = smooth(this.#keyChroma[i] ?? 0, chroma[i] ?? 0, dt, 4);
     }
-    const { key, mode, confidence } = estimateKey(this.#keyChroma);
+    const keyEstimate = this.#keyHysteresis.update(estimateKey(this.#keyChroma));
+    const { key, mode, confidence } = keyEstimate;
 
     // Stereo width from the L/R time-domain correlation: identical channels
     // (mono content, or a mono source) correlate near 1 and read as width 0;
@@ -436,7 +440,54 @@ const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.6
  * margin over the runner-up, not the absolute profile score: a good fit to
  * several keys is ambiguous even when every score is numerically high.
  */
-export function estimateKey(chroma: Float32Array): { key: number; mode: 'major' | 'minor'; confidence: number } {
+export interface KeyEstimate {
+  key: number;
+  mode: 'major' | 'minor';
+  confidence: number;
+}
+
+/** Keep a local key from changing on one ambiguous chroma window. */
+export class KeyHysteresis {
+  #stable: KeyEstimate | null = null;
+  #candidate: KeyEstimate | null = null;
+  #candidateCount = 0;
+
+  reset(): void {
+    this.#stable = null;
+    this.#candidate = null;
+    this.#candidateCount = 0;
+  }
+
+  update(next: KeyEstimate): KeyEstimate {
+    if (!this.#stable || next.confidence <= 0) {
+      if (next.confidence > 0) this.#stable = next;
+      return this.#stable ?? next;
+    }
+    if (next.key === this.#stable.key && next.mode === this.#stable.mode) {
+      this.#candidate = null;
+      this.#candidateCount = 0;
+      this.#stable = { ...this.#stable, confidence: Math.max(this.#stable.confidence, next.confidence) };
+      return this.#stable;
+    }
+    if (next.confidence < 0.55) return this.#stable;
+    if (this.#candidate?.key === next.key && this.#candidate.mode === next.mode) this.#candidateCount++;
+    else {
+      this.#candidate = next;
+      this.#candidateCount = 1;
+    }
+    // Require roughly half a second of a clearly stronger competing key at
+    // the normal display cadence. This is a presentation prior, not a claim
+    // that musical key cannot change.
+    if (this.#candidateCount >= 30 && next.confidence >= this.#stable.confidence + 0.08) {
+      this.#stable = next;
+      this.#candidate = null;
+      this.#candidateCount = 0;
+    }
+    return this.#stable;
+  }
+}
+
+export function estimateKey(chroma: Float32Array): KeyEstimate {
   const candidates: { key: number; mode: 'major' | 'minor'; score: number }[] = [];
 
   for (let root = 0; root < 12; root++) {
@@ -448,9 +499,12 @@ export function estimateKey(chroma: Float32Array): { key: number; mode: 'major' 
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
   const second = candidates[1];
-  if (!best || !second || !Number.isFinite(best.score) || best.score <= 0) return { key: 0, mode: 'major', confidence: 0 };
+  if (!best || !second || !Number.isFinite(best.score) || best.score <= 0.2) return { key: 0, mode: 'major', confidence: 0 };
   const margin = Math.max(0, best.score - second.score);
-  return { key: best.key, mode: best.mode, confidence: Math.min(margin * 4, 1) };
+  // The margin is useful for ranking candidates, but is not a probability.
+  // A lower calibrated ceiling prevents ambiguous local chroma fits from
+  // claiming near-certainty and driving large visual colour changes.
+  return { key: best.key, mode: best.mode, confidence: Math.min(margin * 2.5, 0.85) };
 }
 
 function pearson(chroma: Float32Array, profile: readonly number[], root: number): number {
