@@ -14,4 +14,6 @@ await esbuild.build({
   outfile,
   logLevel: 'silent',
 });
+const fixture = process.argv.find((arg) => arg.endsWith('.json'));
+if (fixture) process.argv.push(fixture);
 await import(`${pathToFileURL(outfile).href}?run=${Date.now()}`);

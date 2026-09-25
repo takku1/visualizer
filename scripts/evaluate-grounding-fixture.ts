@@ -17,7 +17,8 @@ interface Fixture {
   cases: FixtureCase[];
 }
 
-const fixture = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/grounding-fixture.json'), 'utf8')) as Fixture;
+const fixturePath = process.argv.find((arg) => arg.endsWith('.json')) ?? 'scripts/grounding-fixture.json';
+const fixture = JSON.parse(readFileSync(resolve(process.cwd(), fixturePath), 'utf8')) as Fixture;
 
 function inputText(item: FixtureCase): string {
   return item.normalization === 'NFKC' ? item.text.normalize('NFKC') : item.text;
@@ -58,21 +59,32 @@ const predictedCueCount = rows.reduce((sum, row) => sum + row.actualKinds.length
 const falsePromotionCount = rows.reduce((sum, row) => sum + row.falseKinds + (row.falseAction ? 1 : 0), 0);
 const result = {
   fixtureVersion: fixture.version,
+  fixturePath,
   cases: rows.length,
   passingCases: rows.filter((row) => row.pass).length,
   cueRecall: expectedCueCount === 0 ? 1 : trueCueCount / expectedCueCount,
   cuePrecision: predictedCueCount === 0 ? 1 : trueCueCount / predictedCueCount,
   falsePromotionCount,
+  byLanguage: Object.fromEntries([...new Set(fixture.cases.map((item) => item.language))].map((language) => {
+    const languageRows = rows.filter((row) => fixture.cases.find((item) => item.id === row.id)?.language === language);
+    return [language, {
+      cases: languageRows.length,
+      passingCases: languageRows.filter((row) => row.pass).length,
+      falsePromotions: languageRows.reduce((sum, row) => sum + row.falseKinds + (row.falseAction ? 1 : 0), 0),
+    }];
+  })),
   rows,
 };
 
 const json = process.argv.includes('--json');
+const reportOnly = process.argv.includes('--report-only');
 console.log(json ? JSON.stringify(result, null, 2) : [
   `Grounding fixture v${result.fixtureVersion}: ${result.passingCases}/${result.cases} cases pass`,
   `Cue recall: ${(result.cueRecall * 100).toFixed(1)}%`,
   `Cue precision: ${(result.cuePrecision * 100).toFixed(1)}%`,
   `False literal promotions: ${result.falsePromotionCount}`,
+  `By language: ${Object.entries(result.byLanguage).map(([language, summary]) => `${language} ${summary.passingCases}/${summary.cases}, false=${summary.falsePromotions}`).join('; ')}`,
   ...rows.filter((row) => !row.pass).map((row) => `FAIL ${row.id}: expected ${JSON.stringify(row.expectedKinds)}/${row.expectedAction}, got ${JSON.stringify(row.actualKinds)}/${row.actualAction}`),
 ].join('\n'));
 
-if (result.passingCases !== result.cases || result.falsePromotionCount !== 0) process.exitCode = 1;
+if (!reportOnly && (result.passingCases !== result.cases || result.falsePromotionCount !== 0)) process.exitCode = 1;

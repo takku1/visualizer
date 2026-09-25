@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "description": "Held-out grounding cases for regression and future multilingual ranker calibration; do not tune the matcher against this file.",
+  "cases": [
+    {
+      "id": "heldout-en-moonwalk",
+      "language": "en",
+      "text": "she walks beneath the moonlight",
+      "expectedKinds": ["force"],
+      "expectedAction": "walks through the environment"
+    },
+    {
+      "id": "heldout-en-glass-flow",
+      "language": "en",
+      "text": "the glass drifts across the room",
+      "expectedKinds": ["texture", "place"],
+      "expectedAction": "moves with a flowing motion"
+    },
+    {
+      "id": "heldout-en-heart-open",
+      "language": "en",
+      "text": "my heart opens in the dark",
+      "expectedKinds": ["object", "force"],
+      "expectedAction": "reveals or conceals space"
+    },
+    {
+      "id": "heldout-ja-night-run",
+      "language": "ja",
+      "text": "月の下で彼は走る",
+      "expectedKinds": ["force", "person"],
+      "expectedAction": "runs through the environment"
+    },
+    {
+      "id": "heldout-ja-fog-city",
+      "language": "ja",
+      "text": "霧の街を漂う",
+      "expectedKinds": ["texture", "place"],
+      "expectedAction": "moves with a flowing motion"
+    },
+    {
+      "id": "heldout-ja-unknown",
+      "language": "ja",
+      "text": "ルミナの記憶",
+      "expectedKinds": [],
+      "expectedAction": null
+    },
+    {
+      "id": "heldout-mixed-script",
+      "language": "auto",
+      "text": "雨の street を walking",
+      "expectedKinds": ["force", "place"],
+      "expectedAction": "walks through the environment"
+    },
+    {
+      "id": "heldout-unsupported-es",
+      "language": "es",
+      "text": "la mujer camina bajo la lluvia",
+      "expectedKinds": [],
+      "expectedAction": null
+    },
+    {
+      "id": "heldout-unsupported-ko",
+      "language": "ko",
+      "text": "여자가 비 오는 거리를 걷는다",
+      "expectedKinds": [],
+      "expectedAction": null
+    },
+    {
+      "id": "heldout-metaphor",
+      "language": "en",
+      "text": "the silence gathers around us",
+      "expectedKinds": [],
+      "expectedAction": "converges with another form"
+    }
+  ]
+}
