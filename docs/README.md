@@ -9,6 +9,8 @@ Local song meaning manifests: [../meaning/README.md](../meaning/README.md).
   the 6 GB RTX A3000.
 - [roadmap.md](roadmap.md) — feel pass, speed, and the FiLM adapter research
   piece.
+- [task-queue.md](task-queue.md) — the current ordered execution queue and
+  acceptance gates.
 - [rhythm-model.md](rhythm-model.md) — how beat, bar, and feel are inferred.
 - [live-knob-direction.md](live-knob-direction.md) — proposal: the director
   steers model knobs continuously instead of splicing keyframes.
