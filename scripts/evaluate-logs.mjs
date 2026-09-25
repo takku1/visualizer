@@ -106,6 +106,21 @@ const liveMeaningByTrack = Object.fromEntries(trackIds.map((trackId) => {
     ungroundedSemanticDecisions: decisions.filter((row) => row.track?.id === trackId && isUngroundedSemanticDecision(row)).length,
   }];
 }));
+const lyricAcquisitionByTrack = Object.fromEntries(trackIds.map((trackId) => {
+  const samples = stateRows
+    .filter((row) => row.track?.id === trackId)
+    .map((row) => row.meaning?.lyrics)
+    .filter(Boolean);
+  const statuses = [...new Set(samples.map((sample) => sample.status).filter(Boolean))];
+  return [trackId, {
+    samples: samples.length,
+    providers: [...new Set(samples.map((sample) => sample.provider).filter(Boolean))],
+    sources: [...new Set(samples.map((sample) => sample.source).filter(Boolean))],
+    statuses,
+    latest: samples.at(-1) ?? null,
+    maxGroundedMotifs: samples.length ? Math.max(...samples.map((sample) => sample.groundedMotifs ?? 0)) : 0,
+  }];
+}));
 const changes = { identity: 0, action: 0, environment: 0, look: 0, camera: 0 };
 let previous = null;
 for (const row of checkpoints) {
@@ -208,6 +223,7 @@ const summary = {
     };
   })(),
   liveMeaningByTrack,
+  lyricAcquisitionByTrack,
   realization: {
     latestControlPlane: telemetry.map((row) => row.realization).filter(Boolean).at(-1) ?? null,
     structuredTelemetrySamples: telemetry.filter((row) => row.stream?.meta?.realization?.structured === true).length,
@@ -254,6 +270,7 @@ console.log(process.argv.includes('--json') ? JSON.stringify(summary, null, 2) :
   `System 0 shadow: samples=${summary.structureMemory.samples}; segments=${JSON.stringify(summary.structureMemory.segmentIds)}; boundaries=${summary.structureMemory.boundaryEvents}; repeats=${summary.structureMemory.repeatStarts}/${summary.structureMemory.repeatEnds}`,
   `Live meaning: languages=${JSON.stringify(summary.liveMeaning.languages)} configured=${JSON.stringify(summary.liveMeaning.configuredLanguages)} updates<=${summary.liveMeaning.maxUpdates} hypotheses<=${summary.liveMeaning.maxHypotheses} provisional<=${summary.liveMeaning.maxProvisional} committed<=${summary.liveMeaning.maxCommitted} grounded<=${summary.liveMeaning.maxGroundedMotifs} actionOnly<=${summary.liveMeaning.maxActionOnlyEvidence} symbolsOnly<=${summary.liveMeaning.maxSymbolOnlyEvidence} abstainedSamples=${summary.liveMeaning.abstainedEvidenceSamples} cueSamples=${summary.liveMeaning.provisionalCueSamples}`,
   `Live meaning by track: ${JSON.stringify(summary.liveMeaningByTrack)}`,
+  `Lyrics by track: ${JSON.stringify(summary.lyricAcquisitionByTrack)}`,
   `Live language gate: ${summary.liveMeaning.languageValidation}; required=${JSON.stringify(summary.liveMeaning.requiredLanguages)} evidence=${JSON.stringify(summary.liveMeaning.languageEvidence)}`,
   `Realization: structuredTelemetry=${summary.realization.structuredTelemetrySamples}; conditioning=${JSON.stringify(summary.realization.conditioningVersions)}; resonanceSamples=${summary.realization.resonance.samples}; streamBuilds=${JSON.stringify(summary.realization.streamBuildHashes)}; meaningBuilds=${JSON.stringify(summary.realization.meaningWorkerBuildHashes)}`,
   `Continuity: ${summary.realization.latestControlPlane ? `${summary.realization.latestControlPlane.mode}; direction refreshes=${summary.realization.latestControlPlane.directionDecisions}; committed checkpoints=${summary.realization.latestControlPlane.checkpoints}; last=${summary.realization.latestControlPlane.lastCheckpointReason ?? 'none'}` : 'no control-plane telemetry'}`,
