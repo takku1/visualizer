@@ -108,6 +108,8 @@ export class VisualizerApp {
   #capturing = false;
   #capturePausedUntil = 0;
   #captureMaxMs = 0;
+  #captureDrawMs = 0;
+  #captureEncodeMs = 0;
   #captureErrors = 0;
   #capturePauses = 0;
   #captureLastError: string | null = null;
@@ -681,7 +683,7 @@ export class VisualizerApp {
         t: frame.t,
         fps,
         streamFps,
-        stream: stream ? { buildHash: stream.info?.buildHash ?? null, unetBackend: stream.info?.unetBackend ?? null, benderEnabled: stream.info?.benderEnabled ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureLastError: this.#captureLastError } : null,
+        stream: stream ? { buildHash: stream.info?.buildHash ?? null, unetBackend: stream.info?.unetBackend ?? null, benderEnabled: stream.info?.benderEnabled ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureDrawMs: Math.round(this.#captureDrawMs * 10) / 10, captureEncodeMs: Math.round(this.#captureEncodeMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureLastError: this.#captureLastError } : null,
         paint: this.#paint,
         meaning: this.#meaningTelemetry(),
         control,
@@ -831,6 +833,8 @@ export class VisualizerApp {
       const started = performance.now();
       const jpeg = await this.#capture.capture(scene);
       const elapsed = performance.now() - started;
+      this.#captureDrawMs = this.#capture.lastDrawMs;
+      this.#captureEncodeMs = this.#capture.lastEncodeMs;
       stream.captureMs = stream.captureMs * 0.9 + elapsed * 0.1;
       this.#captureMaxMs = Math.max(this.#captureMaxMs, elapsed);
       if (elapsed > 250) {

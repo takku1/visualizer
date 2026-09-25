@@ -18,6 +18,8 @@ export class ProceduralCapture {
   #program: WebGLProgram;
   #uniforms: Uniforms;
   #vao: WebGLVertexArrayObject;
+  lastDrawMs = 0;
+  lastEncodeMs = 0;
 
   constructor(readonly width: number, readonly height: number) {
     this.#canvas = new OffscreenCanvas(width, height);
@@ -36,13 +38,17 @@ export class ProceduralCapture {
 
   async capture(scene: ProceduralUniforms, quality = 0.85): Promise<ArrayBuffer> {
     const gl = this.#gl;
+    const drawStarted = performance.now();
     gl.viewport(0, 0, this.width, this.height);
     gl.useProgram(this.#program);
     gl.bindVertexArray(this.#vao);
     applyProcedural(this.#uniforms, scene, this.width / this.height);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
+    this.lastDrawMs = performance.now() - drawStarted;
+    const encodeStarted = performance.now();
     const blob = await this.#canvas.convertToBlob({ type: 'image/jpeg', quality });
+    this.lastEncodeMs = performance.now() - encodeStarted;
     return blob.arrayBuffer();
   }
 }
