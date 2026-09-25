@@ -22,6 +22,7 @@ import { StructureMemory } from '../src/structure/memory';
 import { estimateKey } from '../src/audio/loopback';
 import { BeatTracker } from '../src/rhythm/beat-tracker';
 import { FeatureBus } from '../src/audio/bus';
+import { sourceCaptureAllowed } from '../src/stream/client';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -120,6 +121,15 @@ test('FeatureBus exposes confident tracker beats to structural consumers', () =>
   const frame = bus.update(1000);
   assert.equal(frame.beatSource, 'tracker');
   assert.ok(frame.rhythmConfidence >= 0.5, `rhythm confidence ${frame.rhythmConfidence}`);
+});
+
+test('source capture defers during sidecar denoising and splicing', () => {
+  assert.equal(sourceCaptureAllowed(null), true);
+  assert.equal(sourceCaptureAllowed({ phase: 'idle' }), true);
+  assert.equal(sourceCaptureAllowed({ phase: 'waiting' }), true);
+  assert.equal(sourceCaptureAllowed({ phase: 'error' }), true);
+  assert.equal(sourceCaptureAllowed({ phase: 'denoising' }), false);
+  assert.equal(sourceCaptureAllowed({ phase: 'splicing' }), false);
 });
 
 test('System 0 observes a conservative repeat without changing section state', () => {

@@ -16,7 +16,7 @@ import { CheckpointScheduler } from './stream/checkpoint';
 import { sceneFromPlan, type Scene } from './stream/scenes';
 import { KnobDirector, type KnobTargets } from './stream/knobs';
 import { smooth } from './audio/source';
-import { StreamClient } from './stream/client';
+import { StreamClient, sourceCaptureAllowed } from './stream/client';
 import { CouplingController } from './stream/coupling';
 import { MotifLedger } from './director/semantic';
 import { LiveMeaningClient } from './director/live-client';
@@ -564,13 +564,6 @@ export class VisualizerApp {
         }
       }
       stream.sendControl(control, now, resonance);
-      // A slow GPU readback/encode can starve the display WebGL context. Once
-      // it crosses the interactive budget, pause camera uploads temporarily;
-      // the sidecar continues from its keyframe and the procedural display
-      // remains responsive instead of turning into a slideshow.
-      if (this.#paint > 0 && !this.#capturing && now >= this.#capturePausedUntil && stream.wantsSource(now)) {
-        void this.#sendSource(now);
-      }
       const request = this.#scheduler.update(frame, stream.observation());
       if (request) {
         if (request.reason === 'scene' || request.reason === 'initial') this.#scene.setLook(request.look);
@@ -582,6 +575,17 @@ export class VisualizerApp {
         console.log(`[checkpoint] ${request.id} ${request.reason} splice=${request.spliceFrames}f continuity=${request.continuity}`);
           this.#config.log?.(checkpointLine(frame.t, request));
         this.#lastCheckpointReason = request.reason;
+      }
+      // A slow GPU readback/encode can starve the display WebGL context. Do
+      // not begin a camera capture on the same frame as a checkpoint, or while
+      // the sidecar is denoising/splicing. The sidecar is already working from
+      // its persistent keyframe during those phases; the next idle frame will
+      // provide a fresh procedural source without competing for the GPU.
+      const checkpointRequested = request !== null;
+      if (this.#paint > 0 && !checkpointRequested && !this.#capturing &&
+          now >= this.#capturePausedUntil && stream.wantsSource(now) &&
+          sourceCaptureAllowed(stream.meta)) {
+        void this.#sendSource(now);
       }
       if (!stream.connected && this.#renderer?.telemetry().stream) this.#renderer.clearStream();
     }

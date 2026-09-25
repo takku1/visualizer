@@ -32,6 +32,16 @@ export interface StreamMeta {
   resonance: unknown;
 }
 
+/**
+ * Procedural camera frames are useful while the sidecar is idle, but they
+ * compete with the GPU during its expensive keyframe transition. Deferring
+ * them preserves the last valid realization and lets the display stay on its
+ * 60 Hz path; the next idle frame will provide a fresh camera source.
+ */
+export function sourceCaptureAllowed(meta: Pick<StreamMeta, 'phase'> | null): boolean {
+  return meta?.phase !== 'splicing' && meta?.phase !== 'denoising';
+}
+
 export interface StreamInfo {
   width: number;
   height: number;
