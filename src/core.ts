@@ -621,6 +621,8 @@ export class VisualizerApp {
         },
         stream: stream?.meta ? {
           buildHash: stream.info?.buildHash ?? null,
+          unetBackend: stream.info?.unetBackend ?? null,
+          benderEnabled: stream.info?.benderEnabled ?? null,
           input: stream.meta.input ?? null,
           checkpoint: stream.meta.checkpoint ?? null,
           change: stream.meta.change ?? null,
@@ -667,7 +669,7 @@ export class VisualizerApp {
         t: frame.t,
         fps,
         streamFps,
-        stream: stream ? { buildHash: stream.info?.buildHash ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureLastError: this.#captureLastError } : null,
+        stream: stream ? { buildHash: stream.info?.buildHash ?? null, unetBackend: stream.info?.unetBackend ?? null, benderEnabled: stream.info?.benderEnabled ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureLastError: this.#captureLastError } : null,
         paint: this.#paint,
         meaning: this.#meaningTelemetry(),
         control,

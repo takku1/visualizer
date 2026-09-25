@@ -51,6 +51,8 @@ export interface StreamInfo {
   model: string;
   device: string;
   vramMB: number;
+  unetBackend?: 'pytorch' | 'tensorrt';
+  benderEnabled?: boolean;
   buildHash?: string;
 }
 

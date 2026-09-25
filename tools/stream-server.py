@@ -1245,6 +1245,8 @@ async def serve(stream: Stream) -> None:
             "type": "ready", "width": WIDTH, "height": HEIGHT, "model": MODEL_DIR.name,
             "device": torch.cuda.get_device_name(0) if DEVICE == "cuda" else "cpu",
             "vramMB": round(torch.cuda.memory_allocated() / 2**20) if DEVICE == "cuda" else 0,
+            "unetBackend": "tensorrt" if stream.engine.trt_unet is not None else "pytorch",
+            "benderEnabled": BENDER_ENABLED,
             "buildHash": BUILD_HASH,
         }))
 
