@@ -7,11 +7,11 @@ path.
 
 ## 1. Representative live validation
 
-Status: **partially measured**. The latest five-track session passed
-continuous-per-song invariants, had zero connected zero-FPS windows, and
-reported no identity breaks. It still showed `maxDropped=42`, 3.1% timing
-fallback, and insufficient live grounding for several tracks. A fresh clean
-run without another GPU benchmark sharing the device is still required.
+Status: **partially measured**. The latest six-track session passed
+continuous-per-song invariants, had zero connected zero-FPS windows, zero
+identity breaks, and 0% timing fallback. It still showed `maxDropped=18`,
+insufficient live grounding for several tracks, and an ASR latency sample near
+81 seconds. A clean four-fixture run is still required.
 
 Run the current app on four reproducible fixtures:
 
@@ -36,8 +36,10 @@ Acceptance gate:
 
 ## 2. Multilingual grounding coverage
 
-Status: **baseline complete; broader coverage pending**. The bounded fixture
-and held-out fixture both pass with zero false promotions. The multilingual
+Status: **safe runtime slice complete; broader literal coverage pending**.
+The bounded fixture and held-out fixture both pass with zero false promotions.
+Unsupported languages now receive low-confidence nonliteral perceptual
+pressure, while literal grounding remains adapter-gated. The multilingual
 embedding experiment remains proposal-only because raw similarity produced
 unsafe unsupported-language guesses.
 
@@ -110,11 +112,11 @@ Acceptance gate:
 
 ## 5. Performance optimization
 
-Status: **measurement in progress**. The latest isolated PyTorch+Bender run
-measured `69.3 ms` median, `200.7 ms` p95, and `14.4 FPS` at 448×256, but the
-machine had the Electron sidecar running concurrently, so this is not a clean
-release baseline. A TensorRT comparison stalled after engine load and remains
-opt-in; no default switch was made.
+Status: **clean engine baseline complete; capture optimization pending**. The
+isolated current PyTorch+Bender run measured `67.3 ms` median, `68.7 ms` p95,
+and `14.9 FPS` at 448×256. Bender off was effectively identical, so it stays
+enabled. The next measured target is capture draw/JPEG backpressure; TensorRT
+remains opt-in and no default switch was made.
 
 Only after the preceding measurements, benchmark one change at a time on the
 RTX A3000 target:
