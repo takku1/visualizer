@@ -1321,6 +1321,25 @@ def bench(frames: int, report_path: str | None = None) -> None:
     out = Path(os.environ.get("STREAM_BENCH_OUT", ROOT / "output" / "stream-bench"))
     out.mkdir(parents=True, exist_ok=True)
     dump_all = os.environ.get("STREAM_BENCH_DUMP_ALL", "0") == "1"
+    source_mode = os.environ.get("STREAM_BENCH_SOURCE", "none").lower()
+    if source_mode not in {"none", "raster"}:
+        raise ValueError("STREAM_BENCH_SOURCE must be none or raster")
+    bench_source: bytes | None = None
+    if source_mode == "raster":
+        # Deterministic synthetic camera input. This measures the sidecar's
+        # JPEG decode/upload path without coupling the headless benchmark to
+        # Electron or a live audio session. Browser capture remains a separate
+        # end-to-end measurement.
+        source = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+        for y in range(HEIGHT):
+            source[y, :, 0] = (y * 255) // max(1, HEIGHT - 1)
+        for x in range(WIDTH):
+            source[:, x, 1] = (x * 255) // max(1, WIDTH - 1)
+        cv2.circle(source, (WIDTH // 2, HEIGHT // 2), max(4, min(WIDTH, HEIGHT) // 5), (190, 80, 230), -1)
+        ok, encoded = cv2.imencode(".jpg", source, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        if not ok:
+            raise RuntimeError("failed to create benchmark source JPEG")
+        bench_source = encoded.tobytes()
     engine.request_checkpoint({"id": "a", "prompt": "bioluminescent coral cathedral, deep ocean, volumetric light", "seed": 1, "spliceFrames": BENCH_SPLICE_FRAMES})
     times: list[float] = []
     stage_ms: dict[str, list[float]] = {"encode": [], "unet": [], "decode": []}
@@ -1352,6 +1371,8 @@ def bench(frames: int, report_path: str | None = None) -> None:
         c = Control(strength=0.3 + (0.2 if beat else 0.0), noise=0.1, detail=0.15, zoom=0.1 + (1.5 if beat else 0.0), rotate=0.08, noiseWalk=0.8, feedback=0.15, flow=0.04, flowSpeed=0.6)
         if i == frames // 3:
             engine.request_checkpoint({"id": "b", "prompt": "molten ember desert canyon at dusk, cinematic", "seed": 7, "continuity": 0.4, "spliceFrames": BENCH_SPLICE_FRAMES})
+        if bench_source is not None:
+            engine.set_source(bench_source)
         if DEVICE == "cuda":
             torch.cuda.synchronize()
         t0 = time.perf_counter()
@@ -1386,7 +1407,8 @@ def bench(frames: int, report_path: str | None = None) -> None:
         "p90Ms": round(p90_ms, 3),
         "p95Ms": round(p95_ms, 3),
         "fps": round(1000 / median_ms, 3) if median_ms else 0,
-        "includesJpeg": False,
+        "includesJpeg": source_mode == "raster",
+        "sourceMode": source_mode,
         "stageMedianMs": {},
         "stageCalls": {},
         "textEncoderCalls": engine.embed_calls,
