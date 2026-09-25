@@ -7,6 +7,12 @@ path.
 
 ## 1. Representative live validation
 
+Status: **partially measured**. The latest five-track session passed
+continuous-per-song invariants, had zero connected zero-FPS windows, and
+reported no identity breaks. It still showed `maxDropped=42`, 3.1% timing
+fallback, and insufficient live grounding for several tracks. A fresh clean
+run without another GPU benchmark sharing the device is still required.
+
 Run the current app on four reproducible fixtures:
 
 - English vocal track
@@ -30,6 +36,11 @@ Acceptance gate:
 
 ## 2. Multilingual grounding coverage
 
+Status: **baseline complete; broader coverage pending**. The bounded fixture
+and held-out fixture both pass with zero false promotions. The multilingual
+embedding experiment remains proposal-only because raw similarity produced
+unsafe unsupported-language guesses.
+
 Run the lexical baseline and held-out fixture:
 
 ```powershell
@@ -50,6 +61,13 @@ Acceptance gate:
 - only then decide whether an embedding proposal flag is justified.
 
 ## 3. Visual continuity benchmark
+
+Status: **diagnostic baseline complete; identity gate pending**. The existing
+131-frame emergent capture measures mean adjacent cosine `0.941`, minimum
+`0.846`, and mean flow magnitude `2.46`. It has no independent identity or
+action annotations, so those claims remain unverified. A stale-painted-frame
+fade is now implemented to keep the procedural layer visible during sidecar
+stalls.
 
 Capture a deterministic sequence covering:
 
@@ -73,6 +91,11 @@ Acceptance gate:
 
 ## 4. System 0 and rhythm replay validation
 
+Status: **partial**. Fixed-rate onset tracking and key hysteresis are covered
+by tests. Historical logs show unstable local key winners with overconfident
+values; confidence calibration and a 30-sample promotion hysteresis are now
+implemented. Replay against annotated section boundaries is still pending.
+
 Replay annotated or hand-labeled tracks through the fixed-rate onset path and
 System 0. Measure beat phase error, tempo stability, octave errors, and section
 boundary precision/recall. Include the previously reported key-estimation case
@@ -86,6 +109,12 @@ Acceptance gate:
 - key confidence is calibrated and ambiguous estimates are not over-promoted.
 
 ## 5. Performance optimization
+
+Status: **measurement in progress**. The latest isolated PyTorch+Bender run
+measured `69.3 ms` median, `200.7 ms` p95, and `14.4 FPS` at 448×256, but the
+machine had the Electron sidecar running concurrently, so this is not a clean
+release baseline. A TensorRT comparison stalled after engine load and remains
+opt-in; no default switch was made.
 
 Only after the preceding measurements, benchmark one change at a time on the
 RTX A3000 target:
@@ -102,6 +131,11 @@ the 6 GB target.
 
 ## 6. Fallback reduction
 
+Status: **partially complete**. Cached/local/LRCLIB lyrics, bounded grounding,
+and conservative abstention are implemented. Remaining work is expanding
+validated language coverage and measuring whether unsupported lyrics can drive
+non-literal perceptual direction without creating story claims.
+
 Use the live validation data to address legitimate abstentions in this order:
 
 1. cached lyrics and local tags/LRC;
@@ -114,6 +148,12 @@ Never replace an evidence failure with a literal story. Abstract/perceptual
 fallback remains the correct result when meaning is unsupported.
 
 ## 7. Research realization upgrades
+
+Status: **deferred behind gates**. The current structured SD-Turbo adapter is
+the default. FiLM, reference/depth conditioning, persistent latent/video
+realization, and learned canvas work require separate research benchmarks and
+must not be enabled by default until they beat the current continuity and
+latency baselines.
 
 These remain behind the measured current backend:
 
