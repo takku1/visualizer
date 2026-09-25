@@ -138,10 +138,12 @@ export class VisualizerApp {
     trackId: string;
     provider: string;
     source: LyricsLookupTrace['outcome'] | 'pending';
-    status: 'pending' | 'committed' | 'miss' | 'rejected' | 'unusable' | 'error';
+    status: 'pending' | 'committed' | 'grounding-abstained' | 'miss' | 'rejected' | 'unusable' | 'error';
     timing: string | null;
     rights: string | null;
     confidence: number | null;
+    groundedMotifs: number;
+    abstained: boolean;
   } | null = null;
   #liveAccumulator = new LiveLyricAccumulator();
   #lastMeaningSendAt = -Infinity;
@@ -737,6 +739,8 @@ export class VisualizerApp {
       timing: null,
       rights: null,
       confidence: null,
+      groundedMotifs: 0,
+      abstained: false,
     };
     console.info(`[lyrics] lookup started provider=${provider.id ?? 'unknown'} track=${ctx.title}`);
     void provider.lookup({
@@ -757,6 +761,8 @@ export class VisualizerApp {
           timing: null,
           rights: null,
           confidence: null,
+          groundedMotifs: 0,
+          abstained: false,
         };
         console.info(`[lyrics] miss provider=${trace?.provider ?? provider.id ?? 'unknown'} source=${trace?.outcome ?? 'miss'} track=${ctx.title}`);
         return;
@@ -769,11 +775,16 @@ export class VisualizerApp {
         timing: result.timing,
         rights: result.rights,
         confidence: result.confidence,
+        groundedMotifs: 0,
+        abstained: false,
       };
       const meaning = meaningFromLyrics(result, 1, { allowUnknownRights: this.#config.allowUnknownLyrics });
       if (meaning) {
         this.#lyricsMeaning = meaning;
-        this.#lyricsTelemetry.status = 'committed';
+        const groundedMotifs = meaning.motifs.filter((motif) => motif.kind !== 'symbol').length;
+        this.#lyricsTelemetry.groundedMotifs = groundedMotifs;
+        this.#lyricsTelemetry.abstained = meaning.abstained;
+        this.#lyricsTelemetry.status = meaning.abstained ? 'grounding-abstained' : 'committed';
         console.info(`[lyrics] ${result.provider} supplied ${result.timing}-timed evidence for ${ctx.title}`);
         // Lyrics arrive asynchronously after the track-start abstention. Ask
         // the director to re-plan immediately so evidence does not remain
@@ -793,6 +804,8 @@ export class VisualizerApp {
           timing: null,
           rights: null,
           confidence: null,
+          groundedMotifs: 0,
+          abstained: false,
         };
         console.warn(`[lyrics] lookup unavailable provider=${provider.id ?? 'unknown'}: ${error instanceof Error ? error.message : String(error)}`);
       }
