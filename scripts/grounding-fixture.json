@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "description": "Bounded grounding contract cases; this is a regression fixture, not a language-understanding benchmark.",
+  "cases": [
+    {
+      "id": "en-concrete-world",
+      "language": "en",
+      "text": "the woman walks through the rain toward the station",
+      "expectedKinds": ["person", "place", "force"],
+      "expectedAction": "walks through the environment"
+    },
+    {
+      "id": "ja-concrete-world",
+      "language": "ja",
+      "text": "彼女は雨の駅を歩いている",
+      "expectedKinds": ["person", "place", "force"],
+      "expectedAction": "walks through the environment"
+    },
+    {
+      "id": "mixed-script",
+      "language": "ja",
+      "text": "the woman は雨の駅を歩く",
+      "expectedKinds": ["person", "place", "force"],
+      "expectedAction": "walks through the environment"
+    },
+    {
+      "id": "full-width-english",
+      "language": "en",
+      "text": "Ｔｈｅ　ｗｏｍａｎ　ｗａｌｋｓ　ｉｎ　ｔｈｅ　ｒａｉｎ",
+      "expectedKinds": ["person", "force"],
+      "expectedAction": "walks through the environment",
+      "normalization": "NFKC"
+    },
+    {
+      "id": "ja-symbol-only",
+      "language": "ja",
+      "text": "らららふわふわ",
+      "expectedKinds": [],
+      "expectedAction": null
+    },
+    {
+      "id": "unsupported-script",
+      "language": "ko",
+      "text": "여자가 걷는다",
+      "expectedKinds": [],
+      "expectedAction": null
+    },
+    {
+      "id": "ambiguous-metaphor",
+      "language": "en",
+      "text": "the silence gathers",
+      "expectedKinds": [],
+      "expectedAction": "converges with another form"
+    },
+    {
+      "id": "bounded-object-and-flow",
+      "language": "ja",
+      "text": "鳥が窓のそばで揺らめく",
+      "expectedKinds": ["object"],
+      "expectedAction": "moves with a flowing motion"
+    }
+  ]
+}
