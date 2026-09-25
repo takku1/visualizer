@@ -105,7 +105,10 @@ export class LiveLyricAccumulator {
 }
 
 function normalize(text: string): string {
-  return text.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  // NFKC folds full-width/code-switched forms before temporal matching. Keep
+  // letters and numbers from every script; raw lyric text remains out of the
+  // render path and this normalization is only an evidence key.
+  return text.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
 function overlaps(a: LiveLyricHypothesis, b: LiveLyricHypothesis): boolean {

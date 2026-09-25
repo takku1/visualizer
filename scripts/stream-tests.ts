@@ -488,6 +488,24 @@ test('live meaning stabilizes short Japanese lyric chunks', () => {
   assert.equal(state.committed.length, 1);
 });
 
+test('live meaning normalizes full-width and mixed-script evidence before matching', () => {
+  const accumulator = new LiveLyricAccumulator();
+  const make = (revision: number, text: string): LiveLyricHypothesis => ({
+    ...liveHypothesis,
+    id: `mixed-${revision}`,
+    text,
+    language: 'en',
+    confidence: 0.8,
+    stability: 0.8,
+    startSec: 2.1,
+    endSec: 6.0,
+  });
+  accumulator.update('mixed-script', 1, [make(1, 'Ｆｕｌｌ－ｗｉｄｔｈ 雨')]);
+  const state = accumulator.update('mixed-script', 2, [make(2, 'Full-width 雨')]);
+  assert.equal(state.provisional.length, 1);
+  assert.equal(state.maxCandidateObservations, 2);
+});
+
 test('recognized Japanese entity/action cues can commit after two windows', () => {
   const accumulator = new LiveLyricAccumulator();
   const make = (revision: number, text: string): LiveLyricHypothesis => ({
