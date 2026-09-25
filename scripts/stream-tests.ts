@@ -24,6 +24,7 @@ import { BeatTracker } from '../src/rhythm/beat-tracker';
 import { FeatureBus } from '../src/audio/bus';
 import { sourceCaptureAllowed } from '../src/stream/client';
 import { continuityPaint } from '../src/render/continuity';
+import { captureBackoffMs } from '../src/render/capture';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -147,6 +148,13 @@ test('stale painted frames yield gradually to the live procedural substrate', ()
   assert.ok(continuityPaint(0.6, 500, 70) < 0.6);
   assert.ok(continuityPaint(0.6, 1200, 70) > 0);
   assert.equal(continuityPaint(0.6, 5000, 70), 0.15);
+});
+
+test('capture spikes back off adaptively instead of repeating immediately', () => {
+  assert.equal(captureBackoffMs(90), 0);
+  assert.equal(captureBackoffMs(110), 500);
+  assert.equal(captureBackoffMs(1000), 2000);
+  assert.equal(captureBackoffMs(10000), 5000);
 });
 
 test('System 0 observes a conservative repeat without changing section state', () => {

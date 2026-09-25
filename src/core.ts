@@ -8,7 +8,7 @@ import { LocalSystemOne } from './director/local';
 import type { DecisionEngine } from './director/engine';
 import { Renderer } from './render/renderer';
 import { ProceduralScene, type ProceduralUniforms } from './render/procedural';
-import { ProceduralCapture } from './render/capture';
+import { captureBackoffMs, ProceduralCapture } from './render/capture';
 import { Overlay } from './ui/overlay';
 import { checkpointLine, recordLine, stateLine, telemetryLine, type LogSink } from './eval/recorder';
 import { ControlMapper, type SamplerControl } from './stream/control';
@@ -843,10 +843,11 @@ export class VisualizerApp {
       this.#captureEncodeMs = this.#capture.lastEncodeMs;
       stream.captureMs = stream.captureMs * 0.9 + elapsed * 0.1;
       this.#captureMaxMs = Math.max(this.#captureMaxMs, elapsed);
+      const adaptiveBackoff = captureBackoffMs(elapsed);
+      if (adaptiveBackoff > 0) this.#capturePausedUntil = performance.now() + adaptiveBackoff;
       if (elapsed > 250) {
-        // One bad capture is enough to protect the UI. A later retry is
-        // allowed after 30 s so transient GPU pressure can recover.
-        this.#capturePausedUntil = performance.now() + 30_000;
+        // A bad capture is enough to protect the UI. Adaptive backoff keeps
+        // the display responsive while allowing recovery within seconds.
         this.#capturePauses++;
         this.#errors = [`! capture slow (${Math.round(elapsed)}ms); camera upload paused`];
       }
