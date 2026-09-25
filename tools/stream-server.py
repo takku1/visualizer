@@ -65,6 +65,8 @@ KEY_STEPS = int(os.environ.get("STREAM_KEY_STEPS", "4"))
 JPEG_QUALITY = int(os.environ.get("STREAM_JPEG_QUALITY", "88"))
 MAX_FPS = float(os.environ.get("STREAM_MAX_FPS", "30"))
 BENDER_ENABLED = os.environ.get("STREAM_BENDER", "1") != "0"
+UNET_BACKEND = os.environ.get("STREAM_UNET_BACKEND", "pytorch").lower()
+TENSORRT_ENGINE = Path(os.environ.get("STREAM_TENSORRT_ENGINE", ROOT / "output" / "tensorrt" / "sd-turbo-unet-448x256.plan"))
 BENCH_SPLICE_FRAMES = max(1, int(os.environ.get("STREAM_BENCH_SPLICE_FRAMES", "16")))
 KEYFRAME_LIVE_MIX = max(0.0, min(1.0, float(os.environ.get("STREAM_KEYFRAME_LIVE_MIX", "0.5"))))
 MEANING_DIR = Path(os.environ.get("STREAM_MEANING_DIR", ROOT / "meaning"))
@@ -480,6 +482,42 @@ class Bender:
         return torch.lerp(h, h * keep, self._gate(h, 2))
 
 
+class TensorRTUnet:
+    """Fixed-shape FP16 UNet adapter; only used for explicit, Bender-free A/B runs."""
+
+    def __init__(self, engine_path: Path) -> None:
+        import tensorrt as trt
+
+        self._runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
+        blob = engine_path.read_bytes()
+        self._engine = self._runtime.deserialize_cuda_engine(blob)
+        if self._engine is None:
+            raise RuntimeError(f"TensorRT could not deserialize {engine_path}")
+        self._context = self._engine.create_execution_context()
+        self._stream = torch.cuda.Stream()
+        self._names = {self._engine.get_tensor_name(i) for i in range(self._engine.num_io_tensors)}
+        required = {"sample", "timestep", "encoder_hidden_states", "epsilon"}
+        if not required.issubset(self._names):
+            raise RuntimeError(f"TensorRT engine IO mismatch: {sorted(self._names)}")
+
+    @torch.inference_mode()
+    def __call__(self, sample: torch.Tensor, timestep: torch.Tensor, emb: torch.Tensor) -> torch.Tensor:
+        sample = sample.to(DTYPE).contiguous()
+        timestep = timestep.to(torch.int64).contiguous()
+        emb = emb.to(DTYPE).contiguous()
+        output = torch.empty_like(sample)
+        self._context.set_tensor_address("sample", sample.data_ptr())
+        self._context.set_tensor_address("timestep", timestep.data_ptr())
+        self._context.set_tensor_address("encoder_hidden_states", emb.data_ptr())
+        self._context.set_tensor_address("epsilon", output.data_ptr())
+        current = torch.cuda.current_stream()
+        self._stream.wait_stream(current)
+        with torch.cuda.stream(self._stream):
+            if not self._context.execute_async_v3(self._stream.cuda_stream):
+                raise RuntimeError("TensorRT UNet enqueue failed")
+        current.wait_stream(self._stream)
+        return output.float()
+
 class Graphed:
     """Replays a fixed-shape GPU call as a CUDA graph.
 
@@ -553,6 +591,22 @@ class Engine:
             MODEL_DIR / "unet", variant=variant("unet"), torch_dtype=DTYPE
         ).to(DEVICE).eval()
         self.bender = Bender(self.unet) if BENDER_ENABLED else None
+        self.trt_unet: TensorRTUnet | None = None
+        if UNET_BACKEND == "tensorrt":
+            if DEVICE != "cuda":
+                print("STREAM_UNET_BACKEND=tensorrt ignored: CUDA is unavailable", flush=True)
+            elif BENDER_ENABLED:
+                print("STREAM_UNET_BACKEND=tensorrt ignored: set STREAM_BENDER=0; preserving control conditioning", flush=True)
+            elif WIDTH != 448 or HEIGHT != 256:
+                print("STREAM_UNET_BACKEND=tensorrt ignored: engine is fixed to 448x256", flush=True)
+            elif not TENSORRT_ENGINE.exists():
+                print(f"STREAM_UNET_BACKEND=tensorrt ignored: missing {TENSORRT_ENGINE}", flush=True)
+            else:
+                try:
+                    self.trt_unet = TensorRTUnet(TENSORRT_ENGINE)
+                    print(f"UNet backend: TensorRT ({TENSORRT_ENGINE})", flush=True)
+                except Exception as exc:
+                    print(f"TensorRT backend unavailable; using PyTorch: {exc}", flush=True)
         # Prefer the checkpoint's own tiny VAE (SDXS ships one finetuned for
         # its UNet); otherwise the generic TAESD for SD 1.x/2.x latents.
         own_vae = MODEL_DIR / "vae" / "config.json"
@@ -1056,6 +1110,8 @@ class Engine:
         if self.bender is not None:
             self.bender.set(bent, live or [0.0] * len(ts))
         t = torch.tensor(ts, device=DEVICE)
+        if self.trt_unet is not None and len(ts) == 1 and x.shape[-2:] == (HEIGHT // 8, WIDTH // 8):
+            return self.trt_unet(x, t, emb)
         g = self.graphs.get("unet1" if len(ts) == 1 else "unet2")
         if g is not None and x.shape[-2:] == g.inputs[0].shape[-2:]:
             return g(x.to(DTYPE), t, emb).float()

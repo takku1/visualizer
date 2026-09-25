@@ -1,6 +1,6 @@
 # UNet optimization plan
 
-Status: plan and export seam; production backend unchanged.
+Status: opt-in backend seam implemented; PyTorch remains the default production backend.
 
 Phase 1 result: the fixed-shape candidate built and benchmarked successfully
 on the RTX A3000. TensorRT measured 18.37 ms median and 19.13 ms P95 for the
@@ -9,6 +9,27 @@ A deterministic neutral-input comparison measured mean absolute output error
 0.00719 with output RMS approximately 0.918. This is a promising candidate,
 but it is not production-integrated because the exported graph does not include
 the live Bender activation edits.
+
+The runtime now exposes an explicit `STREAM_UNET_BACKEND=tensorrt` experiment
+for the fixed `448×256` profile. It is accepted only with
+`STREAM_BENDER=0`; otherwise the server fails closed to PyTorch so semantic
+and audio conditioning cannot disappear silently. Batched keyframe calls
+still use PyTorch because the current engine is batch-one. This is an
+opt-in benchmark backend, not a claim that the default visual contract has
+been replaced.
+
+Controlled application benchmark on the A3000 at 448×256, 150 frames, with
+the same four-step keyframe fixture:
+
+| Backend | Median | P95 | Engine FPS | UNet median | Peak VRAM |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| PyTorch + Bender | 49.3 ms | 50.4 ms | 20.3 | 35.5 ms | 2434 MB |
+| TensorRT, Bender off | 33.0 ms | 34.7 ms | 30.3 | 18.6 ms | 2435 MB |
+
+The TensorRT run used a dedicated non-default CUDA stream and emitted no
+runtime synchronization warning. This is an engine benchmark, not yet a
+claim of equal visual behavior: Bender is intentionally disabled in the
+TensorRT row and batched live/keyframe calls still use PyTorch.
 
 ## Evidence first
 

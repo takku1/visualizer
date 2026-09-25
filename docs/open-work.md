@@ -164,7 +164,7 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 
 - Licensed lyrics providers and CLAP-style semantic embeddings remain deferred; local ASR and timed imports are available, but neither is a universal catalog solution.
 - Reference-image conditioning inside the real-time sidecar and a ground-truth visual identity/action evaluator remain deferred. The offline evaluator now supports optional reference-image diagnostics, adjacent temporal consistency, and explicit capture preflight; it cannot claim true object memory from CLIP scores alone.
-- TensorRT, batched inference, FiLM adapters, masked-token canvas updates, and distributed workers: these require a measured model/runtime decision rather than a safe local patch.
+- TensorRT is now an opt-in fixed-shape backend candidate (`STREAM_UNET_BACKEND=tensorrt STREAM_BENDER=0`): isolated end-to-end measurement is about 33.0 ms median / 34.7 ms p95 (~30 FPS) versus PyTorch's 49.3 / 50.4 ms (~20 FPS) at 448×256, with VRAM unchanged near 2.4 GB. It is not the default because this engine does not carry Bender activation edits; batched keyframe calls remain on PyTorch. See [`docs/evaluation/unet-optimization-plan.md`](evaluation/unet-optimization-plan.md). Batched inference, FiLM adapters, masked-token canvas updates, and distributed workers remain deferred.
 
 The evaluator's `identityVerified` and `actionVerified` fields remain false
 until an actual visual evaluator is connected; every offline report now emits
