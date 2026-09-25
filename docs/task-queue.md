@@ -151,7 +151,7 @@ fallback remains the correct result when meaning is unsupported.
 
 ## 7. Research realization upgrades
 
-Status: **architecture seam complete; backend work deferred behind gates**. The current structured SD-Turbo adapter is
+Status: **architecture seam complete; first A/B measured; backend work deferred behind gates**. The current structured SD-Turbo adapter is
 the default. FiLM, reference/depth conditioning, persistent latent/video
 realization, and learned canvas work require separate research benchmarks and
 must not be enabled by default until they beat the current continuity and

@@ -145,3 +145,20 @@ its existing keyframe, latent/raster feedback, camera, and flow fallback. The
 default remains `?appearance=raster`, so the experiment cannot silently change
 the product path. Both modes must be compared with the same track, paint
 value, model, resolution, and duration before changing the default.
+
+### Initial sidecar A/B (RTX A3000, 448x256, 60 frames)
+
+The first headless comparison used the same SD-Turbo settings and checkpoint
+sequence. It measures the sidecar/ingestion path, not the full Electron
+capture loop:
+
+| Mode | Median | P95 | FPS | Peak VRAM |
+|---|---:|---:|---:|---:|
+| raster source observation | 144.0 ms | 155.7 ms | 6.95 | 2434 MB |
+| persistent/no source | 151.6 ms | 195.3 ms | 6.60 | 2434 MB |
+
+The persistent path was about 5% slower in this first sample. The current
+sidecar's procedural-source branch avoids some fallback warp work and gives
+the latent a stronger spatial anchor. This is evidence against switching the
+default before implementing true latent motion/state reuse. The next target is
+event-driven source observation without losing that spatial anchor.
