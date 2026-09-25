@@ -209,6 +209,14 @@ checks remains `proposal-only`; it cannot create a literal person, object,
 place, or action without lexical/timing evidence or a separately validated
 promotion policy.
 
+The runtime now has a separate language-agnostic perceptual path for unknown
+lyric windows. It uses only language-independent text-shape signals such as
+line length, repetition, and punctuation to produce low-confidence pressure
+for motion, material, and lighting. It cannot produce a motif, entity, action,
+or section event. This is the correct universal fallback: any language can
+participate in the existing world without pretending that the bounded lexical
+adapter understands it.
+
 ## Measurements to add
 
 | Metric | Why it matters |
@@ -228,9 +236,10 @@ tracks is not an improvement if it makes the visual world less truthful.
 ## Decision
 
 Do not replace the current bounded lexical adapter with translation or a general
-multilingual LLM. Implement and benchmark a **lexical/grapheme evidence layer +
-once-per-track multilingual cue ranker + calibrated selective gate**. This extends
-the current architecture, keeps the renderer responsive, and preserves the
+multilingual LLM. Keep the three-tier policy: **validated lexical adapters for
+literal cues + once-per-track multilingual proposals behind a selective gate +
+language-agnostic perceptual pressure for everything else**. This extends the
+current architecture, keeps the renderer responsive, and preserves the
 project's evidence-backed abstention contract.
 
 ## Sources

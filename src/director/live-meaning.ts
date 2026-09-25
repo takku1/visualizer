@@ -20,6 +20,38 @@ export interface LiveEvidenceSummary {
 }
 
 /**
+ * Derive only language-independent perceptual pressure from an unknown lyric
+ * window. This deliberately uses shape/prosody proxies (length, repetition,
+ * punctuation), never translation or literal nouns. Unsupported languages
+ * can therefore influence an already-existing visual world without creating a
+ * person, place, object, or story claim.
+ */
+function abstractCueFromText(text: string, confidence: number): ProvisionalPerceptualCue | null {
+  const compact = text.replace(/\s+/gu, '').trim();
+  if (Array.from(compact).length < 2) return null;
+  const repeatedGlyph = /(.)\1{2,}/u.test(compact);
+  const emphatic = /[!?！？。！]+/u.test(text);
+  const longLine = Array.from(compact).length >= 24;
+  const behavior = repeatedGlyph || emphatic
+    ? ['pulsing', 'expressive', 'gathering']
+    : longLine
+      ? ['flowing', 'layered', 'expansive']
+      : ['fragmented', 'hesitant', 'revealing'];
+  const motion = repeatedGlyph || emphatic
+    ? ['responsive', 'rhythmic']
+    : longLine
+      ? ['continuous', 'drifting']
+      : ['delicate', 'responsive'];
+  return {
+    behavior,
+    materiality: longLine ? ['atmospheric', 'fibrous'] : ['soft', 'diffuse'],
+    motion,
+    lighting: emphatic ? ['contrasting', 'accented'] : ['diffuse', 'ambient'],
+    confidence: Math.min(0.55, Math.max(0, confidence)),
+  };
+}
+
+/**
  * Classify committed ASR without exposing transcript text. This is telemetry,
  * not a second promotion path: only the existing bounded vocabulary can make
  * a phrase grounded.
@@ -55,7 +87,7 @@ export function perceptualCueFromLive(state: LiveMeaningState): ProvisionalPerce
   const action = groundedAction(text, language);
   const weather = /\b(rain|rainy|snow|wind|fog|mist|fire|wave|water)\b/iu.test(text)
     || /雨|雪|風|霧|煙|火|波|水/u.test(text);
-  if (!action && !weather) return null;
+  if (!action && !weather) return abstractCueFromText(text, Math.max(...candidates.map((item) => item.confidence)));
   const behavior = action === 'walks through the environment' || action === 'runs through the environment'
     ? ['traveling', 'rhythmic', 'forward-pulling']
     : action === 'moves rhythmically' ? ['gathering', 'pulsing', 'expressive']

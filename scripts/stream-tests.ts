@@ -756,6 +756,23 @@ test('provisional live action becomes a perceptual cue without creating entities
   assert.ok(cue.materiality.includes('wet'));
 });
 
+test('unsupported-language lyric shape adds only nonliteral perceptual pressure', () => {
+  const cue = perceptualCueFromLive({
+    trackId: 'ko-provisional', provisional: [{
+      ...liveHypothesis,
+      text: 'Я сегодня снова думаю о тебе',
+      language: 'xx',
+      status: 'provisional',
+      confidence: 0.9,
+    }],
+    committed: [], candidateCount: 1, maxCandidateObservations: 1,
+  });
+  assert.ok(cue);
+  assert.ok(cue.behavior.length > 0);
+  assert.ok(cue.motion.includes('continuous') || cue.motion.includes('responsive'));
+  assert.ok(cue.confidence <= 0.55);
+});
+
 test('abstaining fallback compiles perceptual constraints before legacy geometry', () => {
   const scene = sceneFromPlan(initialPlan(), { trackId: 'perceptual-fallback' }, 0);
   assert.equal(scene.source, 'abstract-fallback');
