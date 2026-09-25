@@ -848,7 +848,9 @@ export class VisualizerApp {
       if (adaptiveBackoff > 0) this.#capturePausedUntil = performance.now() + adaptiveBackoff;
       if (elapsed > 250) {
         // A bad capture is enough to protect the UI. Adaptive backoff keeps
-        // the display responsive while allowing recovery within seconds.
+        // moderate delays responsive; a severe shared-GPU stall gets a longer
+        // cooldown so the same encoder cannot immediately retrigger it.
+        this.#capturePausedUntil = performance.now() + 30_000;
         this.#capturePauses++;
         this.#errors = [`! capture slow (${Math.round(elapsed)}ms); camera upload paused`];
       }
