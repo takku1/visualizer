@@ -5,12 +5,6 @@ import quadVert from './shaders/quad.vert.glsl';
 import proceduralLib from './shaders/procedural.glsl';
 import captureMain from './shaders/capture.frag.glsl';
 
-/** Back off source capture after a GPU/JPEG spike, without blocking display. */
-export function captureBackoffMs(elapsedMs: number): number {
-  if (!Number.isFinite(elapsedMs) || elapsedMs <= 100) return 0;
-  return Math.min(5000, Math.max(500, elapsedMs * 2));
-}
-
 /**
  * Renders the procedural scene at the stream's resolution in its own small
  * WebGL context and encodes it as JPEG: the diffusion sidecar's camera input.

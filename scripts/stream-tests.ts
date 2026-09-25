@@ -24,7 +24,7 @@ import { BeatTracker } from '../src/rhythm/beat-tracker';
 import { FeatureBus } from '../src/audio/bus';
 import { sourceCaptureAllowed } from '../src/stream/client';
 import { continuityPaint } from '../src/render/continuity';
-import { captureBackoffMs } from '../src/render/capture';
+import { captureBackoffMs } from '../src/render/capture-policy';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
