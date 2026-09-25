@@ -884,6 +884,7 @@ test('plain lyric evidence can seed a track without pretending to be time-aligne
   assert.equal(meaning?.sections[0]?.startSec, 0);
   assert.equal(meaning?.sections[0]?.endSec, undefined);
   assert.equal(meaning?.motifs.some((motif) => motif.kind !== 'symbol'), true);
+  assert.equal(meaning?.motifs.some((motif) => motif.attributes.some((attribute) => attribute.includes('woman walks'))), false);
 });
 
 test('cached lyric lookup avoids repeated provider requests', async () => {

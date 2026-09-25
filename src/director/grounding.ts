@@ -62,7 +62,10 @@ function lexicalResult(text: string, language: string, confidence: number, idPre
   for (const [kind, entries] of Object.entries(VOCAB) as [GroundableKind, readonly [RegExp, string][]][]) {
     for (const [pattern, label] of entries) {
       if (pattern.test(text)) {
-        motifs.push({ id: `${idPrefix}-${kind}`, kind, label, attributes: [text], confidence, source });
+        // Keep raw lyric/transcript text in Evidence only. Motif attributes
+        // are renderable state and must stay bounded; otherwise the ledger can
+        // accidentally compile an entire lyric line into a prompt.
+        motifs.push({ id: `${idPrefix}-${kind}`, kind, label, attributes: [], confidence, source });
         cues.push({ kind, canonical: label, sourceLanguage: normalizedLanguage(language), evidence: text, confidence });
         break;
       }
