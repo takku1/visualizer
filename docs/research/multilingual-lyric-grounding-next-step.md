@@ -194,6 +194,14 @@ The first implementation seam is now available as the offline command
 Transformers checkpoint; it is intentionally not part of `npm run app` and its
 output cannot promote a literal world entity or action.
 
+The first `intfloat/multilingual-e5-small` run on the held-out fixture is not
+ready for integration: with threshold `0.60` and same-type margin `0.04`, the
+gate abstained on all ten cases, while the highest-ranked guesses included
+incorrect cues for unsupported Spanish/Korean and unknown Japanese text. This
+is evidence that raw embedding similarity is not a safe grounding mechanism;
+the next experiment must add language/script gates, repeated evidence, and
+calibrated risk-coverage before any proposal can reach the director.
+
 ## Measurements to add
 
 | Metric | Why it matters |

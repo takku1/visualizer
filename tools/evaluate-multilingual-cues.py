@@ -76,8 +76,16 @@ def main() -> int:
         scores = torch.mv(label_vectors, vector).tolist()
         ranked = sorted(zip(scores, labels), key=lambda item: item[0], reverse=True)
         accepted: list[dict[str, Any]] = []
-        for index, (score, (kind, label, _)) in enumerate(ranked):
-            next_score = ranked[index + 1][0] if index + 1 < len(ranked) else -1.0
+        # A cue's margin must compare it with its nearest competitor of the
+        # same type. Comparing against the next global label makes every
+        # widely separated label look confident and was caught by the first
+        # held-out run.
+        for kind in ("motif", "action"):
+            typed = [(score, label) for score, (label_kind, label, _) in ranked if label_kind == kind]
+            if not typed:
+                continue
+            score, label = typed[0]
+            next_score = typed[1][0] if len(typed) > 1 else score
             if score >= args.threshold and score - next_score >= args.margin:
                 accepted.append({"type": kind, "label": label, "score": round(score, 4), "margin": round(score - next_score, 4)})
         rows.append({
