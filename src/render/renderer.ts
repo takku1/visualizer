@@ -3,6 +3,7 @@ import { applyProcedural, type ProceduralUniforms } from './procedural';
 import quadVert from './shaders/quad.vert.glsl';
 import proceduralLib from './shaders/procedural.glsl';
 import presentMain from './shaders/present.frag.glsl';
+import { continuityPaint } from './continuity';
 
 /** Prepended to every pass that includes procedural.glsl. */
 export const GLSL_HEADER = '#version 300 es\nprecision highp float;\n';
@@ -95,7 +96,8 @@ export class Renderer {
     // beat kick is display-side, so beats still land on time).
     u.f('uBlend', Math.min(1, (now - this.#arrivedAt) / Math.max(this.#interval, 1)));
     u.f('uHasStream', this.#hasStream ? 1 : 0);
-    u.f('uPaint', paint);
+    const ageMs = this.#hasStream && this.#arrivedAt > 0 ? Math.max(0, now - this.#arrivedAt) : 0;
+    u.f('uPaint', this.#hasStream ? continuityPaint(paint, ageMs, this.#interval) : 0);
     u.f('uSourceAspect', this.#sourceW / this.#sourceH);
     u.v2('uTexel', 1 / this.#sourceW, 1 / this.#sourceH);
     u.f('uKick', kick);

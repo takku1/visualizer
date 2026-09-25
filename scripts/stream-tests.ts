@@ -23,6 +23,7 @@ import { estimateKey } from '../src/audio/loopback';
 import { BeatTracker } from '../src/rhythm/beat-tracker';
 import { FeatureBus } from '../src/audio/bus';
 import { sourceCaptureAllowed } from '../src/stream/client';
+import { continuityPaint } from '../src/render/continuity';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -130,6 +131,13 @@ test('source capture defers during sidecar denoising and splicing', () => {
   assert.equal(sourceCaptureAllowed({ phase: 'error' }), true);
   assert.equal(sourceCaptureAllowed({ phase: 'denoising' }), false);
   assert.equal(sourceCaptureAllowed({ phase: 'splicing' }), false);
+});
+
+test('stale painted frames yield gradually to the live procedural substrate', () => {
+  assert.equal(continuityPaint(0.6, 100, 70), 0.6);
+  assert.ok(continuityPaint(0.6, 500, 70) < 0.6);
+  assert.ok(continuityPaint(0.6, 1200, 70) > 0);
+  assert.equal(continuityPaint(0.6, 5000, 70), 0.15);
 });
 
 test('System 0 observes a conservative repeat without changing section state', () => {
