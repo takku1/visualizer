@@ -166,8 +166,8 @@ test('capture spikes back off adaptively instead of repeating immediately', () =
   assert.equal(captureBackoffMs(10000), 5000);
 });
 
-test('repeated severe capture stalls disable source capture for the track', () => {
-  assert.deepEqual(severeCapturePolicy(1), { pauseMs: 30_000, disableForTrack: false });
+test('a severe capture stall disables source capture for the track', () => {
+  assert.deepEqual(severeCapturePolicy(1), { pauseMs: 0, disableForTrack: true });
   assert.deepEqual(severeCapturePolicy(2), { pauseMs: 0, disableForTrack: true });
   assert.deepEqual(severeCapturePolicy(5), { pauseMs: 0, disableForTrack: true });
 });

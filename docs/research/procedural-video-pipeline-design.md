@@ -175,3 +175,8 @@ sidecar's procedural-source branch avoids some fallback warp work and gives
 the latent a stronger spatial anchor. This is evidence against switching the
 default before implementing true latent motion/state reuse. The next target is
 event-driven source observation without losing that spatial anchor.
+
+The live follow-up also showed that a long recovery pause after a severe
+capture stall is still visible as a responsiveness failure. The policy now
+disables source capture after the first severe stall for that track, allowing
+the 60 Hz procedural layer and sidecar feedback path to continue uninterrupted.
