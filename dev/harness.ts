@@ -101,6 +101,7 @@ async function main(): Promise<void> {
       : undefined,
     allowUnknownLyrics: lyricsRights === 'community',
     paint: Number(params.get('paint') ?? storedPaint() ?? 0.6),
+    appearanceSource: params.get('appearance') === 'persistent' ? 'persistent' : 'raster',
     keyframes: params.get('keyframes') !== 'off',
     continuousLatentMode: params.get('continuous') !== 'off',
     direction: params.get('direction') === 'knobs' ? 'knobs' : 'splice',

@@ -137,3 +137,11 @@ The current `ContinuousForces` and `structured-world-v2` realization request are
 
 The success criterion is not “more diffusion.” It is a continuous visual organism whose motion remains musical when the learned appearance layer is delayed, unavailable, or intentionally quiet.
 
+## Experimental comparison
+
+The development harness exposes `?appearance=persistent`. In this mode the
+browser stops sending ordinary procedural JPEG observations; the sidecar uses
+its existing keyframe, latent/raster feedback, camera, and flow fallback. The
+default remains `?appearance=raster`, so the experiment cannot silently change
+the product path. Both modes must be compared with the same track, paint
+value, model, resolution, and duration before changing the default.

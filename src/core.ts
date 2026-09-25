@@ -58,6 +58,8 @@ export interface AppConfig {
   keyframes?: boolean;
   /** Keep one SD-Turbo latent alive; scene revisions become controlled retargets. */
   continuousLatentMode?: boolean;
+  /** Current raster bridge or experimental persistent sidecar evolution. */
+  appearanceSource?: 'raster' | 'persistent';
   /** Periodic/stagnation re-seeds. Default false: the diffusion state animates continuously. */
   reseed?: boolean;
   /** Optional local ASR worker, e.g. ws://127.0.0.1:8772. */
@@ -125,6 +127,7 @@ export class VisualizerApp {
   #captureLastError: string | null = null;
   #captureGestureListener: (() => void) | null = null;
   #paint: number;
+  #appearanceSource: 'raster' | 'persistent';
   #knobs: KnobDirector | null;
   #targets: KnobTargets | null = null;
   #bendGain = { hue: 1, swell: 1, glass: 1, lurch: 1 };
@@ -216,6 +219,7 @@ export class VisualizerApp {
   constructor(config: AppConfig = {}) {
     this.#config = config;
     this.#paint = config.paint ?? 0.6;
+    this.#appearanceSource = config.appearanceSource ?? 'raster';
     this.#meaningIntervalMs = Math.min(Math.max(config.meaningIntervalMs ?? 3000, 1000), 10000);
     const knobs = config.direction === 'knobs';
     this.#knobs = knobs ? new KnobDirector() : null;
@@ -608,7 +612,7 @@ export class VisualizerApp {
       // its persistent keyframe during those phases; the next idle frame will
       // provide a fresh procedural source without competing for the GPU.
       const checkpointRequested = request !== null;
-      if (this.#paint > 0 && !checkpointRequested && !this.#capturing && !this.#captureDisabledForTrack &&
+      if (this.#appearanceSource === 'raster' && this.#paint > 0 && !checkpointRequested && !this.#capturing && !this.#captureDisabledForTrack &&
           now >= this.#capturePausedUntil && stream.wantsSource(now) &&
           sourceCaptureAllowed(stream.meta) &&
           appearanceSourceMode({
@@ -701,7 +705,7 @@ export class VisualizerApp {
         t: frame.t,
         fps,
         streamFps,
-        stream: stream ? { buildHash: stream.info?.buildHash ?? null, unetBackend: stream.info?.unetBackend ?? null, benderEnabled: stream.info?.benderEnabled ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureDrawMs: Math.round(this.#captureDrawMs * 10) / 10, captureEncodeMs: Math.round(this.#captureEncodeMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureSevereStalls: this.#captureSevereStalls, captureDisabledForTrack: this.#captureDisabledForTrack, captureLastError: this.#captureLastError } : null,
+        stream: stream ? { buildHash: stream.info?.buildHash ?? null, unetBackend: stream.info?.unetBackend ?? null, benderEnabled: stream.info?.benderEnabled ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureDrawMs: Math.round(this.#captureDrawMs * 10) / 10, captureEncodeMs: Math.round(this.#captureEncodeMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureSevereStalls: this.#captureSevereStalls, captureDisabledForTrack: this.#captureDisabledForTrack, captureLastError: this.#captureLastError, appearanceSource: this.#appearanceSource } : null,
         paint: this.#paint,
         meaning: this.#meaningTelemetry(),
         control,
