@@ -25,6 +25,7 @@ import { FeatureBus } from '../src/audio/bus';
 import { sourceCaptureAllowed } from '../src/stream/client';
 import { continuityPaint } from '../src/render/continuity';
 import { captureBackoffMs, severeCapturePolicy } from '../src/render/capture-policy';
+import { appearanceSourceMode } from '../src/realization/appearance';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -141,6 +142,14 @@ test('source capture defers during sidecar denoising and splicing', () => {
   assert.equal(sourceCaptureAllowed({ phase: 'error' }), true);
   assert.equal(sourceCaptureAllowed({ phase: 'denoising' }), false);
   assert.equal(sourceCaptureAllowed({ phase: 'splicing' }), false);
+});
+
+test('appearance source policy separates observation from transition and disabled states', () => {
+  assert.equal(appearanceSourceMode({ connected: false, sidecarPhase: null, captureDisabled: false, transitionPending: false }), 'disabled');
+  assert.equal(appearanceSourceMode({ connected: true, sidecarPhase: 'denoising', captureDisabled: false, transitionPending: false }), 'disabled');
+  assert.equal(appearanceSourceMode({ connected: true, sidecarPhase: 'idle', captureDisabled: false, transitionPending: true }), 'transition');
+  assert.equal(appearanceSourceMode({ connected: true, sidecarPhase: 'idle', captureDisabled: false, transitionPending: false }), 'observation');
+  assert.equal(appearanceSourceMode({ connected: true, sidecarPhase: 'idle', captureDisabled: true, transitionPending: true }), 'disabled');
 });
 
 test('stale painted frames yield gradually to the live procedural substrate', () => {

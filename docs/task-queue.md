@@ -151,12 +151,15 @@ fallback remains the correct result when meaning is unsupported.
 
 ## 7. Research realization upgrades
 
-Status: **deferred behind gates**. The current structured SD-Turbo adapter is
+Status: **architecture seam complete; backend work deferred behind gates**. The current structured SD-Turbo adapter is
 the default. FiLM, reference/depth conditioning, persistent latent/video
 realization, and learned canvas work require separate research benchmarks and
 must not be enabled by default until they beat the current continuity and
 latency baselines.
 
+The procedural-video pipeline contract is now documented in
+`docs/research/procedural-video-pipeline-design.md`, and the appearance layer
+has an explicit state/observation seam in `src/realization/appearance.ts`.
 These remain behind the measured current backend:
 
 - reference/depth/correspondence conditioning for object permanence;
@@ -178,7 +181,7 @@ matches or exceeds the current latency and continuity baseline.
 - lyric cache/LRCLIB/local import paths;
 - multilingual lexical fixture and held-out evaluation;
 - conservative embedding proposal evaluator;
-- 106 TypeScript tests, typecheck, and production build.
+- 113 TypeScript tests, typecheck, and production build.
 
 ## Queue rule
 
