@@ -46,6 +46,12 @@ LRCLIB documents `GET /api/get` with `track_name`, `artist_name`, optional
 - returns `rights: "unknown"` because community availability is not a license;
 - returns `null` on network, shape, status, or match failure.
 
+Plain lyrics are a separate case: when explicitly enabled, grounded plain text
+may seed track-level visual intent, but it has no timestamp and therefore
+cannot schedule a section-local action or beat-locked change. The renderer
+continues to use audio structure for timing and treats an ungrounded plain
+result as abstention.
+
 The current implementation lives in `src/director/lyrics.ts` as
 `LocalTimedLyricsProvider`, `LrclibLyricsProvider`, `LyricsProviderChain`,
 `CachedLyricsProvider`, and the browser-safe `StorageLyricsCache`. The local adapter accepts a host

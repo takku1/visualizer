@@ -778,7 +778,13 @@ export class VisualizerApp {
         groundedMotifs: 0,
         abstained: false,
       };
-      const meaning = meaningFromLyrics(result, 1, { allowUnknownRights: this.#config.allowUnknownLyrics });
+      // Plain lyrics may establish track-level evidence, but their lack of
+      // timestamps must never schedule section-local events. Timed results
+      // retain their normal line-level behavior.
+      const meaning = meaningFromLyrics(result, 1, {
+        allowUnknownRights: this.#config.allowUnknownLyrics,
+        allowUntimed: true,
+      });
       if (meaning) {
         this.#lyricsMeaning = meaning;
         const groundedMotifs = meaning.motifs.filter((motif) => motif.kind !== 'symbol').length;

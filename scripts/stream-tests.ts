@@ -872,6 +872,20 @@ test('LRCLIB provider preserves synced evidence and rejects duration mismatches'
   assert.equal(await mismatch.lookup({ trackId: 'track-rain', title: 'Rain', artist: 'Band', durationSec: 213 }), null);
 });
 
+test('plain lyric evidence can seed a track without pretending to be time-aligned', () => {
+  const result = {
+    provider: 'lrclib', match: 'metadata' as const, timing: 'none' as const,
+    rights: 'unknown' as const, confidence: 0.8,
+    lines: [{ startSec: 0, text: 'the woman walks through the rain' }],
+  };
+  assert.equal(meaningFromLyrics(result, 1, { allowUnknownRights: true }), null);
+  const meaning = meaningFromLyrics(result, 1, { allowUnknownRights: true, allowUntimed: true });
+  assert.ok(meaning);
+  assert.equal(meaning?.sections[0]?.startSec, 0);
+  assert.equal(meaning?.sections[0]?.endSec, undefined);
+  assert.equal(meaning?.motifs.some((motif) => motif.kind !== 'symbol'), true);
+});
+
 test('cached lyric lookup avoids repeated provider requests', async () => {
   let calls = 0;
   const provider = new CachedLyricsProvider(new LrclibLyricsProvider(async () => {

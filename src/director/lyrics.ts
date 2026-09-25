@@ -331,10 +331,12 @@ export function parseLrc(input: string): LyricLine[] {
 export interface LyricsMeaningOptions {
   /** Community/provider data must be explicitly enabled before it can become committed meaning. */
   allowUnknownRights?: boolean;
+  /** Permit grounded plain lyrics as track-level evidence; never treat them as time-aligned. */
+  allowUntimed?: boolean;
 }
 
 export function meaningFromLyrics(result: LyricsResult, revision = 1, options: LyricsMeaningOptions = {}): SongMeaning | null {
-  if (result.rights === 'rejected' || (result.rights === 'unknown' && !options.allowUnknownRights) || result.timing === 'none' || result.lines.length === 0) return null;
+  if (result.rights === 'rejected' || (result.rights === 'unknown' && !options.allowUnknownRights) || (result.timing === 'none' && !options.allowUntimed) || result.lines.length === 0) return null;
   const lines = result.lines.filter((line) => line.text.trim());
   const groundedLines = lines.map((line, index) => ({
     ...line,
