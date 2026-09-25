@@ -29,29 +29,46 @@ export interface LyricsResult {
   lines: LyricLine[];
 }
 
+export interface LyricsLookupTrace {
+  outcome: 'cache-hit' | 'provider-hit' | 'miss';
+  provider: string;
+}
+
 export interface LyricsProvider {
   readonly id?: string;
+  /** Best-effort trace for the most recent lookup; never part of evidence. */
+  readonly lastLookup?: LyricsLookupTrace | null;
   lookup(query: LyricsLookup): Promise<LyricsResult | null>;
 }
 
 /** Ordered acquisition cascade; providers are tried only until one has evidence. */
 export class LyricsProviderChain implements LyricsProvider {
   readonly id = 'lyrics-chain';
+  #lastLookup: LyricsLookupTrace | null = null;
   #providers: readonly LyricsProvider[];
+
+  get lastLookup(): LyricsLookupTrace | null {
+    return this.#lastLookup;
+  }
 
   constructor(providers: readonly LyricsProvider[]) {
     this.#providers = [...providers];
   }
 
   async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
+    this.#lastLookup = null;
     for (const provider of this.#providers) {
       try {
         const result = await provider.lookup(query);
-        if (result) return result;
+        if (result) {
+          this.#lastLookup = provider.lastLookup ?? { outcome: 'provider-hit', provider: provider.id ?? 'unknown' };
+          return result;
+        }
       } catch {
         // A failed source is a miss; the next source may still be available.
       }
     }
+    this.#lastLookup = { outcome: 'miss', provider: this.id };
     return null;
   }
 }
@@ -130,18 +147,25 @@ export type LocalLyricsResolver = (query: LyricsLookup) => LocalLyricsText | nul
 /** Host-neutral adapter for a local .lrc file or embedded synced-lyrics tag. */
 export class LocalTimedLyricsProvider implements LyricsProvider {
   readonly id = 'local-timed';
+  #lastLookup: LyricsLookupTrace | null = null;
   #resolve: LocalLyricsResolver;
+
+  get lastLookup(): LyricsLookupTrace | null {
+    return this.#lastLookup;
+  }
 
   constructor(resolve: LocalLyricsResolver) {
     this.#resolve = resolve;
   }
 
   async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
+    this.#lastLookup = null;
     let local: LocalLyricsText | null;
-    try { local = await this.#resolve(query); } catch { return null; }
-    if (!local?.text.trim()) return null;
+    try { local = await this.#resolve(query); } catch { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
+    if (!local?.text.trim()) { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
     const lines = parseLrc(local.text);
-    if (!lines.length) return null;
+    if (!lines.length) { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
+    this.#lastLookup = { outcome: 'provider-hit', provider: this.id };
     return {
       provider: this.id,
       providerUrl: local.source,
@@ -160,6 +184,7 @@ export class LocalTimedLyricsProvider implements LyricsProvider {
 /** Development/community provider. It never claims licensed rights. */
 export class LrclibLyricsProvider implements LyricsProvider {
   readonly id = 'lrclib';
+  #lastLookup: LyricsLookupTrace | null = null;
   #fetcher: LyricsFetcher;
   #baseUrl: string;
   #clientId: string;
@@ -174,8 +199,13 @@ export class LrclibLyricsProvider implements LyricsProvider {
     this.#clientId = clientId;
   }
 
+  get lastLookup(): LyricsLookupTrace | null {
+    return this.#lastLookup;
+  }
+
   async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
-    if (!query.title?.trim() || !query.artist?.trim()) return null;
+    this.#lastLookup = null;
+    if (!query.title?.trim() || !query.artist?.trim()) { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
     const params = new URLSearchParams({ track_name: query.title.trim(), artist_name: query.artist.trim() });
     if (query.album?.trim()) params.set('album_name', query.album.trim());
     if (Number.isFinite(query.durationSec) && (query.durationSec ?? 0) > 0) params.set('duration', String(Math.round(query.durationSec!)));
@@ -185,17 +215,19 @@ export class LrclibLyricsProvider implements LyricsProvider {
         headers: { accept: 'application/json', 'X-User-Agent': this.#clientId },
       });
     } catch {
+      this.#lastLookup = { outcome: 'miss', provider: this.id };
       return null;
     }
-    if (!response.ok || response.status < 200 || response.status >= 300) return null;
+    if (!response.ok || response.status < 200 || response.status >= 300) { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
     let raw: unknown;
-    try { raw = await response.json(); } catch { return null; }
-    if (!isRecord(raw)) return null;
+    try { raw = await response.json(); } catch { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
+    if (!isRecord(raw)) { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
     const duration = numberValue(raw.duration);
-    if (Number.isFinite(query.durationSec) && duration !== null && Math.abs(duration - query.durationSec!) > 2) return null;
+    if (Number.isFinite(query.durationSec) && duration !== null && Math.abs(duration - query.durationSec!) > 2) { this.#lastLookup = { outcome: 'miss', provider: this.id }; return null; }
     const synced = typeof raw.syncedLyrics === 'string' ? raw.syncedLyrics : '';
     const lines = synced ? parseLrc(synced) : [];
     const plain = typeof raw.plainLyrics === 'string' && raw.plainLyrics.trim().length > 0;
+    this.#lastLookup = { outcome: 'provider-hit', provider: this.id };
     return {
       provider: this.id,
       providerTrackId: stringValue(raw.id) ?? undefined,
@@ -214,6 +246,7 @@ export class LrclibLyricsProvider implements LyricsProvider {
 }
 
 export class CachedLyricsProvider implements LyricsProvider {
+  #lastLookup: LyricsLookupTrace | null = null;
   #provider: LyricsProvider;
   #cache: LyricsCache;
 
@@ -222,11 +255,22 @@ export class CachedLyricsProvider implements LyricsProvider {
     this.#cache = cache;
   }
 
+  get lastLookup(): LyricsLookupTrace | null {
+    return this.#lastLookup;
+  }
+
   async lookup(query: LyricsLookup): Promise<LyricsResult | null> {
+    this.#lastLookup = null;
     const key = lyricsCacheKey(this.#provider.id ?? 'provider', query);
     const cached = this.#cache.get(key);
-    if (cached) return cached;
+    if (cached) {
+      this.#lastLookup = { outcome: 'cache-hit', provider: cached.provider || this.#provider.id || 'unknown' };
+      return cached;
+    }
     const result = await this.#provider.lookup(query);
+    this.#lastLookup = result
+      ? { outcome: 'provider-hit', provider: result.provider || this.#provider.id || 'unknown' }
+      : (this.#provider.lastLookup ?? { outcome: 'miss', provider: this.#provider.id ?? 'unknown' });
     if (result) this.#cache.set(key, result);
     return result;
   }

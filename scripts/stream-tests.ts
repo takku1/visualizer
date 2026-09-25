@@ -862,6 +862,7 @@ test('LRCLIB provider preserves synced evidence and rejects duration mismatches'
   assert.equal(result?.timing, 'line');
   assert.equal(result?.rights, 'unknown');
   assert.equal(result?.lines[0]?.text, 'the woman walks');
+  assert.deepEqual(provider.lastLookup, { outcome: 'provider-hit', provider: 'lrclib' });
   assert.equal(meaningFromLyrics(result!, 1), null);
   assert.ok(meaningFromLyrics(result!, 1, { allowUnknownRights: true }));
 
@@ -879,7 +880,9 @@ test('cached lyric lookup avoids repeated provider requests', async () => {
   }), new MemoryLyricsCache());
   const query = { trackId: 'cached', title: 'Rain', artist: 'Band', durationSec: 10 };
   assert.ok(await provider.lookup(query));
+  assert.deepEqual(provider.lastLookup, { outcome: 'provider-hit', provider: 'lrclib' });
   assert.ok(await provider.lookup(query));
+  assert.deepEqual(provider.lastLookup, { outcome: 'cache-hit', provider: 'lrclib' });
   assert.equal(calls, 1);
 });
 
@@ -902,6 +905,7 @@ test('lyrics provider chain falls through failed sources and preserves the winni
   ]);
   const result = await chain.lookup({ trackId: 'chain', title: 'Rain', artist: 'Band' });
   assert.equal(result?.provider, 'verified-source');
+  assert.deepEqual(chain.lastLookup, { outcome: 'provider-hit', provider: 'verified-source' });
   assert.deepEqual(calls, ['missing-local', 'verified-source']);
 });
 

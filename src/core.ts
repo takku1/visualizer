@@ -27,7 +27,7 @@ import { colorStateFromLook, lightingStateFromLook } from './world/visual';
 import { continuousForcesFrom } from './realization/backend';
 import { resonanceFrom } from './world/resonance';
 import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime, type ShotSelectionDiagnostic } from './stream/shot-graph';
-import { meaningFromLyrics, type LyricsProvider } from './director/lyrics';
+import { meaningFromLyrics, type LyricsProvider, type LyricsLookupTrace } from './director/lyrics';
 import type { SongMeaning } from './director/semantic';
 
 export interface AppConfig {
@@ -134,6 +134,15 @@ export class VisualizerApp {
   #lyricsMeaning: SongMeaning | null = null;
   #lyricsLookupFor: string | null = null;
   #lyricsLookupEpoch = 0;
+  #lyricsTelemetry: {
+    trackId: string;
+    provider: string;
+    source: LyricsLookupTrace['outcome'] | 'pending';
+    status: 'pending' | 'committed' | 'miss' | 'rejected' | 'unusable' | 'error';
+    timing: string | null;
+    rights: string | null;
+    confidence: number | null;
+  } | null = null;
   #liveAccumulator = new LiveLyricAccumulator();
   #lastMeaningSendAt = -Infinity;
   #meaningIntervalMs: number;
@@ -154,11 +163,11 @@ export class VisualizerApp {
   #loopWatchdog: number | null = null;
 
   #meaningTelemetry(): object | null {
-    if (!this.#liveMeaning) return null;
+    if (!this.#liveMeaning && !this.#lyricsTelemetry) return null;
     const cue = this.#liveMeaningState ? perceptualCueFromLive(this.#liveMeaningState) : null;
     const evidence = this.#liveMeaningState ? liveEvidenceSummary(this.#liveMeaningState) : null;
     return {
-      ...this.#liveMeaning.telemetry(),
+      ...(this.#liveMeaning ? this.#liveMeaning.telemetry() : {}),
       intervalMs: this.#meaningIntervalMs,
       provisional: this.#liveMeaningState?.provisional.length ?? 0,
       committed: this.#liveMeaningState?.committed.length ?? 0,
@@ -173,6 +182,7 @@ export class VisualizerApp {
         motion: cue.motion,
         lighting: cue.lighting,
       } : { active: false },
+      lyrics: this.#lyricsTelemetry,
     };
   }
 
@@ -719,6 +729,16 @@ export class VisualizerApp {
     if (!provider || !ctx.trackId || !ctx.title || !ctx.artist || this.#lyricsLookupFor === ctx.trackId) return;
     this.#lyricsLookupFor = ctx.trackId;
     const epoch = ++this.#lyricsLookupEpoch;
+    this.#lyricsTelemetry = {
+      trackId: ctx.trackId,
+      provider: provider.id ?? 'unknown',
+      source: 'pending',
+      status: 'pending',
+      timing: null,
+      rights: null,
+      confidence: null,
+    };
+    console.info(`[lyrics] lookup started provider=${provider.id ?? 'unknown'} track=${ctx.title}`);
     void provider.lookup({
       trackId: ctx.trackId,
       title: ctx.title,
@@ -726,20 +746,56 @@ export class VisualizerApp {
       album: ctx.album,
       durationSec: ctx.durationSec,
     }).then((result) => {
-      if (!result || epoch !== this.#lyricsLookupEpoch || this.#barTrackId !== ctx.trackId) return;
+      if (epoch !== this.#lyricsLookupEpoch || this.#barTrackId !== ctx.trackId) return;
+      const trace = provider.lastLookup;
+      if (!result) {
+        this.#lyricsTelemetry = {
+          trackId: ctx.trackId,
+          provider: trace?.provider ?? provider.id ?? 'unknown',
+          source: trace?.outcome ?? 'miss',
+          status: 'miss',
+          timing: null,
+          rights: null,
+          confidence: null,
+        };
+        console.info(`[lyrics] miss provider=${trace?.provider ?? provider.id ?? 'unknown'} source=${trace?.outcome ?? 'miss'} track=${ctx.title}`);
+        return;
+      }
+      this.#lyricsTelemetry = {
+        trackId: ctx.trackId,
+        provider: result.provider,
+        source: trace?.outcome ?? 'provider-hit',
+        status: 'pending',
+        timing: result.timing,
+        rights: result.rights,
+        confidence: result.confidence,
+      };
       const meaning = meaningFromLyrics(result, 1, { allowUnknownRights: this.#config.allowUnknownLyrics });
       if (meaning) {
         this.#lyricsMeaning = meaning;
+        this.#lyricsTelemetry.status = 'committed';
         console.info(`[lyrics] ${result.provider} supplied ${result.timing}-timed evidence for ${ctx.title}`);
         // Lyrics arrive asynchronously after the track-start abstention. Ask
         // the director to re-plan immediately so evidence does not remain
         // visually stale until the next section/checkpoint boundary.
         void this.#director.refresh(this.bus.frame, this.#config.context?.() ?? {});
       } else {
+        this.#lyricsTelemetry.status = result.rights === 'unknown' && !this.#config.allowUnknownLyrics ? 'rejected' : 'unusable';
         console.info(`[lyrics] ${result.provider} result retained as evidence but not committed (${result.rights}/${result.timing})`);
       }
     }).catch((error: unknown) => {
-      if (epoch === this.#lyricsLookupEpoch) console.warn(`[lyrics] lookup unavailable: ${error instanceof Error ? error.message : String(error)}`);
+      if (epoch === this.#lyricsLookupEpoch) {
+        this.#lyricsTelemetry = {
+          trackId: ctx.trackId!,
+          provider: provider.id ?? 'unknown',
+          source: 'pending',
+          status: 'error',
+          timing: null,
+          rights: null,
+          confidence: null,
+        };
+        console.warn(`[lyrics] lookup unavailable provider=${provider.id ?? 'unknown'}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     });
   }
 

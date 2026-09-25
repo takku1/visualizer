@@ -23,6 +23,14 @@ track change and never in the frame loop. Synced lyric position is aligned to
 the media-session playhead; the renderer continues immediately with its current
 world while lookup is pending.
 
+The lookup path exposes non-semantic telemetry for each track: `pending`,
+`cache-hit`, `provider-hit`, `miss`, `rejected`, `unusable`, or `error`. This is
+intentionally separate from evidence and meaning. A successful download can
+still be rejected because rights are unknown, timing is absent, or the bounded
+grounding layer finds no supported cue. That distinction prevents treating a
+slow Whisper window, a provider miss, and a rights decision as the same
+failure when diagnosing an apparent fallback.
+
 ## LRCLIB boundary
 
 LRCLIB documents `GET /api/get` with `track_name`, `artist_name`, optional
