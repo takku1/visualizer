@@ -24,6 +24,7 @@
     "test:evaluate-logs": "node scripts/test-evaluate-logs.mjs",
     "evaluate:grounding": "node scripts/run-grounding-fixture.mjs",
     "evaluate:grounding:heldout": "node scripts/run-grounding-fixture.mjs scripts/grounding-heldout.json --report-only",
+    "evaluate:multilingual-cues": "python tools/evaluate-multilingual-cues.py scripts/grounding-heldout.json",
     "install-ext": "node build.mjs && node scripts/install.mjs",
     "typecheck": "tsc --noEmit"
   },

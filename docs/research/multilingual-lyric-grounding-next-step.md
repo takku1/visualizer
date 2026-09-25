@@ -189,6 +189,11 @@ Important restrictions:
    should remain lexical/timing evidence plus abstention until the benchmark
    demonstrates improved coverage without a false-promotion regression.
 
+The first implementation seam is now available as the offline command
+`npm run evaluate:multilingual-cues`. It uses a fixed cue bank and an opt-in
+Transformers checkpoint; it is intentionally not part of `npm run app` and its
+output cannot promote a literal world entity or action.
+
 ## Measurements to add
 
 | Metric | Why it matters |
