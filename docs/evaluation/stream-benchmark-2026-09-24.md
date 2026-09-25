@@ -42,6 +42,29 @@ the current optimization has not bought speed by consuming the A3000's headroom.
 
 ## End-to-end smoke test
 
+## Follow-up controlled A/B — 2026-09-25
+
+The same 150-frame, 448×256, `torch.float16` fixture was rerun with the
+current source and no competing GPU process:
+
+| Measure | Bender on | Bender off |
+| --- | ---: | ---: |
+| Median frame time | 67.281 ms | 67.372 ms |
+| P95 frame time | 68.652 ms | 72.817 ms |
+| Median throughput | 14.863 FPS | 14.843 FPS |
+| UNet median | 47.701 ms | 46.861 ms |
+| Peak VRAM | 2434.3 MB | 2435.0 MB |
+
+The difference is within ordinary run-to-run variance for this short fixture.
+Disabling Bender is therefore not an optimization decision: it does not
+meaningfully improve throughput and would remove the structured conditioning
+path. Keep it enabled while optimizing the measured UNet and capture/encode
+boundaries separately.
+
+This engine benchmark excludes JPEG capture and Electron compositing. The
+recent live-session stalls remain an end-to-end capture/backpressure issue,
+not evidence that Bender is the cause.
+
 `npm run smoke` passed against an isolated sidecar:
 
 - 79 calm and 79 aggressive frames received in each phase;
