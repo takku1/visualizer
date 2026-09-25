@@ -312,9 +312,11 @@ The protocol is one websocket, with one owner at a time (ADR-013).
 - **Browser → sidecar, text:** `control` (latest wins, ~30 Hz), `track`
   (metadata/meaning lookup), `blend`, and `checkpoint`.
 - **Browser → sidecar, binary:** a 448×256 JPEG procedural frame by default
-  (or 576×320 when the quality profile is selected). One is in flight at a
-  time; the next is sent when a painted frame returns, or after
-  250 ms.
+  (or 576×320 when the quality profile is selected). Camera sources are sent
+  at a conservative 400 ms cadence with one in flight; painted frames remain
+  independent and latest-wins. A returned keyframe does not restart the
+  camera-source timer, because it does not prove the procedural source was
+  consumed.
 - **Sidecar → browser, text:** `ready`, `concepts`, and `meaning` messages;
   meaning is a local manifest lookup and may be null. The sidecar does not
   fetch lyrics or choose story content.

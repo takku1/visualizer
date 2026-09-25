@@ -5,6 +5,9 @@ import { isLiveLyricUpdate, type LiveLyricUpdate } from '../director/live';
 import type { ContinuousForces } from '../realization/backend';
 import type { WorldResonance } from '../world/resonance';
 
+/** Camera-source cadence; controls and painted frames remain independently rate-limited. */
+export const PROCEDURAL_SOURCE_INTERVAL_MS = 400;
+
 /** Per-frame header the sidecar prepends to each JPEG. */
 export interface StreamMeta {
   frame: number;
@@ -209,10 +212,12 @@ export class StreamClient {
   /**
    * Whether a new procedural source frame should be sent now. One in flight:
    * the next goes out when a stream frame comes back (the sidecar consumed
-   * the last one) or after 250 ms, so a stall never wedges the pipeline.
+   * the last one) or after the source interval, so a stall never wedges the
+   * pipeline. Painted frames do not reset this timer: a returned keyframe is
+   * not evidence that the procedural source was consumed.
    */
   wantsSource(now: number): boolean {
-    return this.connected && now - this.#sourceSentAt > 250;
+    return this.connected && now - this.#sourceSentAt > PROCEDURAL_SOURCE_INTERVAL_MS;
   }
 
   /** Send the procedural scene frame (JPEG) the sidecar paints over. */
@@ -255,7 +260,6 @@ export class StreamClient {
     this.meta = { ...this.meta, ...meta };
     const jpeg = new Uint8Array(buf, 4 + headLen);
     if (!jpeg.byteLength) return;
-    this.#sourceSentAt = 0; // the sidecar has taken the last source: send the next one
     this.framesReceived++;
     if (meta.frame <= this.#newestShown) {
       // Stale frame: drop before the async JPEG decode, which is the
