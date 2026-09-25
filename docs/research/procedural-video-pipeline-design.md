@@ -135,6 +135,19 @@ The current `ContinuousForces` and `structured-world-v2` realization request are
 5. Add richer procedural world modules: camera, fields, particles, atmosphere, and typed material response.
 6. Only then evaluate WebCodecs, native capture, latent-video, or a spatial backend.
 
+The first runtime slice now implements steps 1, 2, and part of 5: source
+observations are refreshed at 800 ms instead of 400 ms, the sidecar tolerates
+up to 1.5 s between observations and continues from its existing state, and
+the procedural shader consumes pulse, flux, and stereo-width forces. This is
+intentionally a bounded change: it lowers capture pressure without claiming
+that the current raster bridge has become a true latent backend.
+
+WebCodecs remains deferred. The current evidence shows severe shared-GPU
+capture spikes, but the clean sidecar benchmark does not isolate browser
+encoding from GPU contention. A WebCodecs implementation should therefore be
+an A/B branch after the live capture telemetry is collected, not a speculative
+default rewrite.
+
 The success criterion is not “more diffusion.” It is a continuous visual organism whose motion remains musical when the learned appearance layer is delayed, unavailable, or intentionally quiet.
 
 ## Experimental comparison

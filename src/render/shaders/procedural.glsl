@@ -14,6 +14,9 @@ uniform float uTravel;     // accumulated forward travel (log2 zoom)
 uniform float uSwirl;      // twist around the centre, radians
 uniform float uBass;       // 0..1, smoothed
 uniform float uTreble;     // 0..1, smoothed
+uniform float uPulse;      // 0..1, onset/beat impulse
+uniform float uFlux;       // 0..1, timbral change
+uniform float uStereo;     // 0..1, stereo width
 uniform float uEnergy;     // 0..1
 uniform float uHue;        // harmony: hue rotation, radians
 uniform float uSeed;
@@ -52,7 +55,8 @@ float fbm(vec2 p) {
 float layer(vec2 p, float scale) {
   vec2 q = p * scale + uSeed * 13.7;
   vec2 w = vec2(fbm(q + vec2(uFlow, 0.0)), fbm(q + vec2(5.2, 1.3 - uFlow)));
-  q += (w - 0.5) * uWarp * (2.2 + 1.5 * uBass);
+  q += (w - 0.5) * uWarp * (2.2 + 1.5 * uBass + 0.8 * uFlux);
+  q.x += (uStereo - 0.5) * 0.08 * sin(uTime * 0.7 + q.y * 2.0);
   float n = fbm(q + uFlow * 0.3);
   float ridge = 1.0 - abs(2.0 * n - 1.0);             // filaments
   float organic = pow(ridge, 3.0) * 0.8 + n * 0.35;
@@ -91,7 +95,7 @@ vec3 proceduralScene(vec2 uv) {
 
   // Depth: brighter toward the vanishing point, so travel reads as motion.
   float depth = exp(-r * 1.1);
-  float lum = clamp(v * (0.55 + 0.45 * uEnergy) + depth * 0.35, 0.0, 1.2);
+  float lum = clamp(v * (0.55 + 0.45 * uEnergy) + depth * (0.35 + 0.15 * uPulse), 0.0, 1.2);
 
   vec3 col = mix(uColA, uColB, smoothstep(0.1, 0.55, lum));
   col = mix(col, uColC, smoothstep(0.55, 1.0, lum));
@@ -99,7 +103,7 @@ vec3 proceduralScene(vec2 uv) {
   // Treble sparkles: sparse points that flare with the highs.
   vec2 g = q * 18.0 * exp2(-f) + uSeed;
   float star = step(0.985, hash21(floor(g))) * smoothstep(0.5, 0.0, length(fract(g) - 0.5));
-  col += uColC * star * uTreble * 1.5;
+  col += uColC * star * (uTreble + 0.35 * uPulse) * 1.5;
 
   col = hueRotate(col, uHue);
   col *= 1.0 - smoothstep(0.7, 1.9, r) * 0.6;

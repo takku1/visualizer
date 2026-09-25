@@ -812,8 +812,8 @@ class Engine:
         self.source_at = time.perf_counter()
 
     def _source(self) -> torch.Tensor | None:
-        """The procedural frame, if a fresh one exists (< 1 s old)."""
-        if time.perf_counter() - self.source_at > 1.0:
+        """The procedural frame, if a fresh observation exists (< 1.5 s old)."""
+        if time.perf_counter() - self.source_at > 1.5:
             return None
         arr, self.source_np = self.source_np, None
         if arr is not None:

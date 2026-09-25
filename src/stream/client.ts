@@ -5,8 +5,12 @@ import { isLiveLyricUpdate, type LiveLyricUpdate } from '../director/live';
 import type { ContinuousForces } from '../realization/backend';
 import type { WorldResonance } from '../world/resonance';
 
-/** Camera-source cadence; controls and painted frames remain independently rate-limited. */
-export const PROCEDURAL_SOURCE_INTERVAL_MS = 400;
+/**
+ * Idle observation cadence. The procedural renderer remains 60 Hz; the
+ * appearance backend only needs a fresh spatial observation often enough to
+ * correct drift. Checkpoints still force their own realization path.
+ */
+export const PROCEDURAL_SOURCE_INTERVAL_MS = 800;
 
 /** Per-frame header the sidecar prepends to each JPEG. */
 export interface StreamMeta {

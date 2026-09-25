@@ -12,6 +12,9 @@ export interface ProceduralUniforms {
   swirl: number;
   bass: number;
   treble: number;
+  pulse: number;
+  flux: number;
+  stereo: number;
   energy: number;
   hue: number;
   seed: number;
@@ -49,6 +52,9 @@ export class ProceduralScene {
   #bass = 0;
   #treble = 0;
   #energy = 0;
+  #pulse = 0;
+  #flux = 0;
+  #stereo = 0;
 
   constructor(fadeSec = 2) {
     this.#fadeSec = fadeSec;
@@ -77,6 +83,9 @@ export class ProceduralScene {
     this.#bass = smooth(this.#bass, f.bass, dt, 0.08);
     this.#treble = smooth(this.#treble, Math.max(f.treble, f.trebleFlux), dt, 0.05);
     this.#energy = smooth(this.#energy, energy, dt, 0.5);
+    this.#pulse = smooth(this.#pulse, push, dt, 0.08);
+    this.#flux = smooth(this.#flux, f.flux, dt, 0.12);
+    this.#stereo = smooth(this.#stereo, f.stereoWidth, dt, 0.3);
 
     this.#flow += dt * (0.04 + 0.2 * this.#energy + 0.25 * f.flux);
     // Forward travel in octaves per second; a beat push surges forward.
@@ -91,6 +100,9 @@ export class ProceduralScene {
       swirl: this.#swirl,
       bass: this.#bass,
       treble: this.#treble,
+      pulse: this.#pulse,
+      flux: this.#flux,
+      stereo: this.#stereo,
       energy: this.#energy,
       hue: c.hue,
       seed: look.seed,
@@ -125,6 +137,9 @@ export function applyProcedural(u: Uniforms, s: ProceduralUniforms, aspect: numb
   u.f('uSwirl', s.swirl);
   u.f('uBass', s.bass);
   u.f('uTreble', s.treble);
+  u.f('uPulse', s.pulse);
+  u.f('uFlux', s.flux);
+  u.f('uStereo', s.stereo);
   u.f('uEnergy', s.energy);
   u.f('uHue', s.hue);
   u.f('uSeed', s.seed);

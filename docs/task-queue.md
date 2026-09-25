@@ -112,7 +112,7 @@ Acceptance gate:
 
 ## 5. Performance optimization
 
-Status: **clean engine baseline complete; capture optimization pending**. The
+Status: **clean engine baseline complete; event-driven capture slice complete; WebCodecs A/B pending**. The
 isolated current PyTorch+Bender run measured `67.3 ms` median, `68.7 ms` p95,
 and `14.9 FPS` at 448×256. Bender off was effectively identical, so it stays
 enabled. The next measured target is capture draw/JPEG backpressure; TensorRT
