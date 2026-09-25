@@ -513,6 +513,24 @@ test('live meaning stabilizes short Japanese lyric chunks', () => {
   assert.equal(state.committed.length, 1);
 });
 
+test('live meaning uses grapheme clusters for non-Latin wording revisions', () => {
+  const accumulator = new LiveLyricAccumulator();
+  const make = (revision: number, text: string): LiveLyricHypothesis => ({
+    ...liveHypothesis,
+    id: `indic-${revision}`,
+    text,
+    language: 'hi',
+    confidence: 0.8,
+    stability: 0.8,
+    startSec: 2.1,
+    endSec: 5.4,
+  });
+  accumulator.update('hi-grapheme', 1, [make(1, 'नमस्ते दुनिया')]);
+  accumulator.update('hi-grapheme', 2, [make(2, 'नमस्ते दुनियाँ')]);
+  const state = accumulator.update('hi-grapheme', 3, [make(3, 'नमस्ते दुनिया')]);
+  assert.equal(state.committed.length, 1);
+});
+
 test('live meaning normalizes full-width and mixed-script evidence before matching', () => {
   const accumulator = new LiveLyricAccumulator();
   const make = (revision: number, text: string): LiveLyricHypothesis => ({

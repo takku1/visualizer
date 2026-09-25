@@ -119,8 +119,8 @@ function overlaps(a: LiveLyricHypothesis, b: LiveLyricHypothesis): boolean {
  * merging unrelated phrases that merely occur in the same six-second window. */
 function textSimilarity(a: string, b: string): number {
   if (a === b) return 1;
-  const leftChars = Array.from(a);
-  const rightChars = Array.from(b);
+  const leftChars = graphemes(a);
+  const rightChars = graphemes(b);
   // Japanese lyrics often arrive as short kana/kanji chunks without spaces.
   // UTF-16 length and Latin-oriented n-grams incorrectly reject those chunks
   // before temporal evidence can accumulate.
@@ -144,6 +144,18 @@ function textSimilarity(a: string, b: string): number {
 
 function containsJapanese(value: string): boolean {
   return /[\u3040-\u30ff\u3400-\u9fff]/u.test(value);
+}
+
+/** Segment user-visible characters where the runtime provides Unicode
+ * grapheme segmentation; code-point fallback keeps the worker portable. */
+function graphemes(value: string): string[] {
+  const Segmenter = (Intl as typeof Intl & {
+    Segmenter?: new (locales?: string | string[], options?: { granularity?: string }) => {
+      segment(input: string): Iterable<{ segment: string }>;
+    };
+  }).Segmenter;
+  if (Segmenter) return [...new Segmenter(undefined, { granularity: 'grapheme' }).segment(value)].map((part) => part.segment);
+  return Array.from(value);
 }
 
 function characterMultisetSimilarity(a: string[], b: string[]): number {
