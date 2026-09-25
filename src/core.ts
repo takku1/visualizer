@@ -30,6 +30,12 @@ import { addShotCandidate, compileShotGraph, shotGraphBoundary, ShotGraphRuntime
 import { meaningFromLyrics, type LyricsProvider, type LyricsLookupTrace } from './director/lyrics';
 import type { SongMeaning } from './director/semantic';
 
+// The procedural camera is conditioning input, not the final displayed image.
+// Keeping this below display-quality JPEG reduces encode contention on the
+// shared Electron GPU/CPU path while preserving the broad spatial structure
+// the diffusion sidecar needs.
+const SOURCE_CAPTURE_JPEG_QUALITY = 0.7;
+
 export interface AppConfig {
   /** TypeSafe key. Absent means the local engine drives everything. */
   apiKey?: string;
@@ -831,7 +837,7 @@ export class VisualizerApp {
         this.#capture = new ProceduralCapture(stream.info.width, stream.info.height);
       }
       const started = performance.now();
-      const jpeg = await this.#capture.capture(scene);
+      const jpeg = await this.#capture.capture(scene, SOURCE_CAPTURE_JPEG_QUALITY);
       const elapsed = performance.now() - started;
       this.#captureDrawMs = this.#capture.lastDrawMs;
       this.#captureEncodeMs = this.#capture.lastEncodeMs;
