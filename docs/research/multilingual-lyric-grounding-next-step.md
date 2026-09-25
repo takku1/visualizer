@@ -202,6 +202,13 @@ is evidence that raw embedding similarity is not a safe grounding mechanism;
 the next experiment must add language/script gates, repeated evidence, and
 calibrated risk-coverage before any proposal can reach the director.
 
+The evaluator now exposes this as an explicit gate: unsupported languages,
+script contradictions, single observations, and low score/margin candidates
+abstain with machine-readable reasons. Even a candidate that passes those
+checks remains `proposal-only`; it cannot create a literal person, object,
+place, or action without lexical/timing evidence or a separately validated
+promotion policy.
+
 ## Measurements to add
 
 | Metric | Why it matters |

@@ -35,6 +35,7 @@ ACTIONS = {
     "converges with another form": "gathering, meeting, crossing, or converging",
     "reveals or conceals space": "opening, closing, unfolding, or revealing space",
 }
+SUPPORTED_LANGUAGES = {"en", "ja", "auto", "und"}
 
 
 def mean_pool(outputs: Any, mask: torch.Tensor) -> torch.Tensor:
@@ -51,6 +52,35 @@ def encode(texts: list[str], tokenizer: Any, model: Any, device: str) -> torch.T
     with torch.inference_mode():
         vectors = mean_pool(model(**batch), batch["attention_mask"])
         return torch.nn.functional.normalize(vectors, p=2, dim=1).cpu()
+
+
+def script_compatible(language: str, text: str) -> bool:
+    has_latin = any(char.isascii() and char.isalpha() for char in text)
+    has_japanese = any("\u3040" <= char <= "\u30ff" or "\u3400" <= char <= "\u9fff" for char in text)
+    if language == "ja":
+        return has_japanese
+    if language == "en":
+        return has_latin
+    return has_latin or has_japanese
+
+
+def gate_proposal(case: dict[str, Any], accepted: list[dict[str, Any]], *, min_observations: int, threshold: float, margin: float) -> dict[str, Any]:
+    language = str(case.get("language", "und")).split("-", 1)[0].lower()
+    observations = int(case.get("observations", 1))
+    reasons: list[str] = []
+    if language not in SUPPORTED_LANGUAGES:
+        reasons.append("language-not-enabled")
+    if not script_compatible(language, str(case.get("text", ""))):
+        reasons.append("script-incompatible")
+    if observations < min_observations:
+        reasons.append("insufficient-repeated-evidence")
+    if not accepted:
+        reasons.append("score-or-margin-below-threshold")
+    if reasons:
+        return {"status": "abstain", "reasons": reasons}
+    # The experiment may only propose bounded perceptual direction. It is not
+    # authorized to create a literal person/object/place/action in the world.
+    return {"status": "proposal-only", "reasons": ["requires-lexical-or-human-confirmation"]}
 
 
 def main() -> int:
@@ -88,10 +118,12 @@ def main() -> int:
             next_score = typed[1][0] if len(typed) > 1 else score
             if score >= args.threshold and score - next_score >= args.margin:
                 accepted.append({"type": kind, "label": label, "score": round(score, 4), "margin": round(score - next_score, 4)})
+        gate = gate_proposal(case, accepted, min_observations=2, threshold=args.threshold, margin=args.margin)
         rows.append({
             "id": case["id"],
             "language": case["language"],
             "accepted": accepted,
+            "gate": gate,
             "top": {"type": ranked[0][1][0], "label": ranked[0][1][1], "score": round(ranked[0][0], 4)},
             "expectedKinds": case["expectedKinds"],
             "expectedAction": case["expectedAction"],
