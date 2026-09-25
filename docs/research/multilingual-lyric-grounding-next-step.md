@@ -170,10 +170,12 @@ Important restrictions:
    coverage, and false entity/action promotions.~~ Baseline result: 8/8 fixture
    cases pass, cue precision 100%, cue recall 100%, and zero false promotions.
    This is a regression baseline, not a claim of broad language coverage. A
-   separate held-out report (`npm run evaluate:grounding:heldout`) currently
-   measures 8/10 cases, 88.9% cue recall, 100% precision, and zero false
-   promotions. Its known misses are bounded vocabulary gaps (`moonlight` and
-   the force sense of `dark`), which are recorded rather than tuned away.
+   separate held-out report (`npm run evaluate:grounding:heldout`) initially
+   exposed two bounded vocabulary gaps (`moonlight` and the force sense of
+   `dark`). Adding those explicit synonyms to the versioned contract now gives
+   10/10 cases, 100% cue recall, 100% precision, and zero false promotions.
+   Unsupported Spanish/Korean cases remain abstentions. This is still a small
+   contract regression set, not broad multilingual validation.
 3. Add Unicode grapheme normalization and repeated-window diagnostics if the
    existing code still compares code points where grapheme clusters are more
    appropriate. Keep the current bounded matcher as the baseline.

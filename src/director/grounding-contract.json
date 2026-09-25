@@ -5,7 +5,7 @@
     { "kind": "person", "english": "\\b(woman|girl|man|boy|person|child|mother|father|lover)\\b", "japanese": "彼女|彼|女性|少女|男性|少年|子供|子ども|母|父|恋人" },
     { "kind": "place", "english": "\\b(station|platform|city|street|road|room|home|house|forest|garden|river|sea|mountain|bridge|school|field|night)\\b", "japanese": "駅|駅前|ホーム|街|町|通り|道|路地|部屋|家|森|庭|川|海|海辺|山|橋|学校|野原|夜|夜空|世界|場所" },
     { "kind": "object", "english": "\\b(train|car|door|window|coat|scarf|suitcase|umbrella|flower|phone|mirror|ring|shoe|bird|dog|cat|dream|heart|voice|song|letter)\\b", "japanese": "電車|列車|車|扉|ドア|窓|コート|マフラー|鞄|かばん|傘|花|電話|鏡|指輪|靴|鳥|とり|犬|猫|夢|心|声|歌|手紙|身体|体" },
-    { "kind": "force", "english": "\\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|star|darkness|dawn|love|tears|time)\\b", "japanese": "雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時" },
+    { "kind": "force", "english": "\\b(rain|snow|wind|fire|light|rainy|thunder|wave|sun|moon|moonlight|star|dark|darkness|dawn|love|tears|time)\\b", "japanese": "雨|雪|風|火|光|雷|波|太陽|月|星|闇|夜明け|朝焼け|愛|恋|涙|時間|時" },
     { "kind": "texture", "english": "\\b(fog|smoke|mist|water|ice|dust|glass|stone|shadow|sky|world)\\b", "japanese": "霧|煙|水|氷|埃|ほこり|ガラス|石|影|空|世界|赤|青|白|色" }
   ],
   "actions": [
