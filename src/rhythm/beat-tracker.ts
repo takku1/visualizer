@@ -47,6 +47,8 @@ const ANALYSIS_SEC = 6;
 const UPDATE_EVERY_SEC = 0.25;
 const PHASE_BEATS = 6;
 const PLL_GAIN = 0.35;
+const TEMPO_CHANGE_HOLD_UPDATES = 6;
+const TEMPO_CHANGE_MATCH = 0.04;
 
 export class BeatTracker {
   readonly rate: number;
@@ -62,6 +64,8 @@ export class BeatTracker {
   #tempoScore: Float64Array;
   #period = 0; // seconds per beat; 0 until the first estimate
   #recentPeriods: number[] = [];
+  #tempoChangeCandidate = 0;
+  #tempoChangeUpdates = 0;
 
   // The running beat grid: a beat landed at `#anchor` (audio seconds) with index `#anchorIndex`.
   #anchor = 0;
@@ -93,6 +97,8 @@ export class BeatTracker {
     this.#tempoScore.fill(0);
     this.#period = 0;
     this.#recentPeriods = [];
+    this.#tempoChangeCandidate = 0;
+    this.#tempoChangeUpdates = 0;
     this.#anchor = 0;
     this.#anchorIndex = 0;
     this.#confidence = 0;
@@ -234,6 +240,34 @@ export class BeatTracker {
       const ratio = period / this.#period;
       if (ratio > 1.82 && ratio < 2.2) period *= 0.5;
       else if (ratio > 0.455 && ratio < 0.55) period *= 2;
+    }
+
+    // Autocorrelation can produce a confident but momentary non-octave
+    // attractor when syncopation or a fill dominates the analysis window.
+    // Do not let one 250 ms update replace the live grid. A candidate tempo
+    // must agree across several updates before it is allowed to affect phase.
+    // This is deliberately separate from octave hysteresis above: a genuine
+    // 120 -> 60 interpretation is metrical ambiguity, while 108 -> 161 is a
+    // likely false lock and needs stronger temporal evidence.
+    if (this.#period > 0) {
+      const relativeChange = Math.abs(period - this.#period) / this.#period;
+      if (relativeChange > 0.15) {
+        if (this.#tempoChangeCandidate > 0
+          && Math.abs(period - this.#tempoChangeCandidate) / this.#tempoChangeCandidate < TEMPO_CHANGE_MATCH) {
+          this.#tempoChangeUpdates++;
+        } else {
+          this.#tempoChangeCandidate = period;
+          this.#tempoChangeUpdates = 1;
+        }
+        if (this.#tempoChangeUpdates < TEMPO_CHANGE_HOLD_UPDATES) period = this.#period;
+        else {
+          this.#tempoChangeCandidate = 0;
+          this.#tempoChangeUpdates = 0;
+        }
+      } else {
+        this.#tempoChangeCandidate = 0;
+        this.#tempoChangeUpdates = 0;
+      }
     }
 
     this.#recentPeriods.push(period);

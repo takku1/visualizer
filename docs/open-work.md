@@ -153,9 +153,11 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - A causal beat-tracking slice now consumes fixed-rate AudioWorklet onset
   batches and phase-locks an inferred grid on the CPU. It is used only when
   the tracker reports confidence; the legacy analyser/onset clock remains the
-  host fallback. This follows the causal beat-tracking lineage cited by
-  `src/rhythm/beat-tracker.ts`, but live accuracy and audio-thread cost still
-  require measurement on representative tracks.
+  host fallback. Non-octave tempo changes now require sustained agreement
+  across multiple tracker updates, preventing the observed brief 108→161 BPM
+  false lock. This follows the causal beat-tracking lineage cited by
+  `src/rhythm/beat-tracker.ts`; live accuracy still requires measurement on
+  representative tracks.
 - Local key estimation now accumulates several seconds of chroma evidence and
   reports winner-versus-runner-up margin rather than an inflated absolute
   profile fit. External track-analysis keys remain authoritative when present.

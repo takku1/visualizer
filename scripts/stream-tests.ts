@@ -83,6 +83,25 @@ test('causal beat tracker resists a strong half-time subdivision', () => {
   assert.ok(estimate.tempo >= 105 && estimate.tempo <= 135, `tempo ${estimate.tempo}`);
 });
 
+test('causal beat tracker rejects a brief non-octave tempo false lock', () => {
+  const tracker = new BeatTracker(100);
+  // Establish a 120 BPM grid for twelve seconds.
+  for (let i = 0; i < 1200; i++) tracker.push(i / 100, i % 50 === 0 ? 1 : 0, i % 50 === 0 ? 1 : 0);
+  const before = tracker.estimate(12);
+  // A short 160 BPM burst is not enough evidence to replace the grid.
+  for (let i = 1200; i < 1325; i++) tracker.push(i / 100, i % 37 === 0 ? 1 : 0, i % 37 === 0 ? 1 : 0);
+  const after = tracker.estimate(13.25);
+  assert.ok(Math.abs(after.tempo - before.tempo) < 25, `${before.tempo} -> ${after.tempo}`);
+});
+
+test('causal beat tracker eventually accepts a sustained tempo change', () => {
+  const tracker = new BeatTracker(100);
+  for (let i = 0; i < 1200; i++) tracker.push(i / 100, i % 50 === 0 ? 1 : 0, i % 50 === 0 ? 1 : 0);
+  for (let i = 1200; i < 2400; i++) tracker.push(i / 100, i % 37 === 0 ? 1 : 0, i % 37 === 0 ? 1 : 0);
+  const estimate = tracker.estimate(24);
+  assert.ok(estimate.tempo >= 145 && estimate.tempo <= 175, `tempo ${estimate.tempo}`);
+});
+
 test('FeatureBus exposes confident tracker beats to structural consumers', () => {
   const bus = new FeatureBus().add({
     name: 'synthetic-tracker',
