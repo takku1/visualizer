@@ -9,7 +9,7 @@ import type { DecisionEngine } from './director/engine';
 import { Renderer } from './render/renderer';
 import { ProceduralScene, type ProceduralUniforms } from './render/procedural';
 import { ProceduralCapture } from './render/capture';
-import { captureBackoffMs } from './render/capture-policy';
+import { captureBackoffMs, severeCapturePolicy } from './render/capture-policy';
 import { Overlay } from './ui/overlay';
 import { checkpointLine, recordLine, stateLine, telemetryLine, type LogSink } from './eval/recorder';
 import { ControlMapper, type SamplerControl } from './stream/control';
@@ -119,6 +119,8 @@ export class VisualizerApp {
   #captureEncodeMs = 0;
   #captureErrors = 0;
   #capturePauses = 0;
+  #captureSevereStalls = 0;
+  #captureDisabledForTrack = false;
   #captureLastError: string | null = null;
   #captureGestureListener: (() => void) | null = null;
   #paint: number;
@@ -479,6 +481,8 @@ export class VisualizerApp {
       const previousTrack = this.#barTrackId;
       this.#barTrackId = trackKey;
       this.#lastBarPhase = frame.barPhase;
+      this.#captureSevereStalls = 0;
+      this.#captureDisabledForTrack = false;
       // A song boundary starts a new realization session. Within the same
       // track, director revisions remain control-plane updates over the
       // continuous latent/raster state.
@@ -603,7 +607,7 @@ export class VisualizerApp {
       // its persistent keyframe during those phases; the next idle frame will
       // provide a fresh procedural source without competing for the GPU.
       const checkpointRequested = request !== null;
-      if (this.#paint > 0 && !checkpointRequested && !this.#capturing &&
+      if (this.#paint > 0 && !checkpointRequested && !this.#capturing && !this.#captureDisabledForTrack &&
           now >= this.#capturePausedUntil && stream.wantsSource(now) &&
           sourceCaptureAllowed(stream.meta)) {
         void this.#sendSource(now);
@@ -690,7 +694,7 @@ export class VisualizerApp {
         t: frame.t,
         fps,
         streamFps,
-        stream: stream ? { buildHash: stream.info?.buildHash ?? null, unetBackend: stream.info?.unetBackend ?? null, benderEnabled: stream.info?.benderEnabled ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureDrawMs: Math.round(this.#captureDrawMs * 10) / 10, captureEncodeMs: Math.round(this.#captureEncodeMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureLastError: this.#captureLastError } : null,
+        stream: stream ? { buildHash: stream.info?.buildHash ?? null, unetBackend: stream.info?.unetBackend ?? null, benderEnabled: stream.info?.benderEnabled ?? null, connected: stream.connected, waiting: stream.waiting, meta: stream.meta, received, dropped: stream.framesDropped, captureMs: Math.round(stream.captureMs * 10) / 10, captureMaxMs: Math.round(this.#captureMaxMs * 10) / 10, captureDrawMs: Math.round(this.#captureDrawMs * 10) / 10, captureEncodeMs: Math.round(this.#captureEncodeMs * 10) / 10, captureErrors: this.#captureErrors, capturePauses: this.#capturePauses, captureSevereStalls: this.#captureSevereStalls, captureDisabledForTrack: this.#captureDisabledForTrack, captureLastError: this.#captureLastError } : null,
         paint: this.#paint,
         meaning: this.#meaningTelemetry(),
         control,
@@ -850,9 +854,14 @@ export class VisualizerApp {
         // A bad capture is enough to protect the UI. Adaptive backoff keeps
         // moderate delays responsive; a severe shared-GPU stall gets a longer
         // cooldown so the same encoder cannot immediately retrigger it.
-        this.#capturePausedUntil = performance.now() + 30_000;
+        this.#captureSevereStalls++;
+        const severePolicy = severeCapturePolicy(this.#captureSevereStalls);
+        this.#capturePausedUntil = performance.now() + severePolicy.pauseMs;
+        this.#captureDisabledForTrack = severePolicy.disableForTrack;
         this.#capturePauses++;
-        this.#errors = [`! capture slow (${Math.round(elapsed)}ms); camera upload paused`];
+        this.#errors = [severePolicy.disableForTrack
+          ? `! capture disabled for track after ${this.#captureSevereStalls} severe stalls`
+          : `! capture slow (${Math.round(elapsed)}ms); camera upload paused`];
       }
       if (elapsed <= 250) stream.sendSource(jpeg, now);
     } catch (err) {

@@ -24,7 +24,7 @@ import { BeatTracker } from '../src/rhythm/beat-tracker';
 import { FeatureBus } from '../src/audio/bus';
 import { sourceCaptureAllowed } from '../src/stream/client';
 import { continuityPaint } from '../src/render/continuity';
-import { captureBackoffMs } from '../src/render/capture-policy';
+import { captureBackoffMs, severeCapturePolicy } from '../src/render/capture-policy';
 
 let passed = 0;
 const pendingTests: Promise<void>[] = [];
@@ -155,6 +155,12 @@ test('capture spikes back off adaptively instead of repeating immediately', () =
   assert.equal(captureBackoffMs(110), 500);
   assert.equal(captureBackoffMs(1000), 2000);
   assert.equal(captureBackoffMs(10000), 5000);
+});
+
+test('repeated severe capture stalls disable source capture for the track', () => {
+  assert.deepEqual(severeCapturePolicy(1), { pauseMs: 30_000, disableForTrack: false });
+  assert.deepEqual(severeCapturePolicy(2), { pauseMs: 0, disableForTrack: true });
+  assert.deepEqual(severeCapturePolicy(5), { pauseMs: 0, disableForTrack: true });
 });
 
 test('System 0 observes a conservative repeat without changing section state', () => {
