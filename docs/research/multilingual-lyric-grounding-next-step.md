@@ -1,6 +1,7 @@
 # Next step for multilingual lyric grounding
 
-Status: research recommendation; no source-code changes.
+Status: research-backed baseline implemented; embedding expansion remains gated on
+additional held-out data.
 
 ## Executive recommendation
 
@@ -161,11 +162,14 @@ Important restrictions:
 
 ## Concrete implementation sequence after this note
 
-1. Build a small evaluation fixture with English, Japanese, mixed-language, and
+1. ~~Build a small evaluation fixture with English, Japanese, mixed-language, and
    at least two unsupported-script examples. Label cue presence, timing quality,
-   and whether promotion is acceptable.
-2. Measure the current lexical adapter using precision, recall, language-specific
-   coverage, and false entity/action promotions.
+   and whether promotion is acceptable.~~ Done in
+   `scripts/grounding-fixture.json` and `npm run evaluate:grounding`.
+2. ~~Measure the current lexical adapter using precision, recall, language-specific
+   coverage, and false entity/action promotions.~~ Baseline result: 8/8 fixture
+   cases pass, cue precision 100%, cue recall 100%, and zero false promotions.
+   This is a regression baseline, not a claim of broad language coverage.
 3. Add Unicode grapheme normalization and repeated-window diagnostics if the
    existing code still compares code points where grapheme clusters are more
    appropriate. Keep the current bounded matcher as the baseline.
