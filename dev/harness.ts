@@ -95,6 +95,7 @@ async function main(): Promise<void> {
     // field alone, `?stream=ws://host:port` points elsewhere.
     streamUrl: params.get('stream') === 'off' ? undefined : params.get('stream') ?? 'ws://127.0.0.1:8771',
     meaningUrl: params.get('meaning') ?? undefined,
+    meaningIntervalMs: Number(params.get('meaning-interval-ms') ?? 3000),
     lyricsProvider: lyricsMode !== 'off'
       ? new CachedLyricsProvider(new LrclibLyricsProvider(), new StorageLyricsCache(localStorage))
       : undefined,

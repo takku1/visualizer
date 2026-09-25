@@ -54,6 +54,8 @@ export interface AppConfig {
   reseed?: boolean;
   /** Optional local ASR worker, e.g. ws://127.0.0.1:8772. */
   meaningUrl?: string;
+  /** Minimum interval between live ASR windows; one in-flight request is also enforced. */
+  meaningIntervalMs?: number;
   /** Optional track-start lyric source. Lookup is once per track, never per frame. */
   lyricsProvider?: LyricsProvider;
   /** Explicitly permit community/unknown-rights results to become meaning. */
@@ -134,6 +136,7 @@ export class VisualizerApp {
   #lyricsLookupEpoch = 0;
   #liveAccumulator = new LiveLyricAccumulator();
   #lastMeaningSendAt = -Infinity;
+  #meaningIntervalMs: number;
   #shotRuntime: ShotGraphRuntime | null = null;
   #shotGraphStaged = 0;
   #shotGraphPrefetched = 0;
@@ -156,6 +159,7 @@ export class VisualizerApp {
     const evidence = this.#liveMeaningState ? liveEvidenceSummary(this.#liveMeaningState) : null;
     return {
       ...this.#liveMeaning.telemetry(),
+      intervalMs: this.#meaningIntervalMs,
       provisional: this.#liveMeaningState?.provisional.length ?? 0,
       committed: this.#liveMeaningState?.committed.length ?? 0,
       candidateCount: this.#liveMeaningState?.candidateCount ?? 0,
@@ -188,6 +192,7 @@ export class VisualizerApp {
   constructor(config: AppConfig = {}) {
     this.#config = config;
     this.#paint = config.paint ?? 0.6;
+    this.#meaningIntervalMs = Math.min(Math.max(config.meaningIntervalMs ?? 3000, 1000), 10000);
     const knobs = config.direction === 'knobs';
     this.#knobs = knobs ? new KnobDirector() : null;
     this.#scheduler = new CheckpointScheduler({
@@ -478,7 +483,7 @@ export class VisualizerApp {
     this.#requestTrackLyrics(baseCtx);
     const graphClock = shotGraphBoundary(frame.barPhase, this.#lastBarPhase, frame.onBeat, frame.hasStructure, frame.rhythmConfidence);
     this.#lastBarPhase = frame.barPhase;
-    if (this.#liveMeaning?.connected && baseCtx.trackId && now - this.#lastMeaningSendAt >= 1500) {
+    if (this.#liveMeaning?.connected && baseCtx.trackId && now - this.#lastMeaningSendAt >= this.#meaningIntervalMs) {
       const window = this.loopback.audioWindow?.();
       if (window) {
         this.#liveMeaning.sendWindow(baseCtx.trackId, baseCtx.position ?? 0, window);

@@ -95,6 +95,10 @@ This is the evidence boundary for the specimen: a concept is marked implemented 
 - The next identity/action gate is a curated capture with an independently selected reference image, at least two human-annotated identity frames, and action labels only where visible; the current abstract line-field capture is intentionally not promoted to that status. Preflight now rejects missing per-group references, references that reuse captured-frame paths, and action coverage with fewer than two labeled frames in one identity group.
 - `docs/evaluation/identity-action-protocol.md` and its example manifest make the offline capture/annotation contract reproducible; no existing benchmark is labeled as identity proof without annotations and independent references.
 - Live ASR now enforces one in-flight audio window, preventing slow transcription from queueing behind itself.
+- Live ASR requests now have a bounded three-second default cadence in addition
+  to the one-in-flight guard; `?meaning-interval-ms=` can tune it for quality
+  experiments without entering the frame hot path. This prevents fast workers
+  from consuming CPU continuously while preserving overlapping audio context.
 - `npm run app` starts the local ASR worker by default; use `npm run app -- --no-meaning` only for performance isolation. Committed live hypotheses promote into `SongMeaning` without blocking procedural rendering.
 - Multilingual ASR now supports `MEANING_ASR_LANGUAGE=ja` (or another Whisper language code), preserves detected language, and retains timestamp-bounded whole-window evidence when Whisper provides no chunk timestamps. Reproduce the contract check with `python tools/test-meaning-asr.py`.
 - Rolling live ASR stabilization now tolerates conservative same-language, time-overlapping wording revisions instead of requiring exact repeated strings; telemetry reports provisional and committed hypothesis counts.
